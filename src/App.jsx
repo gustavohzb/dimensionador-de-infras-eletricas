@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { useCableTray } from "./hooks/useCableTray";
 import { useDarkMode } from "./hooks/useDarkMode";
+import { useProjects } from "./hooks/useProjects";
 import { getDimensions } from "./data/corfioHEPR";
 import InfraSelector from "./components/InfraSelector";
 import TraySettings from "./components/TraySettings";
@@ -8,6 +9,7 @@ import CableForm from "./components/CableForm";
 import CableList from "./components/CableList";
 import TrayVisualization from "./components/TrayVisualization";
 import OccupancyMeter from "./components/OccupancyMeter";
+import ProjectsPanel from "./components/ProjectsPanel";
 
 function ThemeToggle({ dark, onToggle }) {
   return (
@@ -52,6 +54,7 @@ export default function App() {
     addTrifolio,
     removeGroup,
     removeAll,
+    loadState,
     trayArea,
     cableArea,
     ocupacao,
@@ -62,6 +65,13 @@ export default function App() {
   const [dark, setDark] = useDarkMode();
   const svgRef = useRef(null);
   const dim = getDimensions(infraType, eletrodutoNorma);
+  const projectsApi = useProjects();
+
+  const currentState = { infraType, eletrodutoNorma, leitoFlange, trayWidth, trayHeight, cables };
+  const handleLoadProject = async (id) => {
+    const saved = await projectsApi.loadProject(id);
+    loadState(saved);
+  };
 
   const handleRemoveAll = () => {
     if (cables.length === 0) return;
@@ -105,6 +115,20 @@ export default function App() {
 
       <main className="mx-auto max-w-6xl grid grid-cols-1 gap-3 p-3 lg:grid-cols-[340px_1fr]">
         <section className="space-y-3">
+          <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-200">Projetos</h2>
+            <ProjectsPanel
+              projects={projectsApi.projects}
+              loading={projectsApi.loading}
+              error={projectsApi.error}
+              refresh={projectsApi.refresh}
+              onSave={projectsApi.saveProject}
+              onLoad={handleLoadProject}
+              onDelete={projectsApi.deleteProject}
+              currentState={currentState}
+            />
+          </div>
+
           <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <h2 className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-200">Infraestrutura</h2>
             <InfraSelector

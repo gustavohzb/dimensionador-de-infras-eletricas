@@ -63,6 +63,17 @@ export function useCableTray() {
 
   const removeAll = () => setCables([]);
 
+  // Restaura de uma vez um projeto salvo (Supabase). Reatribui ids novos aos
+  // cabos carregados para não colidir com o contador local de ids.
+  const loadState = (saved) => {
+    setInfraTypeRaw(saved.infra_type);
+    setEletrodutoNormaRaw(saved.eletroduto_norma || "nbr5624");
+    setLeitoFlange(saved.leito_flange || "interna");
+    setTrayWidth(saved.tray_width);
+    setTrayHeight(saved.tray_height);
+    setCables((saved.cables || []).map((c) => ({ ...c, id: nextId++ })));
+  };
+
   const groupedCables = useMemo(() => {
     const map = new Map();
     cables.forEach((c) => {
@@ -122,6 +133,7 @@ export function useCableTray() {
     addTrifolio,
     removeGroup,
     removeAll,
+    loadState,
     trayArea,
     cableArea,
     ocupacao,
