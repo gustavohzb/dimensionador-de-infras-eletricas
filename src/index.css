@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+/* Dark mode acionado por classe (.dark no <html>), não só por prefers-color-scheme */
+@custom-variant dark (&:where(.dark, .dark *));
+
+body {
+  margin: 0;
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  background: #f8fafc;
+}
+
+html.dark body {
+  background: #020617;
+}
+
+/* selects nativos acompanham o tema (setinha e popup) */
+html.dark select {
+  color-scheme: dark;
+}
