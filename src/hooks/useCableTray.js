@@ -63,6 +63,17 @@ export function useCableTray() {
 
   const removeAll = () => setCables([]);
 
+  // Zera tudo: infraestrutura, dimensões e cabos voltam ao estado inicial.
+  // Usado ao desvincular de um projeto — não deve sobrar nada dele na tela.
+  const resetAll = () => {
+    setInfraTypeRaw("eletrocalha");
+    setEletrodutoNormaRaw("nbr5624");
+    setLeitoFlange("interna");
+    setTrayWidth(100);
+    setTrayHeight(50);
+    setCables([]);
+  };
+
   // Restaura de uma vez um projeto salvo (Supabase). Reatribui ids novos aos
   // cabos carregados para não colidir com o contador local de ids.
   const loadState = (saved) => {
@@ -133,6 +144,7 @@ export function useCableTray() {
     addTrifolio,
     removeGroup,
     removeAll,
+    resetAll,
     loadState,
     trayArea,
     cableArea,

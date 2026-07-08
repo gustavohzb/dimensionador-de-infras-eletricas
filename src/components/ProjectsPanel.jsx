@@ -97,7 +97,7 @@ export default function ProjectsPanel({
               type="button"
               onClick={onUnlink}
               disabled={busy}
-              title="Parar de editar este projeto (mantém os cabos na tela, sem sobrescrever nada)"
+              title="Sai da edição deste projeto e zera a tela (infraestrutura, dimensões e cabos)"
               className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
             >
               Desvincular

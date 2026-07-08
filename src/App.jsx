@@ -54,6 +54,7 @@ export default function App() {
     addTrifolio,
     removeGroup,
     removeAll,
+    resetAll,
     loadState,
     trayArea,
     cableArea,
@@ -90,7 +91,11 @@ export default function App() {
     if (activeProject?.id === id) setActiveProject(null);
   };
 
-  const handleUnlinkProject = () => setActiveProject(null);
+  const handleUnlinkProject = () => {
+    if (!window.confirm("Desvincular e zerar tudo (infraestrutura, dimensões e cabos)?")) return;
+    setActiveProject(null);
+    resetAll();
+  };
 
   const handleRemoveAll = () => {
     if (cables.length === 0) return;
