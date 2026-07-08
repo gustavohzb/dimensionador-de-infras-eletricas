@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useCableTray } from "./hooks/useCableTray";
 import { useDarkMode } from "./hooks/useDarkMode";
 import { useProjects } from "./hooks/useProjects";
@@ -66,12 +66,31 @@ export default function App() {
   const svgRef = useRef(null);
   const dim = getDimensions(infraType, eletrodutoNorma);
   const projectsApi = useProjects();
+  const [activeProject, setActiveProject] = useState(null); // { id, nome } | null
 
   const currentState = { infraType, eletrodutoNorma, leitoFlange, trayWidth, trayHeight, cables };
+
+  const handleCreateProject = async (nome, state) => {
+    const created = await projectsApi.createProject(nome, state);
+    setActiveProject({ id: created.id, nome: created.nome });
+  };
+
+  const handleSaveChanges = async (id, state) => {
+    await projectsApi.updateProject(id, state);
+  };
+
   const handleLoadProject = async (id) => {
     const saved = await projectsApi.loadProject(id);
     loadState(saved);
+    setActiveProject({ id: saved.id, nome: saved.nome });
   };
+
+  const handleDeleteProject = async (id) => {
+    await projectsApi.deleteProject(id);
+    if (activeProject?.id === id) setActiveProject(null);
+  };
+
+  const handleUnlinkProject = () => setActiveProject(null);
 
   const handleRemoveAll = () => {
     if (cables.length === 0) return;
@@ -122,9 +141,12 @@ export default function App() {
               loading={projectsApi.loading}
               error={projectsApi.error}
               refresh={projectsApi.refresh}
-              onSave={projectsApi.saveProject}
+              activeProject={activeProject}
+              onCreate={handleCreateProject}
+              onSaveChanges={handleSaveChanges}
               onLoad={handleLoadProject}
-              onDelete={projectsApi.deleteProject}
+              onDelete={handleDeleteProject}
+              onUnlink={handleUnlinkProject}
               currentState={currentState}
             />
           </div>

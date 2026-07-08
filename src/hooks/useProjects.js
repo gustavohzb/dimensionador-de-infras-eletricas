@@ -1,6 +1,15 @@
 import { useState, useCallback } from "react";
 import { supabase, supabaseConfigured } from "../lib/supabaseClient";
 
+const toRow = (state) => ({
+  infra_type: state.infraType,
+  eletroduto_norma: state.eletrodutoNorma,
+  leito_flange: state.leitoFlange,
+  tray_width: state.trayWidth,
+  tray_height: state.trayHeight,
+  cables: state.cables,
+});
+
 // CRUD de projetos salvos (tabela "projetos" no Supabase).
 export function useProjects() {
   const [projects, setProjects] = useState([]);
@@ -20,16 +29,26 @@ export function useProjects() {
     setLoading(false);
   }, []);
 
-  const saveProject = useCallback(async (nome, state) => {
-    const { error: err } = await supabase.from("projetos").insert({
-      nome,
-      infra_type: state.infraType,
-      eletroduto_norma: state.eletrodutoNorma,
-      leito_flange: state.leitoFlange,
-      tray_width: state.trayWidth,
-      tray_height: state.trayHeight,
-      cables: state.cables,
-    });
+  // Cria um projeto novo (pode ser feito logo no início, com o estado atual
+  // — mesmo sem nenhum cabo ainda) e retorna a linha criada (com o id).
+  const createProject = useCallback(async (nome, state) => {
+    const { data, error: err } = await supabase
+      .from("projetos")
+      .insert({ nome, ...toRow(state) })
+      .select()
+      .single();
+    if (err) throw new Error(err.message);
+    await refresh();
+    return data;
+  }, [refresh]);
+
+  // Atualiza um projeto já existente com o estado atual — é isso que permite
+  // ir salvando o progresso no mesmo projeto em vez de criar duplicatas.
+  const updateProject = useCallback(async (id, state) => {
+    const { error: err } = await supabase
+      .from("projetos")
+      .update({ ...toRow(state), updated_at: new Date().toISOString() })
+      .eq("id", id);
     if (err) throw new Error(err.message);
     await refresh();
   }, [refresh]);
@@ -50,5 +69,5 @@ export function useProjects() {
     await refresh();
   }, [refresh]);
 
-  return { projects, loading, error, refresh, saveProject, loadProject, deleteProject };
+  return { projects, loading, error, refresh, createProject, updateProject, loadProject, deleteProject };
 }
