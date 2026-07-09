@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { getDiameter, getDimensions } from "../data/corfioHEPR";
+import { computeOccupancy } from "../lib/occupancy";
 
 let nextId = 1;
 
@@ -101,31 +102,10 @@ export function useCableTray() {
   // Eletroduto tem seção circular: trayWidth guarda o diâmetro interno (mm).
   const isDuct = getDimensions(infraType, eletrodutoNorma).kind === "duct";
   const trayArea = isDuct ? Math.PI * Math.pow(trayWidth / 2, 2) : trayWidth * trayHeight;
-  const cableArea = useMemo(
-    () =>
-      cables.reduce(
-        (acc, c) => acc + Math.PI * Math.pow(c.d / 2, 2) * (c.trifolio ? 3 : 1),
-        0
-      ),
-    [cables]
+  const { cableArea, ocupacao, limite, dentroLimite } = useMemo(
+    () => computeOccupancy(cables, trayArea, isDuct),
+    [cables, trayArea, isDuct]
   );
-  const ocupacao = trayArea > 0 ? (cableArea / trayArea) * 100 : 0;
-
-  // Regra de ocupação da NBR 5410. Conta condutores, não "linhas" da lista —
-  // um trifólio é fisicamente 3 condutores, não 1.
-  // Eletroduto (seção circular): 1 condutor → 53%, 2 → 31%, 3 ou mais → 40%.
-  // Demais infraestruturas (calha, perfilado, leito, aramado): 1 → 53%, 2+ → 40%.
-  const conductorCount = cables.reduce((acc, c) => acc + (c.trifolio ? 3 : 1), 0);
-  const limite = isDuct
-    ? conductorCount === 1
-      ? 53
-      : conductorCount === 2
-        ? 31
-        : 40
-    : conductorCount > 1
-      ? 40
-      : 53;
-  const dentroLimite = ocupacao <= limite;
 
   return {
     infraType,

@@ -10,6 +10,7 @@ import CableList from "./components/CableList";
 import TrayVisualization from "./components/TrayVisualization";
 import OccupancyMeter from "./components/OccupancyMeter";
 import ProjectsPanel from "./components/ProjectsPanel";
+import ReverseMode from "./components/ReverseMode";
 
 function ThemeToggle({ dark, onToggle }) {
   return (
@@ -68,6 +69,7 @@ export default function App() {
   const dim = getDimensions(infraType, eletrodutoNorma);
   const projectsApi = useProjects();
   const [activeProject, setActiveProject] = useState(null); // { id, nome } | null
+  const [activeTab, setActiveTab] = useState("dimensionador"); // "dimensionador" | "reverso"
 
   const currentState = { infraType, eletrodutoNorma, leitoFlange, trayWidth, trayHeight, cables };
 
@@ -100,6 +102,21 @@ export default function App() {
   const handleRemoveAll = () => {
     if (cables.length === 0) return;
     if (window.confirm("Remover todos os cabos?")) removeAll();
+  };
+
+  // Aplica a opção escolhida no modo reverso: carrega a infraestrutura,
+  // dimensões e cabos recomendados no Dimensionador e troca de aba.
+  const handleApplyReverseResult = (result, reverseCables) => {
+    loadState({
+      infra_type: result.infraType,
+      eletroduto_norma: result.eletrodutoNorma,
+      leito_flange: result.leitoFlange,
+      tray_width: result.trayWidth,
+      tray_height: result.trayHeight,
+      cables: reverseCables,
+    });
+    setActiveProject(null);
+    setActiveTab("dimensionador");
   };
 
   const exportPNG = () => {
@@ -135,9 +152,33 @@ export default function App() {
           </div>
           <ThemeToggle dark={dark} onToggle={() => setDark((v) => !v)} />
         </div>
+        <div className="mx-auto flex max-w-6xl gap-1 px-4">
+          {[
+            { id: "dimensionador", label: "Dimensionador" },
+            { id: "reverso", label: "Buscar Infraestrutura" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`rounded-t-lg border border-b-0 px-4 py-2 text-sm font-medium transition ${
+                activeTab === tab.id
+                  ? "border-slate-200 bg-slate-50 text-blue-700 dark:border-slate-800 dark:bg-slate-950 dark:text-blue-400"
+                  : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </header>
 
-      <main className="mx-auto max-w-6xl grid grid-cols-1 gap-3 p-3 lg:grid-cols-[340px_1fr]">
+      <main className="mx-auto max-w-6xl p-3">
+      <div
+        className={`grid grid-cols-1 gap-3 lg:grid-cols-[340px_1fr] ${
+          activeTab === "dimensionador" ? "" : "hidden"
+        }`}
+      >
         <section className="space-y-3">
           <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <h2 className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-200">Projetos</h2>
@@ -227,6 +268,11 @@ export default function App() {
             />
           </div>
         </section>
+      </div>
+
+      <div className={activeTab === "reverso" ? "" : "hidden"}>
+        <ReverseMode onApply={handleApplyReverseResult} />
+      </div>
       </main>
     </div>
   );
