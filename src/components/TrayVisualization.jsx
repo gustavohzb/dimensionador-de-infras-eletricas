@@ -46,12 +46,11 @@ function Conductor({ cx, cy, r, color, uid }) {
 // Cabo de comando: capa sólida (é um feixe de condutores numerados, não faz
 // sentido decompor visualmente) com a quantidade de condutores impressa no
 // centro — como a marcação real na capa desses cabos.
-function ComandoConductor({ cx, cy, r, vias, uid }) {
+function ComandoConductor({ cx, cy, r, vias }) {
   const fontSize = Math.max(2.4, Math.min(r * 0.85, vias >= 10 ? r * 0.6 : r * 0.85));
   return (
     <g>
       <circle cx={cx} cy={cy} r={r} fill={COMANDO_COLOR} stroke="#00000066" strokeWidth={Math.max(0.3, r * 0.06)} />
-      <circle cx={cx} cy={cy} r={r} fill={`url(#gloss-${uid})`} />
       <text
         x={cx}
         y={cy}
@@ -72,7 +71,7 @@ function Cable({ item, uid }) {
   const { cx, cy, r, type, vias } = item;
 
   if (type === "comando") {
-    return <ComandoConductor cx={cx} cy={cy} r={r} vias={vias} uid={uid} />;
+    return <ComandoConductor cx={cx} cy={cy} r={r} vias={vias} />;
   }
 
   if (type === "multipolar" && vias > 1) {
