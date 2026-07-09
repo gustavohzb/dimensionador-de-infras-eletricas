@@ -105,21 +105,6 @@ export default function App() {
     if (window.confirm("Remover todos os cabos?")) removeAll();
   };
 
-  // Aplica a opção escolhida no modo reverso: carrega a infraestrutura,
-  // dimensões e cabos recomendados no Dimensionador e troca de aba.
-  const handleApplyReverseResult = (result, reverseCables) => {
-    loadState({
-      infra_type: result.infraType,
-      eletroduto_norma: result.eletrodutoNorma,
-      leito_flange: result.leitoFlange,
-      tray_width: result.trayWidth,
-      tray_height: result.trayHeight,
-      cables: reverseCables,
-    });
-    setActiveProject(null);
-    setActiveTab("dimensionador");
-  };
-
   const exportPNG = () => {
     const svg = svgRef.current;
     if (!svg) return;
@@ -277,7 +262,7 @@ export default function App() {
       </div>
 
       <div className={activeTab === "reverso" ? "" : "hidden"}>
-        <ReverseMode onApply={handleApplyReverseResult} />
+        <ReverseMode dark={dark} />
       </div>
       </main>
     </div>

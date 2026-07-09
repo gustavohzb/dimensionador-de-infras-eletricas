@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useCableTray } from "../hooks/useCableTray";
 import { findBestFits } from "../lib/reverseSearch";
 import CableForm from "./CableForm";
 import ComandoCableForm from "./ComandoCableForm";
 import CableList from "./CableList";
+import TrayVisualization from "./TrayVisualization";
+import OccupancyMeter from "./OccupancyMeter";
 
-export default function ReverseMode({ onApply }) {
+export default function ReverseMode({ dark }) {
   // Lista de cabos independente da aba "Força" — o modo reverso trabalha com
   // o próprio trecho de cabos até você escolher uma opção. Aceita tanto
   // cabos de Força (catálogo Corfio) quanto de Comando (catálogo Cablie); se
@@ -15,6 +17,11 @@ export default function ReverseMode({ onApply }) {
 
   const [results, setResults] = useState(null); // null = ainda não buscou
   const [searching, setSearching] = useState(false);
+  // Opção escolhida entre os resultados — a visualização abaixo é montada a
+  // partir dela, sem sair desta aba (diferente da versão antiga, que
+  // aplicava no Dimensionador e trocava de aba).
+  const [applied, setApplied] = useState(null);
+  const svgRef = useRef(null);
 
   const handleRemoveAll = () => {
     if (cables.length === 0) return;
@@ -24,6 +31,7 @@ export default function ReverseMode({ onApply }) {
   const handleSearch = () => {
     if (cables.length === 0) return;
     setSearching(true);
+    setApplied(null);
     // Adia um tick pro botão re-renderizar em "Buscando…" antes do cálculo síncrono.
     setTimeout(() => {
       setResults(findBestFits(cables));
@@ -33,6 +41,31 @@ export default function ReverseMode({ onApply }) {
 
   const best = results && results.length > 0 ? results[0] : null;
   const rest = results && results.length > 1 ? results.slice(1, 8) : [];
+
+  const isApplied = (r) => applied && applied.label === r.label && applied.trayWidth === r.trayWidth && applied.trayHeight === r.trayHeight;
+
+  const exportPNG = () => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const serializer = new XMLSerializer();
+    const source = serializer.serializeToString(svg);
+    const img = new Image();
+    img.src = "data:image/svg+xml;base64," + window.btoa(unescape(encodeURIComponent(source)));
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const scale = 2;
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = dark ? "#0f172a" : "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const link = document.createElement("a");
+      link.download = "infraestrutura-recomendada.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    };
+  };
 
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-[340px_1fr]">
@@ -111,10 +144,11 @@ export default function ReverseMode({ onApply }) {
             </div>
             <button
               type="button"
-              onClick={() => onApply(best, cables)}
-              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+              onClick={() => setApplied(best)}
+              disabled={isApplied(best)}
+              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
             >
-              Usar esta opção na aba Força
+              {isApplied(best) ? "Visualizando ✓" : "Ver visualização"}
             </button>
           </div>
         )}
@@ -143,15 +177,54 @@ export default function ReverseMode({ onApply }) {
                   </div>
                   <button
                     type="button"
-                    onClick={() => onApply(r, cables)}
-                    className="shrink-0 text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
+                    onClick={() => setApplied(r)}
+                    disabled={isApplied(r)}
+                    className="shrink-0 text-xs font-medium text-blue-600 hover:underline dark:text-blue-400 disabled:text-slate-400 disabled:no-underline"
                   >
-                    Usar
+                    {isApplied(r) ? "Visualizando ✓" : "Ver"}
                   </button>
                 </li>
               ))}
             </ul>
           </div>
+        )}
+
+        {applied && (
+          <>
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="text-xs font-semibold text-slate-700 dark:text-slate-200">Visualização — {applied.label}</h2>
+                <button
+                  onClick={exportPNG}
+                  className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Exportar PNG
+                </button>
+              </div>
+              <div className="flex justify-center rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
+                <TrayVisualization
+                  ref={svgRef}
+                  cables={cables}
+                  trayWidth={applied.trayWidth}
+                  trayHeight={applied.trayHeight}
+                  dark={dark}
+                  infraType={applied.infraType}
+                  leitoFlange={applied.leitoFlange}
+                  eletrodutoNorma={applied.eletrodutoNorma}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <OccupancyMeter
+                trayArea={applied.trayArea}
+                cableArea={applied.cableArea}
+                ocupacao={applied.ocupacao}
+                limite={applied.limite}
+                dentroLimite={true}
+              />
+            </div>
+          </>
         )}
       </section>
     </div>
