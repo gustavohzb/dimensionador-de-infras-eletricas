@@ -2,12 +2,16 @@ import { useState } from "react";
 import { useCableTray } from "../hooks/useCableTray";
 import { findBestFits } from "../lib/reverseSearch";
 import CableForm from "./CableForm";
+import ComandoCableForm from "./ComandoCableForm";
 import CableList from "./CableList";
 
 export default function ReverseMode({ onApply }) {
-  // Lista de cabos independente da aba "Dimensionador" — o modo reverso
-  // trabalha com o próprio trecho de cabos até você escolher uma opção.
-  const { cables, groupedCables, addCable, addTrifolio, removeGroup, removeAll } = useCableTray();
+  // Lista de cabos independente da aba "Força" — o modo reverso trabalha com
+  // o próprio trecho de cabos até você escolher uma opção. Aceita tanto
+  // cabos de Força (catálogo Corfio) quanto de Comando (catálogo Cablie); se
+  // o trecho misturar os dois, a busca recomenda infraestruturas com septo
+  // divisor entre os compartimentos.
+  const { cables, groupedCables, addCable, addTrifolio, addCustomCable, removeGroup, removeAll } = useCableTray();
 
   const [results, setResults] = useState(null); // null = ainda não buscou
   const [searching, setSearching] = useState(false);
@@ -34,8 +38,13 @@ export default function ReverseMode({ onApply }) {
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-[340px_1fr]">
       <section className="space-y-3">
         <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-200">Adicionar cabo</h2>
+          <h2 className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-200">Adicionar cabo de Força</h2>
           <CableForm onAddCable={addCable} onAddTrifolio={addTrifolio} />
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-200">Adicionar cabo de Comando</h2>
+          <ComandoCableForm onAddCable={addCustomCable} />
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -62,6 +71,9 @@ export default function ReverseMode({ onApply }) {
             <br />
             <br />
             O app testa contra <b>todas</b> as infraestruturas e normas cadastradas (eletrocalha, perfilado, leito, aramado e eletrodutos), confirmando fisicamente — pelo mesmo motor de empacotamento por gravidade da visualização, não só pela conta de área % — e recomenda a menor opção que realmente comporta os cabos.
+            <br />
+            <br />
+            Se o trecho misturar cabos de <b>Força</b> e de <b>Comando</b>, a busca já recomenda infraestruturas com <b>septo divisor</b> entre os dois circuitos, conforme exige a NBR 5410.
           </div>
         )}
 
@@ -76,7 +88,14 @@ export default function ReverseMode({ onApply }) {
             <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
               Melhor opção
             </div>
-            <div className="mb-2 text-lg font-bold text-emerald-900 dark:text-emerald-200">{best.label}</div>
+            <div className="mb-2 text-lg font-bold text-emerald-900 dark:text-emerald-200">
+              {best.label}
+              {best.hasSeptum && (
+                <span className="ml-2 align-middle rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white">
+                  Septo divisor
+                </span>
+              )}
+            </div>
             <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-emerald-800 dark:text-emerald-300">
               <span>
                 Ocupação: <b>{best.ocupacao.toFixed(1)}%</b> (limite {best.limite}%)
@@ -84,13 +103,18 @@ export default function ReverseMode({ onApply }) {
               <span>
                 Área útil: <b>{best.trayArea.toFixed(0)} mm²</b>
               </span>
+              {best.hasSeptum && (
+                <span>
+                  Compartimentos: <b>{best.splitX}mm</b> Força · <b>{(best.trayWidth - best.septum - best.splitX).toFixed(0)}mm</b> Comando
+                </span>
+              )}
             </div>
             <button
               type="button"
               onClick={() => onApply(best, cables)}
               className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
             >
-              Usar esta opção no Dimensionador
+              Usar esta opção na aba Força
             </button>
           </div>
         )}
@@ -105,7 +129,14 @@ export default function ReverseMode({ onApply }) {
                   className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
                 >
                   <div className="min-w-0">
-                    <div className="truncate text-slate-700 dark:text-slate-200">{r.label}</div>
+                    <div className="truncate text-slate-700 dark:text-slate-200">
+                      {r.label}
+                      {r.hasSeptum && (
+                        <span className="ml-1.5 rounded bg-slate-200 px-1 py-0.5 text-[9px] font-semibold uppercase text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                          Septo
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-slate-400 dark:text-slate-500">
                       {r.ocupacao.toFixed(1)}% ocupado · {r.trayArea.toFixed(0)} mm²
                     </div>

@@ -162,6 +162,11 @@ export const VIAS_COLORS = {
   5: "#dc2626", // 5 vias: isolação vermelha (diferenciar dos demais)
 };
 
+// Cabo de comando (controle): todos os condutores são pretos numerados na
+// realidade — cor única, para diferenciar do catálogo de força em qualquer
+// lista/visualização que misture os dois (ex.: modo reverso com septo).
+export const COMANDO_COLOR = "#4b5563";
+
 export function getDiameter(section, type, vias) {
   if (type === "unipolar") return corfioHEPR.unipolar[section] || 4;
   if (type === "multipolar") return corfioHEPR.multipolar[vias]?.[section] || 12;

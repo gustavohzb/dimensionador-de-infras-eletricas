@@ -63,7 +63,7 @@ export function useCableTray() {
   const removeGroup = (groupKey) => {
     setCables((prev) => {
       const idx = prev.findIndex(
-        (c) => `${c.section}-${c.vias}-${c.trifolio ? "t" : "s"}` === groupKey
+        (c) => `${c.type}-${c.section}-${c.vias}-${c.trifolio ? "t" : "s"}` === groupKey
       );
       if (idx === -1) return prev;
       return prev.filter((_, i) => i !== idx);
@@ -97,7 +97,7 @@ export function useCableTray() {
   const groupedCables = useMemo(() => {
     const map = new Map();
     cables.forEach((c) => {
-      const key = `${c.section}-${c.vias}-${c.trifolio ? "t" : "s"}`;
+      const key = `${c.type}-${c.section}-${c.vias}-${c.trifolio ? "t" : "s"}`;
       if (map.has(key)) {
         map.get(key).quantity += c.trifolio ? 3 : 1;
       } else {

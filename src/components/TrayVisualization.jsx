@@ -1,6 +1,6 @@
 import { forwardRef, useId } from "react";
-import { VIAS_COLORS, getDimensions, ELETRODUTO_NORMAS } from "../data/corfioHEPR";
-import { layoutCables, layoutCablesCircular } from "../lib/packing";
+import { VIAS_COLORS, COMANDO_COLOR, getDimensions, ELETRODUTO_NORMAS } from "../data/corfioHEPR";
+import { layoutCables, layoutCablesCircular, layoutCablesSplit } from "../lib/packing";
 
 const PADDING = 64;
 const WALL = 6; // espessura da chapa da eletrocalha (visual)
@@ -42,11 +42,6 @@ function Conductor({ cx, cy, r, color, uid }) {
     </g>
   );
 }
-
-// Cabo de comando (controle): todos os condutores são pretos numerados na
-// realidade — não faz sentido decompor visualmente em N cores, então é
-// desenhado como um cabo sólido único (capa cinza-escura + brilho).
-const COMANDO_COLOR = "#4b5563";
 
 // Um cabo desenhado em corte.
 function Cable({ item, uid }) {
@@ -348,7 +343,13 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
     );
   }
 
-  const items = layoutCables(cables, trayWidth, trayHeight);
+  // Trecho misto (cabos de Força + cabos de Comando): a NBR exige separação
+  // física entre os dois circuitos — empacota cada um em seu compartimento,
+  // com um septo divisor real entre eles, em vez de misturá-los livremente.
+  const hasComando = cables.some((c) => c.type === "comando");
+  const hasForca = cables.some((c) => c.type !== "comando");
+  const split = hasComando && hasForca ? layoutCablesSplit(cables, trayWidth, trayHeight) : null;
+  const items = split ? split.items : layoutCables(cables, trayWidth, trayHeight);
   const width = trayWidth + PADDING * 2;
   const height = trayHeight + PADDING * 1.5;
 
@@ -378,6 +379,31 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
 
         {/* estrutura (seção conforme o tipo de infraestrutura) */}
         <Structure infraType={infraType} w={trayWidth} h={trayHeight} leitoFlange={leitoFlange} uid={uid} />
+
+        {/* septo divisor entre os compartimentos de Força e Comando */}
+        {split && (
+          <>
+            <rect
+              x={split.w1}
+              y={-2}
+              width={split.septum}
+              height={trayHeight + 2}
+              fill={`url(#metal-${uid})`}
+              stroke={EDGE}
+              strokeWidth={0.6}
+            />
+            {split.w1 >= 26 && (
+              <text x={split.w1 / 2} y={-6} fill={dimText} fontSize={7} opacity={0.8} textAnchor="middle">
+                FORÇA
+              </text>
+            )}
+            {split.w2 >= 34 && (
+              <text x={split.w1 + split.septum + split.w2 / 2} y={-6} fill={dimText} fontSize={7} opacity={0.8} textAnchor="middle">
+                COMANDO
+              </text>
+            )}
+          </>
+        )}
 
         {/* cabos */}
         <g filter={`url(#cableShadow-${uid})`}>

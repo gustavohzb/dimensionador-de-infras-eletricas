@@ -1,4 +1,4 @@
-import { VIAS_COLORS } from "../data/corfioHEPR";
+import { VIAS_COLORS, COMANDO_COLOR } from "../data/corfioHEPR";
 
 export default function CableList({ groupedCables, onRemoveGroup, onRemoveAll }) {
   if (groupedCables.length === 0) {
@@ -20,7 +20,7 @@ export default function CableList({ groupedCables, onRemoveGroup, onRemoveAll })
             <div className="flex items-center gap-2 min-w-0">
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/20"
-                style={{ backgroundColor: VIAS_COLORS[c.vias] }}
+                style={{ backgroundColor: c.type === "comando" ? COMANDO_COLOR : VIAS_COLORS[c.vias] }}
               />
               <span className="truncate text-slate-700 dark:text-slate-200">
                 {c.quantity}× {c.vias > 1 ? `${c.vias}x` : ""}
@@ -29,6 +29,11 @@ export default function CableList({ groupedCables, onRemoveGroup, onRemoveAll })
                 {c.trifolio && (
                   <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
                     TRIFÓLIO
+                  </span>
+                )}
+                {c.type === "comando" && (
+                  <span className="ml-1 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                    COMANDO
                   </span>
                 )}
               </span>

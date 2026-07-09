@@ -143,6 +143,55 @@ export function layoutCables(cables, trayWidth, trayHeight) {
   return items;
 }
 
+// ---- Empacotamento com septo divisor (Força + Comando) ----------------------
+// A NBR 5410 exige separação física entre circuitos de força e de comando/
+// sinal quando compartilham a mesma calha/perfilado/leito. Resolvido aqui
+// dividindo a largura útil em dois compartimentos — cada um empacotado de
+// forma independente pelo mesmo motor de gravidade acima — com uma parede
+// (septo) real entre eles.
+export const SEPTUM_THICKNESS = 2; // mm — espessura típica de um septo divisor de chapa
+
+function conductorArea(list) {
+  return list.reduce((acc, c) => acc + Math.PI * Math.pow(c.d / 2, 2) * (c.trifolio ? 3 : 1), 0);
+}
+
+// Divide a largura disponível entre os dois compartimentos proporcionalmente
+// à área ocupada por cada grupo de cabos (mais cabos, mais espaço), com um
+// mínimo de 15% para cada lado para não degenerar o compartimento menor.
+export function splitWidthByArea(forca, comando, available) {
+  const forcaArea = conductorArea(forca);
+  const comandoArea = conductorArea(comando);
+  const total = forcaArea + comandoArea;
+  const ratio = total > 0 ? forcaArea / total : 0.5;
+  const clamped = Math.min(0.85, Math.max(0.15, ratio));
+  return Math.round(available * clamped);
+}
+
+// Empacota um trecho misto (cabos tipo "comando" vs. os demais, tratados como
+// força) em dois compartimentos separados por um septo. `w1` pode ser fixado
+// (usado pela busca do modo reverso, que testa várias divisões) — sem ele,
+// usa a divisão proporcional por área, adequada para a visualização.
+export function layoutCablesSplit(cables, trayWidth, trayHeight, septum = SEPTUM_THICKNESS, w1) {
+  const forca = cables.filter((c) => c.type !== "comando");
+  const comando = cables.filter((c) => c.type === "comando");
+  const available = Math.max(0, trayWidth - septum);
+  const width1 = w1 ?? splitWidthByArea(forca, comando, available);
+  const width2 = available - width1;
+  const forcaItems = layoutCables(forca, width1, trayHeight);
+  const comandoItemsLocal = layoutCables(comando, width2, trayHeight);
+  const comandoItems = comandoItemsLocal.map((it) => ({
+    ...it,
+    cx: it.cx + width1 + septum,
+    key: `cmd-${it.key}`,
+  }));
+  const fits =
+    width1 > 0 &&
+    width2 > 0 &&
+    rectFits(forcaItems, width1, trayHeight) &&
+    rectFits(comandoItemsLocal, width2, trayHeight);
+  return { items: [...forcaItems, ...comandoItems], w1: width1, w2: width2, septum, fits };
+}
+
 // ---- Empacotamento circular por gravidade (eletrodutos) --------------------
 // O eletroduto é um tubo fechado, mas a gravidade continua puxando os cabos
 // para baixo: eles se acomodam no fundo curvo do tubo e uns sobre os outros,
