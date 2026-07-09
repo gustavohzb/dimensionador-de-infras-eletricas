@@ -217,21 +217,22 @@ function Aramado({ w, h }) {
   const wire = "#9aa7b8";
   const uPath =
     `M 0 -2 L 0 ${h - R} Q 0 ${h} ${R} ${h} L ${w - R} ${h} Q ${w} ${h} ${w} ${h - R} L ${w} -2`;
-  // Os nós do trançado (bolinhas) ficavam centrados exatamente em x=0/w e
-  // y=h — metade do círculo (r=2.6) vazava pra fora da área útil. Recuados
-  // aqui pelo próprio raio, ficam tangentes à borda em vez de ultrapassá-la.
+  // Os nós do trançado (bolinhas) são a parede do aramado — como a chapa
+  // metálica das outras estruturas, ficam do lado de FORA da área útil, não
+  // por dentro. Ficavam centrados exatamente em x=0/w e y=h (metade vazando
+  // pra dentro, metade pra fora); empurrados pelo próprio raio para fora,
+  // ficam inteiramente no lado externo, tangentes à borda por fora.
   const DOT_R = 2.6;
-  const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
   const dots = [];
   const nX = Math.max(2, Math.round(w / 16));
   for (let i = 0; i <= nX; i++) {
-    dots.push([clamp((w * i) / nX, DOT_R, w - DOT_R), h - DOT_R]);
+    dots.push([(w * i) / nX, h + DOT_R]);
   }
   const nY = Math.max(1, Math.round((h - R) / 15));
   for (let i = 1; i <= nY; i++) {
-    const y = clamp(h - R - ((h - R + 2) * i) / (nY + 1), DOT_R, h - DOT_R);
-    dots.push([DOT_R, y]);
-    dots.push([w - DOT_R, y]);
+    const y = h - R - ((h - R + 2) * i) / (nY + 1);
+    dots.push([-DOT_R, y]);
+    dots.push([w + DOT_R, y]);
   }
   return (
     <>
