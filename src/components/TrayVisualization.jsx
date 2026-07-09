@@ -217,14 +217,21 @@ function Aramado({ w, h }) {
   const wire = "#9aa7b8";
   const uPath =
     `M 0 -2 L 0 ${h - R} Q 0 ${h} ${R} ${h} L ${w - R} ${h} Q ${w} ${h} ${w} ${h - R} L ${w} -2`;
+  // Os nós do trançado (bolinhas) ficavam centrados exatamente em x=0/w e
+  // y=h — metade do círculo (r=2.6) vazava pra fora da área útil. Recuados
+  // aqui pelo próprio raio, ficam tangentes à borda em vez de ultrapassá-la.
+  const DOT_R = 2.6;
+  const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
   const dots = [];
   const nX = Math.max(2, Math.round(w / 16));
-  for (let i = 0; i <= nX; i++) dots.push([(w * i) / nX, h]);
+  for (let i = 0; i <= nX; i++) {
+    dots.push([clamp((w * i) / nX, DOT_R, w - DOT_R), h - DOT_R]);
+  }
   const nY = Math.max(1, Math.round((h - R) / 15));
   for (let i = 1; i <= nY; i++) {
-    const y = h - R - ((h - R + 2) * i) / (nY + 1);
-    dots.push([0, y]);
-    dots.push([w, y]);
+    const y = clamp(h - R - ((h - R + 2) * i) / (nY + 1), DOT_R, h - DOT_R);
+    dots.push([DOT_R, y]);
+    dots.push([w - DOT_R, y]);
   }
   return (
     <>
@@ -232,7 +239,7 @@ function Aramado({ w, h }) {
       <path d={uPath} fill="none" stroke={wire} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
       {dots.map(([x, y], i) => (
         <g key={i}>
-          <circle cx={x} cy={y} r={2.6} fill={wire} stroke={EDGE} strokeWidth={0.5} />
+          <circle cx={x} cy={y} r={DOT_R} fill={wire} stroke={EDGE} strokeWidth={0.5} />
           <circle cx={x - 0.7} cy={y - 0.7} r={0.9} fill="#ffffff" opacity="0.55" />
         </g>
       ))}
