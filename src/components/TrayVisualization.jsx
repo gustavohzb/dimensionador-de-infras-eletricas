@@ -4,6 +4,7 @@ import { layoutCables, layoutCablesCircular, layoutCablesSplit } from "../lib/pa
 
 const PADDING = 64;
 const WALL = 6; // espessura da chapa da eletrocalha (visual)
+const SEPTUM_HIGHLIGHT = "#f59e0b"; // cor de destaque da indicação do septo divisor (âmbar, visível em claro e escuro)
 
 // Disposição dos condutores internos de um cabo multipolar,
 // em fatores do raio externo R (aparência de corte real).
@@ -291,6 +292,10 @@ function SharedDefs({ uid }) {
       <filter id={`cableShadow-${uid}`} x="-30%" y="-30%" width="160%" height="160%">
         <feDropShadow dx="0" dy="1.2" stdDeviation="1.1" floodColor="#000000" floodOpacity="0.35" />
       </filter>
+      {/* seta da indicação do septo divisor */}
+      <marker id={`arrow-${uid}`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill={SEPTUM_HIGHLIGHT} />
+      </marker>
     </defs>
   );
 }
@@ -414,8 +419,8 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
               width={split.septum}
               height={trayHeight + 2}
               fill={`url(#metal-${uid})`}
-              stroke={EDGE}
-              strokeWidth={0.6}
+              stroke={SEPTUM_HIGHLIGHT}
+              strokeWidth={0.7}
             />
             {split.w1 >= 26 && (
               <text x={split.w1 / 2} y={-6} fill={dimText} fontSize={7} opacity={0.8} textAnchor="middle">
@@ -427,6 +432,27 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
                 COMANDO
               </text>
             )}
+            {/* indicação com seta apontando pro septo — deixa evidente que ali tem uma parede física separando os dois circuitos */}
+            {(() => {
+              const septumX = split.w1 + split.septum / 2;
+              const labelX = Math.min(Math.max(septumX, 42), trayWidth - 42);
+              return (
+                <g>
+                  <line
+                    x1={labelX}
+                    y1={-19}
+                    x2={septumX}
+                    y2={-3.5}
+                    stroke={SEPTUM_HIGHLIGHT}
+                    strokeWidth={1}
+                    markerEnd={`url(#arrow-${uid})`}
+                  />
+                  <text x={labelX} y={-23} fill={SEPTUM_HIGHLIGHT} fontSize={7.5} fontWeight="700" textAnchor="middle">
+                    SEPTO DIVISOR
+                  </text>
+                </g>
+              );
+            })()}
           </>
         )}
 
