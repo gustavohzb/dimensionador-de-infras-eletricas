@@ -51,6 +51,11 @@ export function getComandoSectionsFor(condutores) {
   return COMANDO_SECTIONS.filter((s) => comandoData[s]?.[condutores] !== undefined);
 }
 
+// Sem fallback silencioso: ver comentário equivalente em getDiameter()
+// (corfioHEPR.js) — uma combinação sem diâmetro no catálogo é um bug do
+// formulário, não algo a resolver inventando uma medida.
 export function getComandoDiameter(section, condutores) {
-  return comandoData[section]?.[condutores] || 8;
+  const d = comandoData[section]?.[condutores];
+  if (d === undefined) throw new Error(`Diâmetro não encontrado no catálogo Cablie: comando ${condutores}x${section}mm²`);
+  return d;
 }

@@ -167,8 +167,20 @@ export const VIAS_COLORS = {
 // lista/visualização que misture os dois (ex.: modo reverso com septo).
 export const COMANDO_COLOR = "#161616";
 
+// Sem fallback silencioso: uma combinação seção/tipo/vias sem diâmetro no
+// catálogo é um bug (formulário oferecendo algo que a tabela não tem), não
+// um caso a se "resolver" inventando uma medida — é melhor quebrar visível
+// na hora do que desenhar um cabo do tamanho errado sem avisar ninguém.
 export function getDiameter(section, type, vias) {
-  if (type === "unipolar") return corfioHEPR.unipolar[section] || 4;
-  if (type === "multipolar") return corfioHEPR.multipolar[vias]?.[section] || 12;
-  return 4;
+  if (type === "unipolar") {
+    const d = corfioHEPR.unipolar[section];
+    if (d === undefined) throw new Error(`Diâmetro não encontrado no catálogo Corfio: unipolar ${section}mm²`);
+    return d;
+  }
+  if (type === "multipolar") {
+    const d = corfioHEPR.multipolar[vias]?.[section];
+    if (d === undefined) throw new Error(`Diâmetro não encontrado no catálogo Corfio: multipolar ${vias}x${section}mm²`);
+    return d;
+  }
+  throw new Error(`Tipo de cabo desconhecido: "${type}"`);
 }
