@@ -215,24 +215,31 @@ function Leito({ w, h, flange = "interna", uid }) {
 function Aramado({ w, h }) {
   const R = Math.min(8, w / 2, h / 2); // raio de curvatura no fundo (tipo Rejiband)
   const wire = "#9aa7b8";
+  const STROKE = 2.4;
+  // O traço do arame é centrado na própria geometria do path — se o path
+  // seguir exatamente o contorno da área útil (0,0)-(w,h), metade da
+  // espessura do traço invade a área útil (os cabos, que se apoiam em y=h,
+  // afundavam nela). Deslocando o path pra fora por OUTSET (metade da
+  // espessura do traço), a face INTERNA do traço é que encosta exatamente
+  // na área útil — como a parede das outras estruturas — e os cabos passam
+  // a se apoiar em cima dela, não por dentro.
+  const OUTSET = STROKE / 2;
   const uPath =
-    `M 0 -2 L 0 ${h - R} Q 0 ${h} ${R} ${h} L ${w - R} ${h} Q ${w} ${h} ${w} ${h - R} L ${w} -2`;
-  // Os nós do trançado (bolinhas) são a parede do aramado — como a chapa
-  // metálica das outras estruturas, ficam do lado de FORA da área útil, não
-  // por dentro. Ficavam centrados exatamente em x=0/w e y=h (metade vazando
-  // pra dentro, metade pra fora); empurrados pelo próprio raio para fora,
-  // ficam inteiramente no lado externo, tangentes à borda por fora.
+    `M ${-OUTSET} -2 L ${-OUTSET} ${h - R} Q ${-OUTSET} ${h + OUTSET} ${R} ${h + OUTSET} ` +
+    `L ${w - R} ${h + OUTSET} Q ${w + OUTSET} ${h + OUTSET} ${w + OUTSET} ${h - R} L ${w + OUTSET} -2`;
+  // Nós do trançado: só nos trechos RETOS do path (fundo e laterais) — nas
+  // quinas o path já curva, então um nó ali "flutuaria" fora da linha.
   const DOT_R = 2.6;
   const dots = [];
-  const nX = Math.max(2, Math.round(w / 16));
+  const nX = Math.max(2, Math.round((w - 2 * R) / 16));
   for (let i = 0; i <= nX; i++) {
-    dots.push([(w * i) / nX, h + DOT_R]);
+    dots.push([R + ((w - 2 * R) * i) / nX, h + OUTSET]);
   }
   const nY = Math.max(1, Math.round((h - R) / 15));
   for (let i = 1; i <= nY; i++) {
-    const y = h - R - ((h - R + 2) * i) / (nY + 1);
-    dots.push([-DOT_R, y]);
-    dots.push([w + DOT_R, y]);
+    const y = (h - R) - ((h - R + 2) * i) / (nY + 1);
+    dots.push([-OUTSET, y]);
+    dots.push([w + OUTSET, y]);
   }
   return (
     <>
