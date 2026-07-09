@@ -1,4 +1,4 @@
-import { forwardRef } from "react";
+import { forwardRef, useId } from "react";
 import { VIAS_COLORS, getDimensions, ELETRODUTO_NORMAS } from "../data/corfioHEPR";
 import { layoutCables, layoutCablesCircular } from "../lib/packing";
 
@@ -27,7 +27,7 @@ function innerConductors(n) {
 }
 
 // Condutor isolado em corte: isolação colorida (a capa) + núcleo de cobre.
-function Conductor({ cx, cy, r, color }) {
+function Conductor({ cx, cy, r, color, uid }) {
   const coreR = r * 0.52; // condutor de cobre interno
   return (
     <g>
@@ -35,10 +35,10 @@ function Conductor({ cx, cy, r, color }) {
       <circle cx={cx} cy={cy} r={r} fill={color} stroke="#00000066" strokeWidth={Math.max(0.3, r * 0.06)} />
       {/* condutor de cobre */}
       {coreR > 0.9 && (
-        <circle cx={cx} cy={cy} r={coreR} fill="url(#copper)" stroke="#6e3d17" strokeWidth={Math.max(0.2, coreR * 0.1)} />
+        <circle cx={cx} cy={cy} r={coreR} fill={`url(#copper-${uid})`} stroke="#6e3d17" strokeWidth={Math.max(0.2, coreR * 0.1)} />
       )}
       {/* brilho cilíndrico */}
-      <circle cx={cx} cy={cy} r={r} fill="url(#gloss)" />
+      <circle cx={cx} cy={cy} r={r} fill={`url(#gloss-${uid})`} />
     </g>
   );
 }
@@ -49,11 +49,11 @@ function Conductor({ cx, cy, r, color }) {
 const COMANDO_COLOR = "#4b5563";
 
 // Um cabo desenhado em corte.
-function Cable({ item }) {
+function Cable({ item, uid }) {
   const { cx, cy, r, type, vias } = item;
 
   if (type === "comando") {
-    return <Conductor cx={cx} cy={cy} r={r} color={COMANDO_COLOR} />;
+    return <Conductor cx={cx} cy={cy} r={r} color={COMANDO_COLOR} uid={uid} />;
   }
 
   if (type === "multipolar" && vias > 1) {
@@ -65,16 +65,16 @@ function Cable({ item }) {
         <circle cx={cx} cy={cy} r={r} fill="#3f4753" stroke="#1e2530" strokeWidth={Math.max(0.4, r * 0.05)} />
         {/* condutores internos isolados */}
         {inner.pos.map(([dx, dy], i) => (
-          <Conductor key={i} cx={cx + dx * r} cy={cy + dy * r} r={cr} color={VIAS_COLORS[vias]} />
+          <Conductor key={i} cx={cx + dx * r} cy={cy + dy * r} r={cr} color={VIAS_COLORS[vias]} uid={uid} />
         ))}
         {/* brilho na capa */}
-        <circle cx={cx} cy={cy} r={r} fill="url(#glossJacket)" />
+        <circle cx={cx} cy={cy} r={r} fill={`url(#glossJacket-${uid})`} />
       </g>
     );
   }
 
   // unipolar (inclui condutores de trifólio)
-  return <Conductor cx={cx} cy={cy} r={r} color={VIAS_COLORS[vias] || VIAS_COLORS[1]} />;
+  return <Conductor cx={cx} cy={cy} r={r} color={VIAS_COLORS[vias] || VIAS_COLORS[1]} uid={uid} />;
 }
 
 // Miniatura de cabo para a legenda (cobre sólido — sem depender dos gradientes).
@@ -118,10 +118,10 @@ function LegendGlyph({ type, vias }) {
 // Todas desenham em torno da mesma cavidade útil (0..w de largura, 0..h de
 // altura, fundo em y=h). Os cabos e as cotas são compartilhados.
 
-const METAL = "url(#metal)";
 const EDGE = "#5b6675";
 
-function Eletrocalha({ w, h }) {
+function Eletrocalha({ w, h, uid }) {
+  const METAL = `url(#metal-${uid})`;
   const path = [
     `M ${-WALL} -2`, `L ${-WALL} ${h + WALL}`, `L ${w + WALL} ${h + WALL}`,
     `L ${w + WALL} -2`, `L ${w} -2`, `L ${w} ${h}`, `L 0 ${h}`, `L 0 -2`, "Z",
@@ -137,7 +137,8 @@ function Eletrocalha({ w, h }) {
   );
 }
 
-function Perfilado({ w, h }) {
+function Perfilado({ w, h, uid }) {
+  const METAL = `url(#metal-${uid})`;
   const path = [
     `M ${-WALL} -2`, `L ${-WALL} ${h + WALL}`, `L ${w + WALL} ${h + WALL}`,
     `L ${w + WALL} -2`, `L ${w} -2`, `L ${w} ${h}`, `L 0 ${h}`, `L 0 -2`, "Z",
@@ -155,7 +156,8 @@ function Perfilado({ w, h }) {
   );
 }
 
-function Leito({ w, h, flange = "interna" }) {
+function Leito({ w, h, flange = "interna", uid }) {
+  const METAL = `url(#metal-${uid})`;
   const RAIL = 9;   // largura da longarina (web)
   const FL = 6;     // comprimento da aba
   const FT = 2.4;   // espessura da aba
@@ -215,54 +217,58 @@ function Aramado({ w, h }) {
   );
 }
 
-function Structure({ infraType, w, h, leitoFlange }) {
-  if (infraType === "perfilado") return <Perfilado w={w} h={h} />;
-  if (infraType === "leito") return <Leito w={w} h={h} flange={leitoFlange} />;
+function Structure({ infraType, w, h, leitoFlange, uid }) {
+  if (infraType === "perfilado") return <Perfilado w={w} h={h} uid={uid} />;
+  if (infraType === "leito") return <Leito w={w} h={h} flange={leitoFlange} uid={uid} />;
   if (infraType === "aramado") return <Aramado w={w} h={h} />;
-  return <Eletrocalha w={w} h={h} />;
+  return <Eletrocalha w={w} h={h} uid={uid} />;
 }
 
 // Parede circular do eletroduto (tubo de aço em corte).
-function Eletroduto({ R }) {
+function Eletroduto({ R, uid }) {
   const wallThickness = Math.max(2.5, R * 0.12);
   return (
     <>
-      <circle cx={0} cy={0} r={R + wallThickness} fill={METAL} stroke={EDGE} strokeWidth={1} />
+      <circle cx={0} cy={0} r={R + wallThickness} fill={`url(#metal-${uid})`} stroke={EDGE} strokeWidth={1} />
       <circle cx={0} cy={0} r={R} fill="#eef1f5" stroke={EDGE} strokeWidth={0.8} />
     </>
   );
 }
 
 // Gradientes e filtro compartilhados pelos dois modos de desenho (calha e duto).
-function SharedDefs() {
+// IDs sufixados por `uid` (único por instância) — cada aba mantém sua própria
+// TrayVisualization montada mesmo quando oculta, e ids de <defs> duplicados no
+// mesmo documento fazem url(#id) resolver para a primeira ocorrência (possivelmente
+// dentro de uma aba com display:none), deixando o filtro/gradiente sem efeito.
+function SharedDefs({ uid }) {
   return (
     <defs>
       {/* brilho cilíndrico dos condutores */}
-      <radialGradient id="gloss" cx="0.35" cy="0.28" r="0.75">
+      <radialGradient id={`gloss-${uid}`} cx="0.35" cy="0.28" r="0.75">
         <stop offset="0%" stopColor="#ffffff" stopOpacity="0.6" />
         <stop offset="45%" stopColor="#ffffff" stopOpacity="0.12" />
         <stop offset="100%" stopColor="#000000" stopOpacity="0.22" />
       </radialGradient>
       {/* brilho suave na capa do multipolar */}
-      <radialGradient id="glossJacket" cx="0.35" cy="0.25" r="0.8">
+      <radialGradient id={`glossJacket-${uid}`} cx="0.35" cy="0.25" r="0.8">
         <stop offset="0%" stopColor="#ffffff" stopOpacity="0.25" />
         <stop offset="55%" stopColor="#ffffff" stopOpacity="0.03" />
         <stop offset="100%" stopColor="#000000" stopOpacity="0.25" />
       </radialGradient>
       {/* condutor de cobre */}
-      <radialGradient id="copper" cx="0.4" cy="0.34" r="0.72">
+      <radialGradient id={`copper-${uid}`} cx="0.4" cy="0.34" r="0.72">
         <stop offset="0%" stopColor="#f0b27a" />
         <stop offset="50%" stopColor="#c67c3c" />
         <stop offset="100%" stopColor="#8a4e22" />
       </radialGradient>
       {/* aspecto metálico da chapa */}
-      <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
+      <linearGradient id={`metal-${uid}`} x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stopColor="#e5e9ef" />
         <stop offset="45%" stopColor="#c3cbd6" />
         <stop offset="100%" stopColor="#8f9aab" />
       </linearGradient>
       {/* sombra dos cabos */}
-      <filter id="cableShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <filter id={`cableShadow-${uid}`} x="-30%" y="-30%" width="160%" height="160%">
         <feDropShadow dx="0" dy="1.2" stdDeviation="1.1" floodColor="#000000" floodOpacity="0.35" />
       </filter>
     </defs>
@@ -288,6 +294,7 @@ function CableLegend({ legendItems }) {
 }
 
 const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWidth, trayHeight, dark = false, infraType = "eletrocalha", leitoFlange = "interna", eletrodutoNorma = "nbr5624" }, svgRef) {
+  const uid = useId().replace(/:/g, "");
   const legendItems = [...new Map(cables.map((c) => [`${c.type}-${c.vias}`, { type: c.type, vias: c.vias }])).values()].sort(
     (a, b) => a.vias - b.vias
   );
@@ -316,14 +323,14 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
           className="max-w-full"
           style={{ width: 420, height: "auto" }}
         >
-          <SharedDefs />
+          <SharedDefs uid={uid} />
           <rect x={0} y={0} width={size} height={size} fill={bgFill} />
           <g transform={`translate(${c0}, ${c0})`}>
             <ellipse cx={0} cy={outerR + 5} rx={outerR * 0.85} ry={3.5} fill="#000000" opacity="0.12" />
-            <Eletroduto R={R} />
-            <g filter="url(#cableShadow)">
+            <Eletroduto R={R} uid={uid} />
+            <g filter={`url(#cableShadow-${uid})`}>
               {items.map((item) => (
-                <Cable key={item.key} item={item} />
+                <Cable key={item.key} item={item} uid={uid} />
               ))}
             </g>
             {normaLabel && (
@@ -354,7 +361,7 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
       className="max-w-full"
       style={{ width: 520, height: "auto" }}
     >
-      <SharedDefs />
+      <SharedDefs uid={uid} />
 
       <rect x={0} y={0} width={width} height={height} fill={bgFill} />
 
@@ -370,12 +377,12 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
         />
 
         {/* estrutura (seção conforme o tipo de infraestrutura) */}
-        <Structure infraType={infraType} w={trayWidth} h={trayHeight} leitoFlange={leitoFlange} />
+        <Structure infraType={infraType} w={trayWidth} h={trayHeight} leitoFlange={leitoFlange} uid={uid} />
 
         {/* cabos */}
-        <g filter="url(#cableShadow)">
+        <g filter={`url(#cableShadow-${uid})`}>
           {items.map((item) => (
-            <Cable key={item.key} item={item} />
+            <Cable key={item.key} item={item} uid={uid} />
           ))}
         </g>
 

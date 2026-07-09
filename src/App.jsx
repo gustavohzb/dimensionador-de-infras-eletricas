@@ -155,8 +155,8 @@ export default function App() {
         </div>
         <div className="mx-auto flex max-w-6xl gap-1 px-4">
           {[
-            { id: "dimensionador", label: "Dimensionador" },
-            { id: "comando", label: "Cabos de Comando" },
+            { id: "dimensionador", label: "Força" },
+            { id: "comando", label: "Comando" },
             { id: "reverso", label: "Buscar Infraestrutura" },
           ].map((tab) => (
             <button
