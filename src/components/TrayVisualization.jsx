@@ -15,7 +15,9 @@ function innerConductors(n) {
     case 3:
       return { r: 0.44, pos: [[0, -0.52], [-0.45, 0.26], [0.45, 0.26]] };
     case 4:
-      return { r: 0.42, pos: [[-0.46, -0.46], [0.46, -0.46], [-0.46, 0.46], [0.46, 0.46]] };
+      // r=0.42 + distância do centro (0.46·√2≈0.65) passava de 1.0·R — o
+      // condutor furava a capa externa. 0.39 + 0.40·√2≈0.96 fica dentro.
+      return { r: 0.39, pos: [[-0.4, -0.4], [0.4, -0.4], [-0.4, 0.4], [0.4, 0.4]] };
     case 5:
       // 4 condutores ao redor + 1 no centro (arranjo real de cabo pentapolar).
       return {
