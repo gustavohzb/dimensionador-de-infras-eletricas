@@ -1,6 +1,8 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useCableTray } from "../hooks/useCableTray";
 import { findBestFits } from "../lib/reverseSearch";
+import { getDimensions } from "../data/corfioHEPR";
+import { computeOccupancy } from "../lib/occupancy";
 import CableForm from "./CableForm";
 import ComandoCableForm from "./ComandoCableForm";
 import CableList from "./CableList";
@@ -41,6 +43,31 @@ export default function ReverseMode({ dark }) {
 
   const best = results && results.length > 0 ? results[0] : null;
   const rest = results && results.length > 1 ? results.slice(1, 8) : [];
+
+  // A opção "applied" guarda a ocupação calculada no momento da busca — se o
+  // trecho de cabos mudar depois (adicionar/remover), esses números ficam
+  // desatualizados mesmo com a visualização já reagindo aos cabos atuais.
+  // Recalcula aqui sempre a partir do trecho corrente.
+  const liveOccupancy = useMemo(() => {
+    if (!applied) return null;
+    if (applied.hasSeptum) {
+      const forca = cables.filter((c) => c.type !== "comando");
+      const comando = cables.filter((c) => c.type === "comando");
+      const w1 = applied.splitX;
+      const w2 = applied.trayWidth - applied.septum - applied.splitX;
+      const forcaOcc = computeOccupancy(forca, w1 * applied.trayHeight, false);
+      const comandoOcc = computeOccupancy(comando, w2 * applied.trayHeight, false);
+      return {
+        trayArea: applied.trayArea,
+        cableArea: forcaOcc.cableArea + comandoOcc.cableArea,
+        ocupacao: Math.max(forcaOcc.ocupacao, comandoOcc.ocupacao),
+        limite: Math.min(forcaOcc.limite, comandoOcc.limite),
+        dentroLimite: forcaOcc.dentroLimite && comandoOcc.dentroLimite,
+      };
+    }
+    const isDuct = getDimensions(applied.infraType, applied.eletrodutoNorma).kind === "duct";
+    return { trayArea: applied.trayArea, ...computeOccupancy(cables, applied.trayArea, isDuct) };
+  }, [cables, applied]);
 
   const isApplied = (r) => applied && applied.label === r.label && applied.trayWidth === r.trayWidth && applied.trayHeight === r.trayHeight;
 
@@ -217,12 +244,17 @@ export default function ReverseMode({ dark }) {
 
             <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
               <OccupancyMeter
-                trayArea={applied.trayArea}
-                cableArea={applied.cableArea}
-                ocupacao={applied.ocupacao}
-                limite={applied.limite}
-                dentroLimite={true}
+                trayArea={liveOccupancy.trayArea}
+                cableArea={liveOccupancy.cableArea}
+                ocupacao={liveOccupancy.ocupacao}
+                limite={liveOccupancy.limite}
+                dentroLimite={liveOccupancy.dentroLimite}
               />
+              {!liveOccupancy.dentroLimite && (
+                <p className="mt-2 text-xs font-medium text-red-600 dark:text-red-400">
+                  Os cabos atuais já não cabem dentro do limite de ocupação da NBR 5410 para esta infraestrutura — busque novamente ou remova cabos.
+                </p>
+              )}
             </div>
           </>
         )}
