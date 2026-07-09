@@ -43,9 +43,18 @@ function Conductor({ cx, cy, r, color }) {
   );
 }
 
+// Cabo de comando (controle): todos os condutores são pretos numerados na
+// realidade — não faz sentido decompor visualmente em N cores, então é
+// desenhado como um cabo sólido único (capa cinza-escura + brilho).
+const COMANDO_COLOR = "#4b5563";
+
 // Um cabo desenhado em corte.
 function Cable({ item }) {
   const { cx, cy, r, type, vias } = item;
+
+  if (type === "comando") {
+    return <Conductor cx={cx} cy={cy} r={r} color={COMANDO_COLOR} />;
+  }
 
   if (type === "multipolar" && vias > 1) {
     const inner = innerConductors(vias);
@@ -70,8 +79,16 @@ function Cable({ item }) {
 
 // Miniatura de cabo para a legenda (cobre sólido — sem depender dos gradientes).
 const COPPER = "#c67c3c";
-function LegendGlyph({ vias }) {
+function LegendGlyph({ type, vias }) {
   const R = 8;
+  if (type === "comando") {
+    return (
+      <g>
+        <circle cx={R} cy={R} r={R} fill={COMANDO_COLOR} stroke="#00000055" strokeWidth={0.6} />
+        <circle cx={R} cy={R} r={R * 0.52} fill={COPPER} stroke="#6e3d17" strokeWidth={0.4} />
+      </g>
+    );
+  }
   if (vias > 1) {
     const inner = innerConductors(vias);
     const cr = inner.r * R;
@@ -252,17 +269,17 @@ function SharedDefs() {
   );
 }
 
-function CableLegend({ viasUsed }) {
-  if (viasUsed.length === 0) return null;
+function CableLegend({ legendItems }) {
+  if (legendItems.length === 0) return null;
   return (
     <div className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
-      {viasUsed.map((v) => (
-        <div key={v} className="flex items-center gap-2">
+      {legendItems.map(({ type, vias }) => (
+        <div key={`${type}-${vias}`} className="flex items-center gap-2">
           <svg width={20} height={20} viewBox="0 0 16 16">
-            <LegendGlyph vias={v} />
+            <LegendGlyph type={type} vias={vias} />
           </svg>
           <span className="text-xs uppercase text-slate-600 dark:text-slate-300">
-            {v === 1 ? "Unipolar" : `${v} vias`}
+            {type === "comando" ? `${vias} condutores` : vias === 1 ? "Unipolar" : `${vias} vias`}
           </span>
         </div>
       ))}
@@ -271,7 +288,9 @@ function CableLegend({ viasUsed }) {
 }
 
 const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWidth, trayHeight, dark = false, infraType = "eletrocalha", leitoFlange = "interna", eletrodutoNorma = "nbr5624" }, svgRef) {
-  const viasUsed = [...new Set(cables.map((c) => c.vias))].sort((a, b) => a - b);
+  const legendItems = [...new Map(cables.map((c) => [`${c.type}-${c.vias}`, { type: c.type, vias: c.vias }])).values()].sort(
+    (a, b) => a.vias - b.vias
+  );
   const bgFill = dark ? "#1e293b" : "#ffffff";
   const dimText = dark ? "#cbd5e1" : "#64748b";
 
@@ -317,7 +336,7 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
             </text>
           </g>
         </svg>
-        <CableLegend viasUsed={viasUsed} />
+        <CableLegend legendItems={legendItems} />
       </div>
     );
   }
@@ -389,7 +408,7 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
   return (
     <div className="flex w-full flex-col items-center">
       {svg}
-      <CableLegend viasUsed={viasUsed} />
+      <CableLegend legendItems={legendItems} />
     </div>
   );
 });

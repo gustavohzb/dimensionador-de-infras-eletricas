@@ -11,6 +11,7 @@ import TrayVisualization from "./components/TrayVisualization";
 import OccupancyMeter from "./components/OccupancyMeter";
 import ProjectsPanel from "./components/ProjectsPanel";
 import ReverseMode from "./components/ReverseMode";
+import ComandoTab from "./components/ComandoTab";
 
 function ThemeToggle({ dark, onToggle }) {
   return (
@@ -155,6 +156,7 @@ export default function App() {
         <div className="mx-auto flex max-w-6xl gap-1 px-4">
           {[
             { id: "dimensionador", label: "Dimensionador" },
+            { id: "comando", label: "Cabos de Comando" },
             { id: "reverso", label: "Buscar Infraestrutura" },
           ].map((tab) => (
             <button
@@ -268,6 +270,10 @@ export default function App() {
             />
           </div>
         </section>
+      </div>
+
+      <div className={activeTab === "comando" ? "" : "hidden"}>
+        <ComandoTab dark={dark} />
       </div>
 
       <div className={activeTab === "reverso" ? "" : "hidden"}>

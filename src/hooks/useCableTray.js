@@ -52,6 +52,14 @@ export function useCableTray() {
     ]);
   };
 
+  // Adiciona um cabo já pronto (objeto completo, exceto id) — usado por
+  // catálogos diferentes do Corfio (ex.: cabos de comando CABLIE), que têm
+  // seu próprio formulário mas reaproveitam todo o resto (empacotamento,
+  // ocupação, visualização).
+  const addCustomCable = (partial) => {
+    setCables((prev) => [...prev, { id: nextId++, ...partial }]);
+  };
+
   const removeGroup = (groupKey) => {
     setCables((prev) => {
       const idx = prev.findIndex(
@@ -122,6 +130,7 @@ export function useCableTray() {
     groupedCables,
     addCable,
     addTrifolio,
+    addCustomCable,
     removeGroup,
     removeAll,
     resetAll,
