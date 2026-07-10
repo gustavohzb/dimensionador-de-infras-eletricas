@@ -20,6 +20,9 @@ export default function ReverseMode({ dark }) {
 
   const [results, setResults] = useState(null); // null = ainda não buscou
   const [searching, setSearching] = useState(false);
+  // "" = sem limite. Relevante pra dissipação térmica: empilhar cabos demais
+  // numa mesma calha/eletroduto piora o agrupamento (derating) da NBR 5410.
+  const [maxLayers, setMaxLayers] = useState("");
   // Opção escolhida entre os resultados — a visualização abaixo é montada a
   // partir dela, sem sair desta aba (diferente da versão antiga, que
   // aplicava no Dimensionador e trocava de aba).
@@ -37,7 +40,7 @@ export default function ReverseMode({ dark }) {
     setApplied(null);
     // Adia um tick pro botão re-renderizar em "Buscando…" antes do cálculo síncrono.
     setTimeout(() => {
-      setResults(findBestFits(cables));
+      setResults(findBestFits(cables, { maxLayers: maxLayers ? Number(maxLayers) : undefined }));
       setSearching(false);
     }, 10);
   };
@@ -120,6 +123,24 @@ export default function ReverseMode({ dark }) {
           <CableList groupedCables={groupedCables} onRemoveGroup={removeGroup} onRemoveAll={handleRemoveAll} />
         </div>
 
+        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Máximo de camadas</label>
+          <select
+            value={maxLayers}
+            onChange={(e) => setMaxLayers(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          >
+            <option value="">Sem limite</option>
+            <option value="1">1 (sem empilhar)</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select>
+          <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+            Limita quantos cabos podem ficar empilhados uns sobre os outros — infraestruturas onde algum cabo ficaria mais empilhado que isso não entram no resultado.
+          </p>
+        </div>
+
         <button
           type="button"
           onClick={handleSearch}
@@ -169,6 +190,11 @@ export default function ReverseMode({ dark }) {
               <span>
                 Área útil: <b>{best.trayArea.toFixed(0)} mm²</b>
               </span>
+              {best.camadas != null && (
+                <span>
+                  Camadas: <b>{best.camadas}</b>
+                </span>
+              )}
               {best.hasSeptum && (
                 <span>
                   Compartimentos: <b>{best.splitX}mm</b> Força · <b>{(best.trayWidth - best.septum - best.splitX).toFixed(0)}mm</b> Comando
@@ -206,6 +232,7 @@ export default function ReverseMode({ dark }) {
                     </div>
                     <div className="text-xs text-slate-400 dark:text-slate-500">
                       {r.ocupacao.toFixed(1)}% ocupado · {r.trayArea.toFixed(0)} mm²
+                      {r.camadas != null && ` · ${r.camadas} camada${r.camadas > 1 ? "s" : ""}`}
                     </div>
                   </div>
                   <button

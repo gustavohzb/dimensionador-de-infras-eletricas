@@ -6,6 +6,7 @@ import {
   splitWidthByArea,
   rectFits,
   circularFits,
+  countLayers,
   SEPTUM_THICKNESS,
 } from "./packing";
 import { computeOccupancy } from "./occupancy";
@@ -21,7 +22,7 @@ const INFRA_LABEL = Object.fromEntries(INFRA_TYPES.map((t) => [t.id, t.label]));
 // Testa várias divisões de largura até achar uma que acomode fisicamente os
 // dois compartimentos (força e comando) dentro do limite de ocupação da NBR
 // 5410 de cada um — a divisão proporcional por área nem sempre é a que cabe.
-function trySplit(cables, w, h, septum) {
+function trySplit(cables, w, h, septum, maxLayers) {
   const forca = cables.filter((c) => c.type !== "comando");
   const comando = cables.filter((c) => c.type === "comando");
   const available = w - septum;
@@ -38,12 +39,15 @@ function trySplit(cables, w, h, septum) {
     const forcaOcc = computeOccupancy(forca, w1 * h, false);
     const comandoOcc = computeOccupancy(comando, result.w2 * h, false);
     if (!forcaOcc.dentroLimite || !comandoOcc.dentroLimite) continue;
+    const camadas = countLayers(result.items);
+    if (maxLayers && camadas > maxLayers) continue;
     return {
       splitX: w1,
       septum,
       ocupacao: Math.max(forcaOcc.ocupacao, comandoOcc.ocupacao),
       limite: Math.min(forcaOcc.limite, comandoOcc.limite),
       cableArea: forcaOcc.cableArea + comandoOcc.cableArea,
+      camadas,
     };
   }
   return null;
@@ -54,8 +58,9 @@ function trySplit(cables, w, h, septum) {
 // pela conta de área % (necessária mas não suficiente), mas confirmando
 // contra o mesmo motor de empacotamento físico (gravidade) usado na
 // visualização. Ordenado da menor área útil para a maior.
-export function findBestFits(cables) {
+export function findBestFits(cables, options = {}) {
   if (!cables || cables.length === 0) return [];
+  const { maxLayers } = options; // opcional: limite de camadas de empilhamento
   const hasForca = cables.some((c) => c.type !== "comando");
   const hasComando = cables.some((c) => c.type === "comando");
   const mixed = hasForca && hasComando;
@@ -68,7 +73,7 @@ export function findBestFits(cables) {
         const trayArea = w * h;
 
         if (mixed) {
-          const fit = trySplit(cables, w, h, SEPTUM_THICKNESS);
+          const fit = trySplit(cables, w, h, SEPTUM_THICKNESS, maxLayers);
           if (!fit) continue;
           results.push({
             infraType,
@@ -85,6 +90,7 @@ export function findBestFits(cables) {
             limite: fit.limite,
             dentroLimite: true,
             cableArea: fit.cableArea,
+            camadas: fit.camadas,
           });
           continue;
         }
@@ -93,6 +99,8 @@ export function findBestFits(cables) {
         if (!occ.dentroLimite) continue; // já falha na área % — nem tenta empacotar
         const items = layoutCables(cables, w, h);
         if (!rectFits(items, w, h)) continue; // falhou fisicamente apesar da área % ok
+        const camadas = countLayers(items);
+        if (maxLayers && camadas > maxLayers) continue;
         results.push({
           infraType,
           eletrodutoNorma: null,
@@ -101,6 +109,7 @@ export function findBestFits(cables) {
           trayHeight: h,
           trayArea,
           label: `${INFRA_LABEL[infraType]} ${w}×${h}mm`,
+          camadas,
           ...occ,
         });
       }
@@ -117,6 +126,8 @@ export function findBestFits(cables) {
         if (!occ.dentroLimite) continue;
         const items = layoutCablesCircular(cables, R);
         if (!circularFits(items, R)) continue;
+        const camadas = countLayers(items);
+        if (maxLayers && camadas > maxLayers) continue;
         results.push({
           infraType: "eletroduto",
           eletrodutoNorma: norma.id,
@@ -125,6 +136,7 @@ export function findBestFits(cables) {
           trayHeight: size.value,
           trayArea,
           label: `Eletroduto ${norma.label} ${size.label}`,
+          camadas,
           ...occ,
         });
       }

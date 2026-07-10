@@ -341,3 +341,33 @@ export function rectFits(items, trayWidth, trayHeight) {
 export function circularFits(items, R) {
   return items.every((i) => Math.hypot(i.cx, i.cy) + i.r <= R + FIT_EPS);
 }
+
+// ---- Contagem de camadas ----------------------------------------------------
+// Usado pelo modo reverso para limitar empilhamento (relevante pra
+// dissipação térmica): a "camada" de um cabo é 1 se ele repousa direto no
+// fundo/parede (nada embaixo o sustentando), ou 1 + a maior camada de quem
+// o sustenta — segue a mesma noção física de apoio já usada no empacotamento
+// por gravidade, não uma grade artificial. O número de camadas do trecho é o
+// maior valor entre todos os cabos.
+export function countLayers(items) {
+  if (items.length === 0) return 0;
+  const memo = new Array(items.length).fill(undefined);
+  const layerOf = (i, visiting) => {
+    if (memo[i] !== undefined) return memo[i];
+    if (visiting.has(i)) return 1; // guarda contra ciclo (não deveria ocorrer fisicamente)
+    visiting.add(i);
+    const item = items[i];
+    let maxSupporter = 0;
+    items.forEach((other, j) => {
+      if (j === i) return;
+      const dist = Math.hypot(item.cx - other.cx, item.cy - other.cy);
+      const touching = Math.abs(dist - (item.r + other.r)) < FIT_EPS;
+      const below = other.cy > item.cy + FIT_EPS;
+      if (touching && below) maxSupporter = Math.max(maxSupporter, layerOf(j, visiting));
+    });
+    memo[i] = maxSupporter + 1;
+    return memo[i];
+  };
+  items.forEach((_, i) => layerOf(i, new Set()));
+  return Math.max(...memo);
+}
