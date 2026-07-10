@@ -19,6 +19,11 @@ export default function ReverseMode({ dark }) {
   const { cables, groupedCables, addCable, addTrifolio, addCustomCable, removeGroup, removeAll } = useCableTray();
 
   const [results, setResults] = useState(null); // null = ainda não buscou
+  // Quando a busca com limite de camadas dá zero resultados, guarda quantas
+  // camadas seriam necessárias no mínimo (buscando de novo sem limite) — pra
+  // avisar isso de forma específica em vez de um "não cabe na NBR" genérico
+  // e enganoso (o problema aqui não é ocupação, é o limite de camadas).
+  const [layerHint, setLayerHint] = useState(null);
   const [searching, setSearching] = useState(false);
   // "" = sem limite. Relevante pra dissipação térmica: empilhar cabos demais
   // numa mesma calha/eletroduto piora o agrupamento (derating) da NBR 5410.
@@ -40,7 +45,15 @@ export default function ReverseMode({ dark }) {
     setApplied(null);
     // Adia um tick pro botão re-renderizar em "Buscando…" antes do cálculo síncrono.
     setTimeout(() => {
-      setResults(findBestFits(cables, { maxLayers: maxLayers ? Number(maxLayers) : undefined }));
+      const numLayers = maxLayers ? Number(maxLayers) : undefined;
+      const found = findBestFits(cables, { maxLayers: numLayers });
+      let hint = null;
+      if (found.length === 0 && numLayers) {
+        const unrestricted = findBestFits(cables, {});
+        if (unrestricted.length > 0) hint = Math.min(...unrestricted.map((r) => r.camadas));
+      }
+      setResults(found);
+      setLayerHint(hint);
       setSearching(false);
     }, 10);
   };
@@ -166,7 +179,14 @@ export default function ReverseMode({ dark }) {
           </div>
         )}
 
-        {results && results.length === 0 && (
+        {results && results.length === 0 && layerHint && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-500/10 dark:text-amber-300">
+            Nenhuma opção cabe com o limite de <b>{maxLayers} camada{Number(maxLayers) > 1 ? "s" : ""}</b>. Com esses cabos, a pilha mais baixa possível precisa de pelo menos <b>{layerHint} camada{layerHint > 1 ? "s" : ""}</b>
+            {cables.some((c) => c.trifolio) && " — cabos em trifólio, por exemplo, sempre ocupam pelo menos 2 (2 embaixo + 1 em cima)"}. Aumente o limite de camadas ou remova/desmarque cabos.
+          </div>
+        )}
+
+        {results && results.length === 0 && !layerHint && (
           <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700 dark:border-red-900 dark:bg-red-500/10 dark:text-red-300">
             Nenhuma infraestrutura cadastrada comporta esses cabos dentro do limite de ocupação da NBR 5410. Considere dividir em mais de um trecho.
           </div>
