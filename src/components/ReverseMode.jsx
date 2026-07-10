@@ -5,6 +5,7 @@ import { getDimensions } from "../data/corfioHEPR";
 import { computeOccupancy } from "../lib/occupancy";
 import CableForm from "./CableForm";
 import ComandoCableForm from "./ComandoCableForm";
+import ImportarPlanilha from "./ImportarPlanilha";
 import CableList from "./CableList";
 import TrayVisualization from "./TrayVisualization";
 import OccupancyMeter from "./OccupancyMeter";
@@ -97,6 +98,11 @@ export default function ReverseMode({ dark }) {
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-[340px_1fr]">
       <section className="space-y-3">
+        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-200">Importar do memorial de cálculo</h2>
+          <ImportarPlanilha onImport={addCable} />
+        </div>
+
         <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <h2 className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-200">Adicionar cabo de Força</h2>
           <CableForm onAddCable={addCable} onAddTrifolio={addTrifolio} />
