@@ -152,3 +152,26 @@ export function findBestFits(cables, options = {}) {
   results.sort((a, b) => a.trayArea - b.trayArea);
   return results;
 }
+
+// Cura a lista de resultados pra exibição: no máximo `maxPerGroup` opções por
+// tipo de infraestrutura (eletroduto conta a norma como parte do tipo, já
+// que são catálogos/produtos diferentes), cada uma com uma ALTURA diferente
+// (pra eletroduto, que não tem largura x altura, a bitola faz esse papel) —
+// evita mostrar duas variações "quase iguais" do mesmo tipo (só a largura
+// mudando) e sempre dá pelo menos duas alturas pra comparar. Como `results`
+// já vem ordenado por área crescente, a primeira ocorrência de cada altura
+// dentro do grupo é sempre a de menor área.
+export function selectDiverseResults(results, maxPerGroup = 2) {
+  const groupKey = (r) => (r.infraType === "eletroduto" ? `eletroduto-${r.eletrodutoNorma}` : r.infraType);
+  const seenHeightsByGroup = new Map();
+  const selected = [];
+  for (const r of results) {
+    const key = groupKey(r);
+    if (!seenHeightsByGroup.has(key)) seenHeightsByGroup.set(key, new Set());
+    const seenHeights = seenHeightsByGroup.get(key);
+    if (seenHeights.has(r.trayHeight) || seenHeights.size >= maxPerGroup) continue;
+    seenHeights.add(r.trayHeight);
+    selected.push(r);
+  }
+  return selected;
+}

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useCableTray } from "../hooks/useCableTray";
-import { findBestFits } from "../lib/reverseSearch";
+import { findBestFits, selectDiverseResults } from "../lib/reverseSearch";
 import { getDimensions } from "../data/corfioHEPR";
 import { computeOccupancy } from "../lib/occupancy";
 import CableForm from "./CableForm";
@@ -45,8 +45,10 @@ export default function ReverseMode({ dark }) {
     }, 10);
   };
 
-  const best = results && results.length > 0 ? results[0] : null;
-  const rest = results && results.length > 1 ? results.slice(1, 8) : [];
+  // Cura a lista pra exibição: no máximo 2 opções por tipo de infraestrutura,
+  // cada uma com uma altura diferente (ex.: Leito 100×50 e Leito 100×100) —
+  // sem distinguir uma "melhor opção", só as alternativas pra comparar.
+  const displayResults = useMemo(() => (results ? selectDiverseResults(results, 2) : null), [results]);
 
   // A opção "applied" guarda a ocupação calculada no momento da busca — se o
   // trecho de cabos mudar depois (adicionar/remover), esses números ficam
@@ -157,7 +159,7 @@ export default function ReverseMode({ dark }) {
             Monte a lista de cabos ao lado e clique em <b>"Buscar melhor infraestrutura"</b>.
             <br />
             <br />
-            O app testa contra <b>todas</b> as infraestruturas e normas cadastradas (eletrocalha, perfilado, leito, aramado e eletrodutos), confirmando fisicamente — pelo mesmo motor de empacotamento por gravidade da visualização, não só pela conta de área % — e recomenda a menor opção que realmente comporta os cabos.
+            O app testa contra <b>todas</b> as infraestruturas e normas cadastradas (eletrocalha, perfilado, leito, aramado e eletrodutos), confirmando fisicamente — pelo mesmo motor de empacotamento por gravidade da visualização, não só pela conta de área % — e mostra até 2 opções de cada tipo (alturas diferentes) que realmente comportam os cabos.
             <br />
             <br />
             Se o trecho misturar cabos de <b>Força</b> e de <b>Comando</b>, a busca já recomenda infraestruturas com <b>septo divisor</b> entre os dois circuitos, conforme exige a NBR 5410.
@@ -170,59 +172,19 @@ export default function ReverseMode({ dark }) {
           </div>
         )}
 
-        {best && (
-          <div className="rounded-xl border-2 border-emerald-400 bg-emerald-50 p-4 shadow-sm dark:border-emerald-700 dark:bg-emerald-500/10">
-            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
-              Melhor opção
-            </div>
-            <div className="mb-2 text-lg font-bold text-emerald-900 dark:text-emerald-200">
-              {best.label}
-              {best.hasSeptum && (
-                <span className="ml-2 align-middle rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white">
-                  Septo divisor
-                </span>
-              )}
-            </div>
-            <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-emerald-800 dark:text-emerald-300">
-              <span>
-                Ocupação: <b>{best.ocupacao.toFixed(1)}%</b> (limite {best.limite}%)
-              </span>
-              <span>
-                Área útil: <b>{best.trayArea.toFixed(0)} mm²</b>
-              </span>
-              {best.camadas != null && (
-                <span>
-                  Camadas: <b>{best.camadas}</b>
-                </span>
-              )}
-              {best.hasSeptum && (
-                <span>
-                  Compartimentos: <b>{best.splitX}mm</b> Força · <b>{(best.trayWidth - best.septum - best.splitX).toFixed(0)}mm</b> Comando
-                </span>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setApplied(best)}
-              disabled={isApplied(best)}
-              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
-            >
-              {isApplied(best) ? "Visualizando ✓" : "Ver visualização"}
-            </button>
-          </div>
-        )}
-
-        {rest.length > 0 && (
+        {displayResults && displayResults.length > 0 && (
           <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <h2 className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-200">Outras opções que também cabem</h2>
+            <h2 className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
+              Opções encontradas <span className="text-slate-400 dark:text-slate-500">(até 2 por tipo, alturas diferentes)</span>
+            </h2>
             <ul className="space-y-1.5">
-              {rest.map((r, i) => (
+              {displayResults.map((r, i) => (
                 <li
                   key={i}
                   className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
                 >
                   <div className="min-w-0">
-                    <div className="truncate text-slate-700 dark:text-slate-200">
+                    <div className="truncate font-medium text-slate-700 dark:text-slate-200">
                       {r.label}
                       {r.hasSeptum && (
                         <span className="ml-1.5 rounded bg-slate-200 px-1 py-0.5 text-[9px] font-semibold uppercase text-slate-600 dark:bg-slate-700 dark:text-slate-300">
@@ -233,13 +195,14 @@ export default function ReverseMode({ dark }) {
                     <div className="text-xs text-slate-400 dark:text-slate-500">
                       {r.ocupacao.toFixed(1)}% ocupado · {r.trayArea.toFixed(0)} mm²
                       {r.camadas != null && ` · ${r.camadas} camada${r.camadas > 1 ? "s" : ""}`}
+                      {r.hasSeptum && ` · ${r.splitX}mm Força · ${(r.trayWidth - r.septum - r.splitX).toFixed(0)}mm Comando`}
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setApplied(r)}
                     disabled={isApplied(r)}
-                    className="shrink-0 text-xs font-medium text-blue-600 hover:underline dark:text-blue-400 disabled:text-slate-400 disabled:no-underline"
+                    className="shrink-0 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
                   >
                     {isApplied(r) ? "Visualizando ✓" : "Ver"}
                   </button>
