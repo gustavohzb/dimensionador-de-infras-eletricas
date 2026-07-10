@@ -8,7 +8,13 @@ import {
   circularFits,
   countLayers,
   SEPTUM_THICKNESS,
+  FIT_EPS,
 } from "./packing";
+
+// Camada 1 = cabo tocando o fundo (calha/perfilado/leito/aramado, y=h) ou a
+// parede curva (eletroduto, raio R) direto — ver countLayers em packing.js.
+const groundedRect = (h) => (item) => item.cy + item.r >= h - FIT_EPS;
+const groundedCircular = (R) => (item) => Math.hypot(item.cx, item.cy) + item.r >= R - FIT_EPS;
 import { computeOccupancy } from "./occupancy";
 
 const RECT_TYPES = ["eletrocalha", "perfilado", "leito", "aramado"];
@@ -39,7 +45,7 @@ function trySplit(cables, w, h, septum, maxLayers) {
     const forcaOcc = computeOccupancy(forca, w1 * h, false);
     const comandoOcc = computeOccupancy(comando, result.w2 * h, false);
     if (!forcaOcc.dentroLimite || !comandoOcc.dentroLimite) continue;
-    const camadas = countLayers(result.items);
+    const camadas = countLayers(result.items, groundedRect(h));
     if (maxLayers && camadas > maxLayers) continue;
     return {
       splitX: w1,
@@ -99,7 +105,7 @@ export function findBestFits(cables, options = {}) {
         if (!occ.dentroLimite) continue; // já falha na área % — nem tenta empacotar
         const items = layoutCables(cables, w, h);
         if (!rectFits(items, w, h)) continue; // falhou fisicamente apesar da área % ok
-        const camadas = countLayers(items);
+        const camadas = countLayers(items, groundedRect(h));
         if (maxLayers && camadas > maxLayers) continue;
         results.push({
           infraType,
@@ -126,7 +132,7 @@ export function findBestFits(cables, options = {}) {
         if (!occ.dentroLimite) continue;
         const items = layoutCablesCircular(cables, R);
         if (!circularFits(items, R)) continue;
-        const camadas = countLayers(items);
+        const camadas = countLayers(items, groundedCircular(R));
         if (maxLayers && camadas > maxLayers) continue;
         results.push({
           infraType: "eletroduto",

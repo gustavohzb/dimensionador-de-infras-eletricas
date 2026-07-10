@@ -330,7 +330,7 @@ export function layoutCablesCircular(cables, R) {
 // Usado pelo modo reverso: a conta de área % é necessária mas não suficiente
 // — confirma contra a geometria real (nenhum cabo pode "vazar" pra fora do
 // contorno físico da infraestrutura).
-const FIT_EPS = 0.05;
+export const FIT_EPS = 0.05;
 
 export function rectFits(items, trayWidth, trayHeight) {
   return items.every(
@@ -344,25 +344,39 @@ export function circularFits(items, R) {
 
 // ---- Contagem de camadas ----------------------------------------------------
 // Usado pelo modo reverso para limitar empilhamento (relevante pra
-// dissipação térmica): a "camada" de um cabo é 1 se ele repousa direto no
-// fundo/parede (nada embaixo o sustentando), ou 1 + a maior camada de quem
-// o sustenta — segue a mesma noção física de apoio já usada no empacotamento
-// por gravidade, não uma grade artificial. O número de camadas do trecho é o
-// maior valor entre todos os cabos.
-export function countLayers(items) {
+// dissipação térmica): a "camada" de um cabo é 1 se toca o fundo/parede
+// direto (independente do que mais encosta nele), ou 1 + a maior camada de
+// quem o sustenta por baixo — segue a mesma noção física de apoio já usada
+// no empacotamento por gravidade, não uma grade artificial. O número de
+// camadas do trecho é o maior valor entre todos os cabos.
+//
+// `isGrounded(item)` diz se aquele item toca o fundo/parede diretamente —
+// precisa ser checado ANTES de olhar pra vizinhos: um cabo pequeno "aninhado"
+// no chão ao lado de um cabo grande também encosta na lateral dele, e esse
+// contato pode apontar mais pra baixo do que pro lado (por causa da
+// diferença de raio) sem que o pequeno esteja de fato apoiado no grande —
+// mas como ele já toca o chão, é camada 1 de qualquer forma.
+export function countLayers(items, isGrounded) {
   if (items.length === 0) return 0;
   const memo = new Array(items.length).fill(undefined);
   const layerOf = (i, visiting) => {
     if (memo[i] !== undefined) return memo[i];
+    const item = items[i];
+    if (isGrounded && isGrounded(item)) {
+      memo[i] = 1;
+      return 1;
+    }
     if (visiting.has(i)) return 1; // guarda contra ciclo (não deveria ocorrer fisicamente)
     visiting.add(i);
-    const item = items[i];
     let maxSupporter = 0;
     items.forEach((other, j) => {
       if (j === i) return;
-      const dist = Math.hypot(item.cx - other.cx, item.cy - other.cy);
+      const dy = other.cy - item.cy;
+      const dist = Math.hypot(item.cx - other.cx, dy);
       const touching = Math.abs(dist - (item.r + other.r)) < FIT_EPS;
-      const below = other.cy > item.cy + FIT_EPS;
+      // "Abaixo" exige contato predominantemente vertical — cabos encostados
+      // lado a lado têm o contato dominado por dx, não por dy.
+      const below = dist > 0 && dy > dist * 0.5;
       if (touching && below) maxSupporter = Math.max(maxSupporter, layerOf(j, visiting));
     });
     memo[i] = maxSupporter + 1;
