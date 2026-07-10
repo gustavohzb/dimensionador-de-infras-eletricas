@@ -9,14 +9,6 @@ function toNumber(str) {
   return parseFloat(str.replace(",", "."));
 }
 
-// Entre as células de uma linha colada (separadas por tab), acha a que tem
-// notação de seção — não depende de qual coluna é, funciona tanto colando a
-// linha inteira do Excel quanto só a coluna de seção.
-export function findSecaoCell(row) {
-  const cells = row.split("\t").map((c) => c.trim());
-  return cells.find((c) => /^\d+\s*#/.test(c));
-}
-
 // Interpreta uma string de seção em uma lista de specs de cabo (ou de erros,
 // pra quando um trecho do "N#ESPEC+N#ESPEC" não bate com o formato esperado).
 export function parseSecao(secaoStr) {
@@ -46,38 +38,43 @@ export function parseSecao(secaoStr) {
     });
 }
 
-// A partir do texto colado (uma ou várias linhas), devolve as specs válidas
-// (prontas pra virar cabos via addCable) e os avisos — linha sem seção
-// reconhecível, notação não entendida, ou seção/vias sem dado no catálogo
-// Corfio (getDiameter falha alto em vez de inventar uma medida, então cada
-// spec é validada aqui antes de entrar na lista, sem travar o import inteiro).
-export function importCablesFromPaste(text) {
-  const specs = [];
-  const warnings = [];
+// Uma célula da linha pra usar como "nome do ramal" na pré-visualização — no
+// formato do memorial (Nº | DESCRIÇÃO | TAG | ...) a segunda célula é a
+// descrição do circuito; sem tabs (coluna única colada), usa a linha toda.
+function guessLabel(cells, raw) {
+  return cells.length > 1 ? cells[1] : raw;
+}
+
+// Analisa o texto colado linha por linha (um ramal por linha), pra revisão
+// antes de importar — cada componente unipolar de exatamente 3 condutores
+// (o padrão de um trifólio real, ex.: o "3#35mm²" de "3#35mm²+1#16mm²") vem
+// marcado com `canBeTrifolio: true`, pra a UI oferecer o toggle por ramal.
+// Cada spec já vem validado contra o catálogo Corfio (getDiameter falha alto
+// em vez de inventar uma medida — o erro fica no próprio spec, sem travar a
+// análise das outras linhas).
+export function parseMemorial(text) {
   const lines = text
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean);
 
-  lines.forEach((line, i) => {
-    const secaoStr = findSecaoCell(line);
+  return lines.map((raw, idx) => {
+    const lineNumber = idx + 1;
+    const cells = raw.split("\t").map((c) => c.trim());
+    const secaoStr = cells.find((c) => /^\d+\s*#/.test(c));
     if (!secaoStr) {
-      warnings.push(`Linha ${i + 1}: nenhuma seção reconhecida.`);
-      return;
+      return { lineNumber, raw, label: raw, specs: [], error: "nenhuma seção reconhecida" };
     }
-    for (const spec of parseSecao(secaoStr)) {
-      if (spec.error) {
-        warnings.push(`Linha ${i + 1} ("${secaoStr}"): ${spec.error}.`);
-        continue;
-      }
+    const label = guessLabel(cells, raw);
+    const specs = parseSecao(secaoStr).map((spec) => {
+      if (spec.error) return { ...spec, source: secaoStr };
       try {
-        getDiameter(spec.section, spec.cableType, spec.vias);
-        specs.push({ ...spec, source: secaoStr });
+        const d = getDiameter(spec.section, spec.cableType, spec.vias);
+        return { ...spec, source: secaoStr, d, canBeTrifolio: spec.cableType === "unipolar" && spec.quantity === 3 };
       } catch (e) {
-        warnings.push(`Linha ${i + 1} ("${secaoStr}"): ${e.message}.`);
+        return { error: e.message, source: secaoStr };
       }
-    }
+    });
+    return { lineNumber, raw, label, secaoStr, specs };
   });
-
-  return { specs, warnings };
 }

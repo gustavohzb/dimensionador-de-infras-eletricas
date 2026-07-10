@@ -105,7 +105,7 @@ export default function ReverseMode({ dark }) {
       <section className="space-y-3">
         <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <h2 className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-200">Importar do memorial de cálculo</h2>
-          <ImportarPlanilha onImport={addCable} />
+          <ImportarPlanilha onImport={addCable} onImportTrifolio={addTrifolio} />
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
