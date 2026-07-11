@@ -134,12 +134,7 @@ export default function App() {
       <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div className="mx-auto grid max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-3">
           <div />
-          <div className="flex flex-col items-center">
-            <img src={logo} alt="Dimensionador do Gustavo" className="h-16 w-auto" />
-            <p className="hidden text-xs text-slate-500 dark:text-slate-400 sm:block">
-              Taxa de ocupação de cabos HEPR — tabela Corfio
-            </p>
-          </div>
+          <img src={logo} alt="Dimensionador do Gustavo" className="h-24 w-auto" />
           <div className="flex justify-end">
             <ThemeToggle dark={dark} onToggle={() => setDark((v) => !v)} />
           </div>
