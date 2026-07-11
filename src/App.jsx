@@ -3,7 +3,9 @@ import logo from "./assets/logo.png";
 import { useCableTray } from "./hooks/useCableTray";
 import { useDarkMode } from "./hooks/useDarkMode";
 import { useProjects } from "./hooks/useProjects";
-import { getDimensions } from "./data/corfioHEPR";
+import { getDimensions, INFRA_TYPES, ELETRODUTO_NORMAS } from "./data/corfioHEPR";
+import { ARRANJOS, defaultArranjo, estimateCircuits, getFator } from "./lib/derating";
+import { exportReportPDF } from "./lib/reportPdf";
 import InfraSelector from "./components/InfraSelector";
 import TraySettings from "./components/TraySettings";
 import CableForm from "./components/CableForm";
@@ -12,6 +14,7 @@ import TrayVisualization from "./components/TrayVisualization";
 import OccupancyMeter from "./components/OccupancyMeter";
 import ProjectsPanel from "./components/ProjectsPanel";
 import ReverseMode from "./components/ReverseMode";
+import DeratingPanel from "./components/DeratingPanel";
 import ComandoTab from "./components/ComandoTab";
 
 function ThemeToggle({ dark, onToggle }) {
@@ -73,6 +76,14 @@ export default function App() {
   const [activeProject, setActiveProject] = useState(null); // { id, nome } | null
   const [activeTab, setActiveTab] = useState("dimensionador"); // "dimensionador" | "reverso"
 
+  // Derating por agrupamento (NBR 5410 Tab. 42): overrides do usuário sobre
+  // os valores automáticos — null = seguir o automático.
+  const [arranjoOverride, setArranjoOverride] = useState(null);
+  const [circuitosOverride, setCircuitosOverride] = useState(null);
+  const arranjo = arranjoOverride ?? defaultArranjo(infraType);
+  const circuitosAuto = estimateCircuits(cables);
+  const circuitos = circuitosOverride ?? circuitosAuto;
+
   const currentState = { infraType, eletrodutoNorma, leitoFlange, trayWidth, trayHeight, cables };
 
   const handleCreateProject = async (nome, state) => {
@@ -104,6 +115,28 @@ export default function App() {
   const handleRemoveAll = () => {
     if (cables.length === 0) return;
     if (window.confirm("Remover todos os cabos?")) removeAll();
+  };
+
+  const exportPDF = async () => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const isDuct = dim.kind === "duct";
+    const infraLabel = isDuct
+      ? `${INFRA_TYPES.find((t) => t.id === infraType)?.label} — ${ELETRODUTO_NORMAS.find((n) => n.id === eletrodutoNorma)?.label}`
+      : INFRA_TYPES.find((t) => t.id === infraType)?.label;
+    await exportReportPDF({
+      svgEl: svg,
+      projectName: activeProject?.nome,
+      infraLabel,
+      dimensionLabel: isDuct ? `Ø ${trayWidth} mm (interno)` : `${trayWidth} × ${trayHeight} mm`,
+      groupedCables,
+      occupancy: { trayArea, cableArea, ocupacao, limite, dentroLimite },
+      derating: {
+        arranjoLabel: ARRANJOS.find((a) => a.id === arranjo)?.label,
+        circuitos,
+        fator: getFator(arranjo, circuitos),
+      },
+    });
   };
 
   const exportPNG = () => {
@@ -230,12 +263,20 @@ export default function App() {
           <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-xs font-semibold text-slate-700 dark:text-slate-200">Visualização</h2>
-              <button
-                onClick={exportPNG}
-                className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                Exportar PNG
-              </button>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={exportPNG}
+                  className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Exportar PNG
+                </button>
+                <button
+                  onClick={exportPDF}
+                  className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Relatório PDF
+                </button>
+              </div>
             </div>
             <div className="flex justify-center rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
               <TrayVisualization
@@ -258,6 +299,16 @@ export default function App() {
               ocupacao={ocupacao}
               limite={limite}
               dentroLimite={dentroLimite}
+            />
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <DeratingPanel
+              arranjo={arranjo}
+              onArranjoChange={setArranjoOverride}
+              circuitos={circuitos}
+              circuitosAuto={circuitosAuto}
+              onCircuitosChange={setCircuitosOverride}
             />
           </div>
         </section>
