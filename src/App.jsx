@@ -138,7 +138,7 @@ export default function App() {
               escuros (parte da arte original) e ficam ilegíveis no modo
               escuro — o painel claro por trás só aparece no dark mode. */}
           <div className="rounded-xl px-4 py-1.5 dark:bg-slate-100/90">
-            <img src={logo} alt="Dimensionador do Gustavo" className="h-24 w-auto" />
+            <img src={logo} alt="Dimensionador do Gustavo" className="h-32 w-auto" />
           </div>
           <div className="flex justify-end">
             <ThemeToggle dark={dark} onToggle={() => setDark((v) => !v)} />
