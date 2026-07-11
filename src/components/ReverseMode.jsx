@@ -3,6 +3,7 @@ import { useCableTray } from "../hooks/useCableTray";
 import { findBestFits, selectDiverseResults } from "../lib/reverseSearch";
 import { getDimensions } from "../data/corfioHEPR";
 import { computeOccupancy } from "../lib/occupancy";
+import { exportReportPDF } from "../lib/reportPdf";
 import CableForm from "./CableForm";
 import ComandoCableForm from "./ComandoCableForm";
 import ImportarPlanilha from "./ImportarPlanilha";
@@ -89,6 +90,21 @@ export default function ReverseMode({ dark }) {
   }, [cables, applied]);
 
   const isApplied = (r) => applied && applied.label === r.label && applied.trayWidth === r.trayWidth && applied.trayHeight === r.trayHeight;
+
+  const exportPDF = async () => {
+    const svg = svgRef.current;
+    if (!svg || !applied || !liveOccupancy) return;
+    const isDuct = getDimensions(applied.infraType, applied.eletrodutoNorma).kind === "duct";
+    await exportReportPDF({
+      svgEl: svg,
+      infraLabel: applied.label + (applied.hasSeptum ? " (com septo divisor)" : ""),
+      dimensionLabel: isDuct
+        ? `Ø ${applied.trayWidth} mm (interno)`
+        : `${applied.trayWidth} × ${applied.trayHeight} mm`,
+      groupedCables,
+      occupancy: liveOccupancy,
+    });
+  };
 
   const exportPNG = () => {
     const svg = svgRef.current;
@@ -237,12 +253,20 @@ export default function ReverseMode({ dark }) {
             <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
               <div className="mb-2 flex items-center justify-between">
                 <h2 className="text-xs font-semibold text-slate-700 dark:text-slate-200">Visualização — {applied.label}</h2>
-                <button
-                  onClick={exportPNG}
-                  className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                  Exportar PNG
-                </button>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={exportPNG}
+                    className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                  >
+                    Exportar PNG
+                  </button>
+                  <button
+                    onClick={exportPDF}
+                    className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                  >
+                    Relatório PDF
+                  </button>
+                </div>
               </div>
               <div className="flex justify-center rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
                 <TrayVisualization

@@ -38,7 +38,9 @@ export async function exportReportPDF({
   dimensionLabel,
   groupedCables,
   occupancy: { trayArea, cableArea, ocupacao, limite, dentroLimite },
-  derating: { arranjoLabel, circuitos, fator },
+  // Opcional — só a aba Força tem o painel de agrupamento; nas demais o
+  // relatório sai sem essa seção.
+  derating,
 }) {
   // Import dinâmico: o jspdf é pesado (~400 kB) e só é necessário na hora
   // de gerar o relatório — assim não entra no bundle inicial do app.
@@ -145,22 +147,25 @@ export async function exportReportPDF({
   y += 8;
 
   // Agrupamento
-  sectionTitle("Fator de agrupamento — NBR 5410 Tabela 42");
-  keyValue("Forma de instalação", arranjoLabel);
-  keyValue("Número de circuitos", circuitos);
-  keyValue("Fator de correção", fator != null ? fator.toFixed(2).replace(".", ",") : "—");
-  ensureSpace(10);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(100, 116, 139);
-  doc.text(
-    doc.splitTextToSize(
-      "A capacidade de condução de corrente de cada circuito deve ser multiplicada pelo fator acima. Fatores válidos para cabos em camada única; estimativa de circuitos deve ser conferida contra a composição real do projeto.",
-      contentW
-    ),
-    margin,
-    y
-  );
+  if (derating) {
+    const { arranjoLabel, circuitos, fator } = derating;
+    sectionTitle("Fator de agrupamento — NBR 5410 Tabela 42");
+    keyValue("Forma de instalação", arranjoLabel);
+    keyValue("Número de circuitos", circuitos);
+    keyValue("Fator de correção", fator != null ? fator.toFixed(2).replace(".", ",") : "—");
+    ensureSpace(10);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text(
+      doc.splitTextToSize(
+        "A capacidade de condução de corrente de cada circuito deve ser multiplicada pelo fator acima. Fatores válidos para cabos em camada única; estimativa de circuitos deve ser conferida contra a composição real do projeto.",
+        contentW
+      ),
+      margin,
+      y
+    );
+  }
 
   const nome = (projectName || "dimensionamento").replace(/[^\w\dÀ-ÿ -]+/g, "").trim() || "dimensionamento";
   doc.save(`${nome}.pdf`);
