@@ -86,9 +86,9 @@ export function layoutCables(cables, trayWidth, trayHeight) {
     return best;
   };
 
-  const add = (cx, cy, r, type, vias, key) => {
+  const add = (cx, cy, r, type, vias, key, trifolioGroup) => {
     placed.push({ cx, cy, r });
-    items.push({ cx, cy, r, type, vias, key });
+    items.push({ cx, cy, r, type, vias, key, ...(trifolioGroup !== undefined ? { trifolioGroup } : {}) });
   };
 
   // Deposição do feixe de trifólio (rígido): acha a origem X que deixa o
@@ -130,10 +130,11 @@ export function layoutCables(cables, trayWidth, trayHeight) {
     const r = c.d / 2;
     if (c.trifolio) {
       const { x, baseCy } = dropTrifolio(r);
-      add(x + r, baseCy, r, "unipolar", 1, `${idx}-1`);
-      add(x + 3 * r, baseCy, r, "unipolar", 1, `${idx}-2`);
+      const group = `trif-${idx}`;
+      add(x + r, baseCy, r, "unipolar", 1, `${idx}-1`, group);
+      add(x + 3 * r, baseCy, r, "unipolar", 1, `${idx}-2`, group);
       // Condutor de topo no "vale", encostando nos dois de baixo (trifólio real).
-      add(x + 2 * r, baseCy - r * Math.sqrt(3), r, "unipolar", 1, `${idx}-3`);
+      add(x + 2 * r, baseCy - r * Math.sqrt(3), r, "unipolar", 1, `${idx}-3`, group);
     } else {
       const { cx, cy } = lowestDrop(r);
       add(cx, cy, r, c.type, c.vias, idx);
@@ -280,9 +281,9 @@ export function layoutCablesCircular(cables, R) {
     return best || { cx: 0, cy: dropCy(0, r) };
   };
 
-  const add = (cx, cy, r, type, vias, key) => {
+  const add = (cx, cy, r, type, vias, key, trifolioGroup) => {
     placed.push({ cx, cy, r });
-    items.push({ cx, cy, r, type, vias, key });
+    items.push({ cx, cy, r, type, vias, key, ...(trifolioGroup !== undefined ? { trifolioGroup } : {}) });
   };
 
   // Feixe de trifólio (rígido): acha o centro horizontal que deixa o feixe
@@ -313,10 +314,11 @@ export function layoutCablesCircular(cables, R) {
     const r = c.d / 2;
     if (c.trifolio) {
       const { cxc, baseCy } = dropTrifolio(r);
-      add(cxc - r, baseCy, r, "unipolar", 1, `${idx}-1`);
-      add(cxc + r, baseCy, r, "unipolar", 1, `${idx}-2`);
+      const group = `trif-${idx}`;
+      add(cxc - r, baseCy, r, "unipolar", 1, `${idx}-1`, group);
+      add(cxc + r, baseCy, r, "unipolar", 1, `${idx}-2`, group);
       // Condutor de topo no "vale", encostando nos dois de baixo.
-      add(cxc, baseCy - r * Math.sqrt(3), r, "unipolar", 1, `${idx}-3`);
+      add(cxc, baseCy - r * Math.sqrt(3), r, "unipolar", 1, `${idx}-3`, group);
     } else {
       const { cx, cy } = lowestDrop(r);
       add(cx, cy, r, c.type, c.vias, idx);
@@ -356,32 +358,56 @@ export function circularFits(items, R) {
 // contato pode apontar mais pra baixo do que pro lado (por causa da
 // diferença de raio) sem que o pequeno esteja de fato apoiado no grande —
 // mas como ele já toca o chão, é camada 1 de qualquer forma.
+//
+// Um feixe de trifólio (3 condutores, marcados com o mesmo `trifolioGroup`
+// pelo empacotamento) conta como UMA unidade — mesmo sendo fisicamente 2
+// condutores embaixo + 1 em cima, o feixe é manuseado e instalado como uma
+// peça só, então pra fins de camada ele é 1 (não 2): o grupo todo vira
+// camada 1 se qualquer membro tocar o fundo/parede, ou 1 + a maior camada
+// de quem sustenta qualquer membro de FORA do grupo (um vizinho do próprio
+// feixe não conta como apoio extra). Só quando algo de fora se apoia em
+// cima do feixe é que aparece uma camada a mais.
 export function countLayers(items, isGrounded) {
   if (items.length === 0) return 0;
-  const memo = new Array(items.length).fill(undefined);
-  const layerOf = (i, visiting) => {
-    if (memo[i] !== undefined) return memo[i];
-    const item = items[i];
-    if (isGrounded && isGrounded(item)) {
-      memo[i] = 1;
+
+  const unitOf = items.map((it, i) => it.trifolioGroup ?? `single-${i}`);
+  const itemsByUnit = new Map();
+  items.forEach((_, i) => {
+    const u = unitOf[i];
+    if (!itemsByUnit.has(u)) itemsByUnit.set(u, []);
+    itemsByUnit.get(u).push(i);
+  });
+
+  const memo = new Map();
+  const layerOfUnit = (u, visiting) => {
+    if (memo.has(u)) return memo.get(u);
+    const indices = itemsByUnit.get(u);
+    if (isGrounded && indices.some((i) => isGrounded(items[i]))) {
+      memo.set(u, 1);
       return 1;
     }
-    if (visiting.has(i)) return 1; // guarda contra ciclo (não deveria ocorrer fisicamente)
-    visiting.add(i);
+    if (visiting.has(u)) return 1; // guarda contra ciclo (não deveria ocorrer fisicamente)
+    visiting.add(u);
     let maxSupporter = 0;
-    items.forEach((other, j) => {
-      if (j === i) return;
-      const dy = other.cy - item.cy;
-      const dist = Math.hypot(item.cx - other.cx, dy);
-      const touching = Math.abs(dist - (item.r + other.r)) < FIT_EPS;
-      // "Abaixo" exige contato predominantemente vertical — cabos encostados
-      // lado a lado têm o contato dominado por dx, não por dy.
-      const below = dist > 0 && dy > dist * 0.5;
-      if (touching && below) maxSupporter = Math.max(maxSupporter, layerOf(j, visiting));
-    });
-    memo[i] = maxSupporter + 1;
-    return memo[i];
+    for (const i of indices) {
+      const item = items[i];
+      items.forEach((other, j) => {
+        if (unitOf[j] === u) return; // vizinho do mesmo feixe não conta como empilhamento
+        const dy = other.cy - item.cy;
+        const dist = Math.hypot(item.cx - other.cx, dy);
+        const touching = Math.abs(dist - (item.r + other.r)) < FIT_EPS;
+        // "Abaixo" exige contato predominantemente vertical — cabos encostados
+        // lado a lado têm o contato dominado por dx, não por dy.
+        const below = dist > 0 && dy > dist * 0.5;
+        if (touching && below) maxSupporter = Math.max(maxSupporter, layerOfUnit(unitOf[j], visiting));
+      });
+    }
+    const result = maxSupporter + 1;
+    memo.set(u, result);
+    return result;
   };
-  items.forEach((_, i) => layerOf(i, new Set()));
-  return Math.max(...memo);
+
+  let max = 0;
+  for (const u of itemsByUnit.keys()) max = Math.max(max, layerOfUnit(u, new Set()));
+  return max;
 }
