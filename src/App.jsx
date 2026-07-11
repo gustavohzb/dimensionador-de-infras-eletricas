@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import logo from "./assets/logo.png";
 import { useCableTray } from "./hooks/useCableTray";
 import { useDarkMode } from "./hooks/useDarkMode";
 import { useProjects } from "./hooks/useProjects";
@@ -132,9 +133,15 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <div>
-            <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100">DIMENSIONADOR DO GUSTAVO</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Taxa de ocupação de cabos HEPR — tabela Corfio</p>
+          <div className="flex items-center gap-3">
+            {/* O PNG tem fundo branco opaco (sem alfa) — o chip branco garante
+                que ele fique legível também no header em modo escuro. */}
+            <div className="rounded-lg bg-white p-1 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+              <img src={logo} alt="Dimensionador do Gustavo" className="h-9 w-auto" />
+            </div>
+            <p className="hidden text-xs text-slate-500 dark:text-slate-400 sm:block">
+              Taxa de ocupação de cabos HEPR — tabela Corfio
+            </p>
           </div>
           <ThemeToggle dark={dark} onToggle={() => setDark((v) => !v)} />
         </div>
