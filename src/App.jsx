@@ -134,7 +134,12 @@ export default function App() {
       <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div className="mx-auto grid max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-3">
           <div />
-          <img src={logo} alt="Dimensionador do Gustavo" className="h-24 w-auto" />
+          {/* O texto "Gustavo" e a linha divisória do logo são pretos/cinza-
+              escuros (parte da arte original) e ficam ilegíveis no modo
+              escuro — o painel claro por trás só aparece no dark mode. */}
+          <div className="rounded-xl px-4 py-1.5 dark:bg-slate-100/90">
+            <img src={logo} alt="Dimensionador do Gustavo" className="h-24 w-auto" />
+          </div>
           <div className="flex justify-end">
             <ThemeToggle dark={dark} onToggle={() => setDark((v) => !v)} />
           </div>
