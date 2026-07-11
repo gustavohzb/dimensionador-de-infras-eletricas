@@ -4,6 +4,8 @@ import { findBestFits, selectDiverseResults } from "../lib/reverseSearch";
 import { getDimensions } from "../data/corfioHEPR";
 import { computeOccupancy } from "../lib/occupancy";
 import { exportReportPDF } from "../lib/reportPdf";
+import { ARRANJOS, defaultArranjo, estimateCircuits, getFator } from "../lib/derating";
+import DeratingPanel from "./DeratingPanel";
 import CableForm from "./CableForm";
 import ComandoCableForm from "./ComandoCableForm";
 import ImportarPlanilha from "./ImportarPlanilha";
@@ -34,6 +36,21 @@ export default function ReverseMode({ dark }) {
   // aplicava no Dimensionador e trocava de aba).
   const [applied, setApplied] = useState(null);
   const svgRef = useRef(null);
+
+  // Derating por agrupamento (NBR 5410 Tab. 42) da opção visualizada —
+  // overrides do usuário; null = seguir o automático. Zerados ao trocar de
+  // opção, porque o arranjo típico depende da infraestrutura escolhida.
+  const [arranjoOverride, setArranjoOverride] = useState(null);
+  const [circuitosOverride, setCircuitosOverride] = useState(null);
+  const arranjo = arranjoOverride ?? defaultArranjo(applied?.infraType);
+  const circuitosAuto = estimateCircuits(cables);
+  const circuitos = circuitosOverride ?? circuitosAuto;
+
+  const applyResult = (r) => {
+    setApplied(r);
+    setArranjoOverride(null);
+    setCircuitosOverride(null);
+  };
 
   const handleRemoveAll = () => {
     if (cables.length === 0) return;
@@ -103,6 +120,11 @@ export default function ReverseMode({ dark }) {
         : `${applied.trayWidth} × ${applied.trayHeight} mm`,
       groupedCables,
       occupancy: liveOccupancy,
+      derating: {
+        arranjoLabel: ARRANJOS.find((a) => a.id === arranjo)?.label,
+        circuitos,
+        fator: getFator(arranjo, circuitos),
+      },
     });
   };
 
@@ -236,7 +258,7 @@ export default function ReverseMode({ dark }) {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setApplied(r)}
+                    onClick={() => applyResult(r)}
                     disabled={isApplied(r)}
                     className="shrink-0 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
                   >
@@ -295,6 +317,16 @@ export default function ReverseMode({ dark }) {
                   Os cabos atuais já não cabem dentro do limite de ocupação da NBR 5410 para esta infraestrutura — busque novamente ou remova cabos.
                 </p>
               )}
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <DeratingPanel
+                arranjo={arranjo}
+                onArranjoChange={setArranjoOverride}
+                circuitos={circuitos}
+                circuitosAuto={circuitosAuto}
+                onCircuitosChange={setCircuitosOverride}
+              />
             </div>
           </>
         )}

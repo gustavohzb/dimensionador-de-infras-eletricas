@@ -3,6 +3,8 @@ import { useCableTray } from "../hooks/useCableTray";
 import { useProjects } from "../hooks/useProjects";
 import { getDimensions, INFRA_TYPES, ELETRODUTO_NORMAS } from "../data/corfioHEPR";
 import { exportReportPDF } from "../lib/reportPdf";
+import { ARRANJOS, defaultArranjo, estimateCircuits, getFator } from "../lib/derating";
+import DeratingPanel from "./DeratingPanel";
 import InfraSelector from "./InfraSelector";
 import TraySettings from "./TraySettings";
 import ComandoCableForm from "./ComandoCableForm";
@@ -41,6 +43,14 @@ export default function ComandoTab({ dark }) {
   const dim = getDimensions(infraType, eletrodutoNorma);
   const projectsApi = useProjects();
   const [activeProject, setActiveProject] = useState(null);
+
+  // Derating por agrupamento (NBR 5410 Tab. 42) — overrides do usuário
+  // sobre os valores automáticos; null = seguir o automático.
+  const [arranjoOverride, setArranjoOverride] = useState(null);
+  const [circuitosOverride, setCircuitosOverride] = useState(null);
+  const arranjo = arranjoOverride ?? defaultArranjo(infraType);
+  const circuitosAuto = estimateCircuits(cables);
+  const circuitos = circuitosOverride ?? circuitosAuto;
 
   const currentState = { infraType, eletrodutoNorma, leitoFlange, trayWidth, trayHeight, cables };
 
@@ -89,6 +99,11 @@ export default function ComandoTab({ dark }) {
       dimensionLabel: isDuct ? `Ø ${trayWidth} mm (interno)` : `${trayWidth} × ${trayHeight} mm`,
       groupedCables,
       occupancy: { trayArea, cableArea, ocupacao, limite, dentroLimite },
+      derating: {
+        arranjoLabel: ARRANJOS.find((a) => a.id === arranjo)?.label,
+        circuitos,
+        fator: getFator(arranjo, circuitos),
+      },
     });
   };
 
@@ -211,6 +226,16 @@ export default function ComandoTab({ dark }) {
             ocupacao={ocupacao}
             limite={limite}
             dentroLimite={dentroLimite}
+          />
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <DeratingPanel
+            arranjo={arranjo}
+            onArranjoChange={setArranjoOverride}
+            circuitos={circuitos}
+            circuitosAuto={circuitosAuto}
+            onCircuitosChange={setCircuitosOverride}
           />
         </div>
       </section>
