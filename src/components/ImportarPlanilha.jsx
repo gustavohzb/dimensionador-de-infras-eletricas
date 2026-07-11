@@ -41,6 +41,11 @@ export default function ImportarPlanilha({ onImport, onImportTrifolio }) {
   const handleConfirm = () => {
     let added = 0;
     const warnings = [];
+    // Um groupId por ramal+spec (marcado com o horário da importação, pra não
+    // colidir entre importações diferentes) — evita que dois ramais com a
+    // mesma especificação de cabo se juntem numa única linha em "Cabos do
+    // trecho", perdendo a estrutura original do memorial.
+    const batch = Date.now();
     preview.forEach((line, i) => {
       if (line.error) {
         warnings.push(`Linha ${line.lineNumber}: ${line.error}.`);
@@ -51,13 +56,14 @@ export default function ImportarPlanilha({ onImport, onImportTrifolio }) {
           warnings.push(`Linha ${line.lineNumber} ("${spec.source}"): ${spec.error}.`);
           return;
         }
+        const groupId = `imp-${batch}-${i}-${j}`;
         if (spec.canBeTrifolio && trifolioChoices.has(`${i}-${j}`)) {
-          onImportTrifolio({ section: spec.section });
+          onImportTrifolio({ section: spec.section, groupId });
           added += 3;
           return;
         }
         for (let k = 0; k < spec.quantity; k++) {
-          onImport({ section: spec.section, cableType: spec.cableType, vias: spec.vias });
+          onImport({ section: spec.section, cableType: spec.cableType, vias: spec.vias, groupId });
           added++;
         }
       });

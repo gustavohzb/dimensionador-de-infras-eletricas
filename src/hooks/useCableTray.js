@@ -36,19 +36,23 @@ export function useCableTray() {
     applyDimensions(getDimensions("eletroduto", norma));
   };
 
-  const addCable = ({ section, cableType, vias }) => {
+  // `groupId` é opcional — só usado pela importação de planilha, pra manter
+  // cada ramal do memorial como uma linha própria em "Cabos do trecho" (sem
+  // ele, dois cabos com a mesma especificação se juntam na mesma linha, o
+  // comportamento normal ao adicionar manualmente pelo formulário).
+  const addCable = ({ section, cableType, vias, groupId }) => {
     const d = getDiameter(section, cableType, vias);
     setCables((prev) => [
       ...prev,
-      { id: nextId++, section, d, type: cableType, vias: cableType === "multipolar" ? vias : 1 },
+      { id: nextId++, section, d, type: cableType, vias: cableType === "multipolar" ? vias : 1, ...(groupId ? { groupId } : {}) },
     ]);
   };
 
-  const addTrifolio = ({ section }) => {
+  const addTrifolio = ({ section, groupId }) => {
     const d = getDiameter(section, "unipolar", 1);
     setCables((prev) => [
       ...prev,
-      { id: nextId++, section, d, type: "unipolar", vias: 1, trifolio: true },
+      { id: nextId++, section, d, type: "unipolar", vias: 1, trifolio: true, ...(groupId ? { groupId } : {}) },
     ]);
   };
 
@@ -63,7 +67,7 @@ export function useCableTray() {
   const removeGroup = (groupKey) => {
     setCables((prev) => {
       const idx = prev.findIndex(
-        (c) => `${c.type}-${c.section}-${c.vias}-${c.trifolio ? "t" : "s"}` === groupKey
+        (c) => `${c.type}-${c.section}-${c.vias}-${c.trifolio ? "t" : "s"}-${c.groupId ?? ""}` === groupKey
       );
       if (idx === -1) return prev;
       return prev.filter((_, i) => i !== idx);
@@ -97,7 +101,7 @@ export function useCableTray() {
   const groupedCables = useMemo(() => {
     const map = new Map();
     cables.forEach((c) => {
-      const key = `${c.type}-${c.section}-${c.vias}-${c.trifolio ? "t" : "s"}`;
+      const key = `${c.type}-${c.section}-${c.vias}-${c.trifolio ? "t" : "s"}-${c.groupId ?? ""}`;
       if (map.has(key)) {
         map.get(key).quantity += c.trifolio ? 3 : 1;
       } else {

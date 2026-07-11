@@ -151,7 +151,7 @@ function Eletrocalha({ w, h, uid }) {
   ].join(" ");
   return (
     <>
-      <rect x={0} y={0} width={w} height={h} fill="#eef1f5" />
+      <rect x={0} y={0} width={w} height={h} fill="#ffffff" />
       <rect x={0} y={h - 4} width={w} height={4} fill="#000000" opacity="0.06" />
       <path d={path} fill={METAL} stroke={EDGE} strokeWidth={1} strokeLinejoin="round" />
       <rect x={-WALL} y={-2} width={WALL} height={3} rx={1.2} fill="#eef2f7" stroke={EDGE} strokeWidth={0.6} />
@@ -169,7 +169,7 @@ function Perfilado({ w, h, uid }) {
   const lip = Math.min(12, w * 0.22); // aba reentrante no topo (perfil "perfilado")
   return (
     <>
-      <rect x={0} y={0} width={w} height={h} fill="#eef1f5" />
+      <rect x={0} y={0} width={w} height={h} fill="#ffffff" />
       <rect x={0} y={h - 4} width={w} height={4} fill="#000000" opacity="0.06" />
       <path d={path} fill={METAL} stroke={EDGE} strokeWidth={1} strokeLinejoin="round" />
       {/* lábios reentrantes: o topo se dobra para dentro */}
@@ -203,7 +203,7 @@ function Leito({ w, h, flange = "interna", uid }) {
   return (
     <>
       {/* leve fundo difuso para leitura dos cabos (estrutura aberta) */}
-      <rect x={0} y={0} width={w} height={h} rx={2} fill="#eef1f5" opacity="0.5" />
+      <rect x={0} y={0} width={w} height={h} rx={2} fill="#ffffff" />
       {/* travessa (degrau) onde os cabos se apoiam */}
       <rect x={0} y={h} width={w} height={5} rx={1.5} fill={METAL} stroke={EDGE} strokeWidth={0.8} />
       {rail(-RAIL, -1)}
@@ -243,7 +243,7 @@ function Aramado({ w, h }) {
   }
   return (
     <>
-      <rect x={0} y={0} width={w} height={h} rx={3} fill="#eef1f5" opacity="0.45" />
+      <rect x={0} y={0} width={w} height={h} rx={3} fill="#ffffff" />
       <path d={uPath} fill="none" stroke={wire} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
       {dots.map(([x, y], i) => (
         <g key={i}>
@@ -268,7 +268,7 @@ function Eletroduto({ R, uid }) {
   return (
     <>
       <circle cx={0} cy={0} r={R + wallThickness} fill={`url(#metal-${uid})`} stroke={EDGE} strokeWidth={1} />
-      <circle cx={0} cy={0} r={R} fill="#eef1f5" stroke={EDGE} strokeWidth={0.8} />
+      <circle cx={0} cy={0} r={R} fill="#ffffff" stroke={EDGE} strokeWidth={0.8} />
     </>
   );
 }
