@@ -323,8 +323,8 @@ export default function InfraTab({ dark }) {
             <h2 className={h2Cls}>Adicionar cabo</h2>
             <div className="mb-2.5 grid grid-cols-2 gap-2">
               {[
-                { id: "forca", label: "Potência · Corfio" },
-                { id: "comando", label: "Comando · Cablie" },
+                { id: "forca", label: "Potência" },
+                { id: "comando", label: "Comando" },
               ].map((cat) => (
                 <button
                   key={cat.id}
