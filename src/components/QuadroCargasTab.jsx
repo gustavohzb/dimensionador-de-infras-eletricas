@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CircuitoForm, ResultadoCircuito, computeCircuito, defaultCircuito, CRITERIO_LABEL,
 } from "./cabos/CircuitoForm";
@@ -27,6 +27,7 @@ export default function QuadroCargasTab() {
     return [novoCircuito(1)];
   });
   const [selecionado, setSelecionado] = useState(0);
+  const formRef = useRef(null);
 
   useEffect(() => {
     try {
@@ -46,13 +47,22 @@ export default function QuadroCargasTab() {
     setCircuitos([...circuitos, novoCircuito(circuitos.length + 1)]);
     setSelecionado(circuitos.length);
   };
-  const duplicar = (i) => {
+  const editar = (i) => {
+    setSelecionado(i);
+    requestAnimationFrame(() =>
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    );
+  };
+  const copiar = (i) => {
     const copia = JSON.parse(JSON.stringify(circuitos[i]));
     copia.tag = `${copia.tag}-C`;
     const next = circuitos.slice();
     next.splice(i + 1, 0, copia);
     setCircuitos(next);
     setSelecionado(i + 1);
+    requestAnimationFrame(() =>
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    );
   };
   const remover = (i) => {
     if (circuitos.length === 1) return;
@@ -140,10 +150,17 @@ export default function QuadroCargasTab() {
                     <td className="px-2 py-1.5 text-right whitespace-nowrap">
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); duplicar(i); }}
+                        onClick={(e) => { e.stopPropagation(); editar(i); }}
+                        className="mr-2 text-[11px] font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                      >
+                        editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); copiar(i); }}
                         className="mr-2 text-[11px] font-medium text-blue-500 hover:text-blue-600 dark:text-blue-400"
                       >
-                        duplicar
+                        copiar
                       </button>
                       {circuitos.length > 1 && (
                         <button
@@ -164,8 +181,16 @@ export default function QuadroCargasTab() {
       </div>
 
       {atual && (
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[360px_1fr]">
+        <div ref={formRef} className="grid grid-cols-1 gap-3 lg:grid-cols-[360px_1fr]">
           <section>
+            <div className="mb-2 flex items-center gap-2">
+              <span className="rounded-md bg-blue-600 px-2 py-0.5 text-[11px] font-semibold text-white">
+                Editando
+              </span>
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                {atual.tag}{atual.descricao ? ` — ${atual.descricao}` : ""}
+              </span>
+            </div>
             <CircuitoForm value={atual} onChange={setAtual} />
           </section>
           <section>

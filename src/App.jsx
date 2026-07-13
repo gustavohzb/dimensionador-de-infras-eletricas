@@ -183,7 +183,7 @@ export default function App() {
             { id: "dimensionador", label: "Força" },
             { id: "comando", label: "Comando" },
             { id: "reverso", label: "Buscar Infraestrutura" },
-            { id: "quadroCargas", label: "Quadro de Cargas" },
+            { id: "quadroCargas", label: "Dimensionar Cabos" },
           ].map((tab) => (
             <button
               key={tab.id}
