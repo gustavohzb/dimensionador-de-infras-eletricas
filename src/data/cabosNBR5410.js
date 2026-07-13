@@ -158,18 +158,18 @@ export function fatorTemperatura(tempC, subterraneo) {
 // com a mesma seção da fase.
 // ---------------------------------------------------------------------------
 export const ESQUEMAS = [
-  { id: "monofSt", label: "Monof. - s/ Terra", carregados: 2, kQueda: 2, neutro: true, terra: false, harmonicas: false },
-  { id: "monofCt", label: "Monof. - c/ Terra", carregados: 2, kQueda: 2, neutro: true, terra: true, harmonicas: false },
-  { id: "bifSnSt", label: "Bif. - s/ Neutro - s/ Terra", carregados: 2, kQueda: 2, neutro: false, terra: false, harmonicas: false },
-  { id: "bifSnCt", label: "Bif. - s/ Neutro - c/ Terra", carregados: 2, kQueda: 2, neutro: false, terra: true, harmonicas: false },
-  { id: "bifCnSt", label: "Bif. - c/ Neutro - s/ Terra", carregados: 3, kQueda: 2, neutro: true, terra: false, harmonicas: false },
-  { id: "bifCnCt", label: "Bif. - c/ Neutro - c/ Terra", carregados: 3, kQueda: 2, neutro: true, terra: true, harmonicas: false },
-  { id: "trifSnSt", label: "Trif. - s/ Neutro - s/ Terra", carregados: 3, kQueda: Math.sqrt(3), neutro: false, terra: false, harmonicas: false },
-  { id: "trifSnCt", label: "Trif. - s/ Neutro - c/ Terra", carregados: 3, kQueda: Math.sqrt(3), neutro: false, terra: true, harmonicas: false },
-  { id: "trifCnSt", label: "Trif. - c/ Neutro - s/ Terra", carregados: 3, kQueda: Math.sqrt(3), neutro: true, terra: false, harmonicas: false },
-  { id: "trifCnCt", label: "Trif. - c/ Neutro - c/ Terra", carregados: 3, kQueda: Math.sqrt(3), neutro: true, terra: true, harmonicas: false },
-  { id: "trifCnStH", label: "Trif. - c/ Neutro - s/ Terra (Harm. >15%)", carregados: 3, kQueda: Math.sqrt(3), neutro: true, terra: false, harmonicas: true },
-  { id: "trifCnCtH", label: "Trif. - c/ Neutro - c/ Terra (Harm. >15%)", carregados: 3, kQueda: Math.sqrt(3), neutro: true, terra: true, harmonicas: true },
+  { id: "monofSt", label: "Monof. - s/ Terra", fases: 1, carregados: 2, kQueda: 2, neutro: true, terra: false, harmonicas: false },
+  { id: "monofCt", label: "Monof. - c/ Terra", fases: 1, carregados: 2, kQueda: 2, neutro: true, terra: true, harmonicas: false },
+  { id: "bifSnSt", label: "Bif. - s/ Neutro - s/ Terra", fases: 2, carregados: 2, kQueda: 2, neutro: false, terra: false, harmonicas: false },
+  { id: "bifSnCt", label: "Bif. - s/ Neutro - c/ Terra", fases: 2, carregados: 2, kQueda: 2, neutro: false, terra: true, harmonicas: false },
+  { id: "bifCnSt", label: "Bif. - c/ Neutro - s/ Terra", fases: 2, carregados: 3, kQueda: 2, neutro: true, terra: false, harmonicas: false },
+  { id: "bifCnCt", label: "Bif. - c/ Neutro - c/ Terra", fases: 2, carregados: 3, kQueda: 2, neutro: true, terra: true, harmonicas: false },
+  { id: "trifSnSt", label: "Trif. - s/ Neutro - s/ Terra", fases: 3, carregados: 3, kQueda: Math.sqrt(3), neutro: false, terra: false, harmonicas: false },
+  { id: "trifSnCt", label: "Trif. - s/ Neutro - c/ Terra", fases: 3, carregados: 3, kQueda: Math.sqrt(3), neutro: false, terra: true, harmonicas: false },
+  { id: "trifCnSt", label: "Trif. - c/ Neutro - s/ Terra", fases: 3, carregados: 3, kQueda: Math.sqrt(3), neutro: true, terra: false, harmonicas: false },
+  { id: "trifCnCt", label: "Trif. - c/ Neutro - c/ Terra", fases: 3, carregados: 3, kQueda: Math.sqrt(3), neutro: true, terra: true, harmonicas: false },
+  { id: "trifCnStH", label: "Trif. - c/ Neutro - s/ Terra (Harm. >15%)", fases: 3, carregados: 3, kQueda: Math.sqrt(3), neutro: true, terra: false, harmonicas: true },
+  { id: "trifCnCtH", label: "Trif. - c/ Neutro - c/ Terra (Harm. >15%)", fases: 3, carregados: 3, kQueda: Math.sqrt(3), neutro: true, terra: true, harmonicas: true },
 ];
 
 // ---------------------------------------------------------------------------

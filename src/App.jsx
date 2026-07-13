@@ -16,7 +16,6 @@ import ProjectsPanel from "./components/ProjectsPanel";
 import ReverseMode from "./components/ReverseMode";
 import DeratingPanel from "./components/DeratingPanel";
 import ComandoTab from "./components/ComandoTab";
-import CableSizingTab from "./components/CableSizingTab";
 import QuadroCargasTab from "./components/QuadroCargasTab";
 
 function ThemeToggle({ dark, onToggle }) {
@@ -184,7 +183,6 @@ export default function App() {
             { id: "dimensionador", label: "Força" },
             { id: "comando", label: "Comando" },
             { id: "reverso", label: "Buscar Infraestrutura" },
-            { id: "cabos", label: "Dimensionar Cabo" },
             { id: "quadroCargas", label: "Quadro de Cargas" },
           ].map((tab) => (
             <button
@@ -324,10 +322,6 @@ export default function App() {
 
       <div className={activeTab === "reverso" ? "" : "hidden"}>
         <ReverseMode dark={dark} />
-      </div>
-
-      <div className={activeTab === "cabos" ? "" : "hidden"}>
-        <CableSizingTab />
       </div>
 
       <div className={activeTab === "quadroCargas" ? "" : "hidden"}>

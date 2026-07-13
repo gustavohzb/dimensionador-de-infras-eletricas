@@ -3,6 +3,8 @@ import {
   CircuitoForm, ResultadoCircuito, computeCircuito, defaultCircuito, CRITERIO_LABEL,
 } from "./cabos/CircuitoForm";
 import { ESQUEMAS } from "../data/cabosNBR5410";
+import { designacaoCabos } from "../lib/cableSizingPro";
+import { exportCircuitoPDF, exportMemorialPDF } from "../lib/memorialPdf";
 
 const STORAGE_KEY = "quadroCargas.v1";
 const fmt = (n, d = 2) => (n == null ? "—" : n.toFixed(d).replace(".", ","));
@@ -66,13 +68,22 @@ export default function QuadroCargasTab() {
           <h2 className="text-xs font-semibold text-slate-700 dark:text-slate-200">
             Quadro de cargas — {circuitos.length} circuito{circuitos.length > 1 ? "s" : ""}
           </h2>
-          <button
-            type="button"
-            onClick={adicionar}
-            className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-          >
-            + circuito
-          </button>
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => exportMemorialPDF({ circuitos, resultados })}
+              className="rounded-lg border border-blue-600 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-500/10"
+            >
+              Memorial PDF
+            </button>
+            <button
+              type="button"
+              onClick={adicionar}
+              className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+            >
+              + circuito
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-left text-xs">
@@ -83,9 +94,7 @@ export default function QuadroCargasTab() {
                 <th className="px-2 py-1.5">Descrição</th>
                 <th className="px-2 py-1.5">Tensão</th>
                 <th className="px-2 py-1.5">Ib (A)</th>
-                <th className="px-2 py-1.5">Fase</th>
-                <th className="px-2 py-1.5">Neutro</th>
-                <th className="px-2 py-1.5">Terra</th>
+                <th className="px-2 py-1.5">Cabos</th>
                 <th className="px-2 py-1.5">%R</th>
                 <th className="px-2 py-1.5">%P</th>
                 <th className="px-2 py-1.5">Critério</th>
@@ -114,15 +123,13 @@ export default function QuadroCargasTab() {
                     </td>
                     <td className="px-2 py-1.5">{c.tensao}V {esquema?.kQueda === 2 ? "1F" : "3F"}</td>
                     {r.error ? (
-                      <td colSpan={7} className="px-2 py-1.5 text-red-500 dark:text-red-400">{r.error}</td>
+                      <td colSpan={5} className="px-2 py-1.5 text-red-500 dark:text-red-400">{r.error}</td>
                     ) : (
                       <>
                         <td className="px-2 py-1.5">{fmt(r.corrente, 1)}</td>
-                        <td className="px-2 py-1.5 font-bold text-emerald-600 dark:text-emerald-400">
-                          {r.porFase > 1 ? `${r.porFase}× ` : ""}{r.secaoFinal}mm²
+                        <td className="px-2 py-1.5 font-bold whitespace-nowrap text-emerald-600 dark:text-emerald-400">
+                          {designacaoCabos({ esquemaId: c.esquemaId, tipoCabo: c.tipoCabo, result: r })}
                         </td>
-                        <td className="px-2 py-1.5">{r.neutro != null ? `${r.neutro}mm²` : "—"}</td>
-                        <td className="px-2 py-1.5">{r.protecao != null ? `${r.protecao}mm²` : "—"}</td>
                         <td className="px-2 py-1.5">{fmt(r.quedaRegime)}</td>
                         <td className="px-2 py-1.5">{fmt(r.quedaPartida)}</td>
                         <td className="px-2 py-1.5 text-slate-500 dark:text-slate-400">
@@ -163,12 +170,24 @@ export default function QuadroCargasTab() {
           </section>
           <section>
             <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <h2 className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
-                Resultado — {atual.tag}
-              </h2>
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  Resultado — {atual.tag}
+                </h2>
+                {!resultados[selecionado].error && (
+                  <button
+                    type="button"
+                    onClick={() => exportCircuitoPDF({ circuito: atual, result: resultados[selecionado] })}
+                    className="rounded-lg border border-blue-600 px-2.5 py-1 text-[11px] font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-500/10"
+                  >
+                    PDF do circuito
+                  </button>
+                )}
+              </div>
               <ResultadoCircuito
                 result={resultados[selecionado]}
                 esquemaId={atual.esquemaId}
+                tipoCabo={atual.tipoCabo}
                 porFase={Number(atual.porFase)}
               />
             </div>

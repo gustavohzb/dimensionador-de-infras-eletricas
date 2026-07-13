@@ -1,0 +1,228 @@
+// Memorial de cálculo em PDF para o dimensionamento de cabos: relatório
+// detalhado de um circuito (aba Dimensionar Cabo) e memorial tabular do
+// quadro de cargas completo (uma linha por circuito, como na planilha).
+
+import { ESQUEMAS, FORMAS_PARTIDA } from "../data/cabosNBR5410";
+import { designacaoCabos } from "./cableSizingPro";
+import { CRITERIO_LABEL } from "../components/cabos/CircuitoForm";
+
+const fmt = (n, d = 2) => (n == null ? "—" : Number(n).toFixed(d).replace(".", ","));
+
+function cargaLabel(c) {
+  if (c.modo === "corrente") return `${fmt(c.corrente, 1)} A`;
+  return `${fmt(c.potencia, 1)} ${c.unidade} — FP ${fmt(c.fp)} · η ${fmt(c.rendimento)}`;
+}
+
+function novoDoc(jsPDF, orientation) {
+  const doc = new jsPDF({ unit: "mm", format: "a4", orientation });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 12;
+  const state = { doc, pageW, pageH, margin, contentW: pageW - margin * 2, y: margin };
+
+  state.ensureSpace = (needed) => {
+    if (state.y + needed > pageH - margin) {
+      doc.addPage();
+      state.y = margin;
+    }
+  };
+  state.sectionTitle = (text) => {
+    state.ensureSpace(12);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(30, 41, 59);
+    doc.text(text, margin, state.y);
+    state.y += 1.5;
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.3);
+    doc.line(margin, state.y, pageW - margin, state.y);
+    state.y += 5;
+  };
+  state.keyValue = (label, value) => {
+    state.ensureSpace(6);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(label, margin, state.y);
+    doc.setTextColor(30, 41, 59);
+    doc.setFont("helvetica", "bold");
+    doc.text(String(value), margin + 62, state.y);
+    state.y += 5.5;
+  };
+  state.header = (titulo) => {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(15);
+    doc.setTextColor(30, 41, 59);
+    doc.text(titulo, margin, state.y + 2);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    const now = new Date();
+    doc.text(
+      `Dimensionador do Gustavo — ${now.toLocaleDateString("pt-BR")} ${now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`,
+      pageW - margin,
+      state.y + 2,
+      { align: "right" }
+    );
+    state.y += 9;
+  };
+  state.rodape = () => {
+    state.ensureSpace(14);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(
+      doc.splitTextToSize(
+        "Cálculo conforme NBR 5410 (Tabelas 37/39/40/42/45/46/48/58), condutores com isolação EPR/XLPE 90°C. Queda de tensão com resistência a 90°C e reatância típica de projeto. Não substitui a coordenação com a proteção (Ib <= In <= Iz) nem a verificação de curto-circuito.",
+        state.contentW
+      ),
+      margin,
+      state.y
+    );
+  };
+  return state;
+}
+
+// Bloco de detalhamento de um circuito (compartilhado pelos dois relatórios).
+function blocoCircuito(s, c, r) {
+  const esquema = ESQUEMAS.find((e) => e.id === c.esquemaId);
+  const partida = FORMAS_PARTIDA.find((f) => f.id === c.formaPartidaId);
+
+  s.sectionTitle(`${c.tag}${c.descricao ? ` — ${c.descricao}` : ""}`);
+  s.keyValue("Carga", cargaLabel(c));
+  s.keyValue("Condutores carregados", esquema?.label ?? "—");
+  s.keyValue("Tensão", `${c.tensao} V`);
+  if (partida && partida.fator > 1) s.keyValue("Forma de partida", `${partida.label} (Ip ~ ${partida.fator}×In)`);
+  s.keyValue("Condutor", `${c.material === "aluminio" ? "Alumínio" : "Cobre"} ${c.tipoCabo} — ${c.porFase}× por fase`);
+
+  if (r.error) {
+    s.ensureSpace(8);
+    s.doc.setFont("helvetica", "bold");
+    s.doc.setFontSize(10);
+    s.doc.setTextColor(220, 38, 38);
+    s.doc.text(r.error, s.margin, s.y);
+    s.y += 8;
+    return;
+  }
+
+  s.keyValue("Corrente de projeto Ib", `${fmt(r.corrente, 1)} A${r.porFase > 1 ? ` (${fmt(r.correntePorCabo, 1)} A por cabo)` : ""}`);
+  if (r.correntePartida != null) s.keyValue("Corrente de partida Ip", `${fmt(r.correntePartida, 1)} A`);
+
+  s.y += 1;
+  r.detalhesTrechos.forEach((t, i) => {
+    s.ensureSpace(5.5);
+    s.doc.setFont("helvetica", "normal");
+    s.doc.setFontSize(9);
+    s.doc.setTextColor(30, 41, 59);
+    s.doc.text(
+      `Trecho ${String(i + 1).padStart(2, "0")}: ${t.condutoLabel} (método ${t.metodo}) — ${fmt(t.distancia, 0)}m · FCT ${fmt(t.fct)} · FCA ${fmt(t.fca)} · I' = ${fmt(t.iCorrigida, 1)} A`,
+      s.margin + 2,
+      s.y
+    );
+    s.y += 5;
+  });
+  s.y += 1;
+
+  s.keyValue("Seção por capacidade", `${r.secaoCapacidade} mm²`);
+  s.keyValue("Seção por queda em regime", r.secaoQuedaRegime ? `${r.secaoQuedaRegime} mm²` : "não verificada");
+  s.keyValue("Seção por queda na partida", r.secaoQuedaPartida ? `${r.secaoQuedaPartida} mm²` : "não verificada");
+  s.keyValue("Critério dominante", CRITERIO_LABEL[r.criterio]);
+  s.keyValue("Capacidade corrigida", `${fmt(r.capacidadeCorrigida, 1)} A`);
+  if (r.quedaRegime != null) s.keyValue(`Queda em regime (${fmt(r.comprimentoTotal, 0)}m)`, `${fmt(r.quedaRegime)}%`);
+  if (r.quedaPartida != null) s.keyValue("Queda na partida", `${fmt(r.quedaPartida)}%`);
+
+  s.ensureSpace(10);
+  s.doc.setFont("helvetica", "bold");
+  s.doc.setFontSize(11);
+  s.doc.setTextColor(5, 150, 105);
+  s.doc.text(
+    `CABOS: ${designacaoCabos({ esquemaId: c.esquemaId, tipoCabo: c.tipoCabo, result: r })}`,
+    s.margin,
+    s.y
+  );
+  s.y += 9;
+}
+
+// Relatório detalhado de um circuito (aba Dimensionar Cabo).
+export async function exportCircuitoPDF({ circuito, result }) {
+  const { jsPDF } = await import("jspdf");
+  const s = novoDoc(jsPDF, "portrait");
+  s.header("Memorial de Dimensionamento de Cabo");
+  blocoCircuito(s, circuito, result);
+  s.rodape();
+  const nome = (circuito.tag || "circuito").replace(/[^\w\dÀ-ÿ -]+/g, "").trim() || "circuito";
+  s.doc.save(`memorial-${nome}.pdf`);
+}
+
+// Memorial do quadro de cargas: tabela resumo + detalhamento por circuito.
+export async function exportMemorialPDF({ projectName, circuitos, resultados }) {
+  const { jsPDF } = await import("jspdf");
+  const s = novoDoc(jsPDF, "landscape");
+  s.header("Memorial de Cálculo — Quadro de Cargas");
+  if (projectName) s.keyValue("Projeto", projectName);
+  s.y += 2;
+
+  // Tabela resumo
+  const cols = [
+    { w: 9, label: "Nº", get: (c, r, i) => String(i + 1).padStart(2, "0") },
+    { w: 22, label: "TAG", get: (c) => c.tag },
+    { w: 52, label: "Descrição", get: (c) => c.descricao || "—" },
+    { w: 20, label: "Tensão", get: (c) => `${c.tensao}V` },
+    { w: 34, label: "Carga", get: (c) => cargaLabel(c) },
+    { w: 18, label: "Ib (A)", get: (c, r) => (r.error ? "—" : fmt(r.corrente, 1)) },
+    {
+      w: 54,
+      label: "Cabos",
+      get: (c, r) => (r.error ? "erro" : designacaoCabos({ esquemaId: c.esquemaId, tipoCabo: c.tipoCabo, result: r })),
+    },
+    { w: 14, label: "%R", get: (c, r) => (r.error ? "—" : fmt(r.quedaRegime)) },
+    { w: 14, label: "%P", get: (c, r) => (r.error ? "—" : fmt(r.quedaPartida)) },
+    { w: 36, label: "Critério", get: (c, r) => (r.error ? "—" : CRITERIO_LABEL[r.criterio]) },
+  ];
+
+  const drawHeader = () => {
+    s.doc.setFillColor(241, 245, 249);
+    s.doc.rect(s.margin, s.y - 4, s.contentW, 6, "F");
+    s.doc.setFont("helvetica", "bold");
+    s.doc.setFontSize(8);
+    s.doc.setTextColor(71, 85, 105);
+    let x = s.margin + 1;
+    cols.forEach((col) => {
+      s.doc.text(col.label, x, s.y);
+      x += col.w;
+    });
+    s.y += 5;
+  };
+
+  drawHeader();
+  circuitos.forEach((c, i) => {
+    const r = resultados[i];
+    if (s.y + 6 > s.pageH - s.margin) {
+      s.doc.addPage();
+      s.y = s.margin + 4;
+      drawHeader();
+    }
+    if (i % 2 === 1) {
+      s.doc.setFillColor(248, 250, 252);
+      s.doc.rect(s.margin, s.y - 3.6, s.contentW, 5.2, "F");
+    }
+    s.doc.setFont("helvetica", "normal");
+    s.doc.setFontSize(8);
+    s.doc.setTextColor(30, 41, 59);
+    let x = s.margin + 1;
+    cols.forEach((col) => {
+      const txt = String(col.get(c, r, i));
+      s.doc.text(txt.length > 34 ? `${txt.slice(0, 33)}…` : txt, x, s.y);
+      x += col.w;
+    });
+    s.y += 5.2;
+  });
+  s.y += 4;
+
+  // Detalhamento por circuito
+  circuitos.forEach((c, i) => blocoCircuito(s, c, resultados[i]));
+  s.rodape();
+
+  const nome = (projectName || "quadro-de-cargas").replace(/[^\w\dÀ-ÿ -]+/g, "").trim() || "quadro-de-cargas";
+  s.doc.save(`memorial-${nome}.pdf`);
+}

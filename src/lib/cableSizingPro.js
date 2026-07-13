@@ -50,6 +50,27 @@ export function correnteDeProjeto({ modo, corrente, potencia, unidade, tensao, f
   return { corrente: i * (Number(fatorServico) || 1) };
 }
 
+// Designação do circuito no padrão de projeto:
+//   unipolar: 3#25mm²+1#25mm²+1#16mm² (fases + neutro + terra)
+//   multipolar: 1#4x16mm²+1#16mm² (1 cabo de 4 vias + terra unipolar)
+export function designacaoCabos({ esquemaId, tipoCabo, result }) {
+  if (!result || result.error) return "—";
+  const esquema = ESQUEMAS.find((e) => e.id === esquemaId);
+  if (!esquema) return "—";
+  const n = result.porFase ?? 1;
+  const s = result.secaoFinal;
+  const partes = [];
+  if (tipoCabo === "multipolar") {
+    const vias = esquema.fases + (esquema.neutro ? 1 : 0);
+    partes.push(`${n}#${vias}x${s}mm²`);
+  } else {
+    partes.push(`${esquema.fases * n}#${s}mm²`);
+    if (esquema.neutro && result.neutro != null) partes.push(`${n}#${result.neutro}mm²`);
+  }
+  if (esquema.terra && result.protecao != null) partes.push(`1#${result.protecao}mm²`);
+  return partes.join("+");
+}
+
 // Coluna de ampacidade para um trecho: devolve função (seção) → A admissível.
 function colunaAmpacidade({ material, conduto, tipoCabo, distribuicao, carregados }) {
   const metodo = tipoCabo === "unipolar" ? conduto.uni : conduto.multi;
