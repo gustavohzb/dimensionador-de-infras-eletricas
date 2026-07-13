@@ -8,6 +8,18 @@ import { CRITERIO_LABEL } from "../components/cabos/CircuitoForm";
 
 const fmt = (n, d = 2) => (n == null ? "—" : Number(n).toFixed(d).replace(".", ","));
 
+// Corta o texto pela largura real (mm) disponível na coluna — sem isso, um
+// truncamento por nº de caracteres fixo deixa colunas estreitas (ex.: "Carga")
+// vazarem texto por cima da coluna seguinte no PDF.
+function fitWidth(doc, text, maxWidth) {
+  if (doc.getTextWidth(text) <= maxWidth) return text;
+  let cut = text;
+  while (cut.length > 1 && doc.getTextWidth(`${cut}…`) > maxWidth) {
+    cut = cut.slice(0, -1);
+  }
+  return `${cut}…`;
+}
+
 function cargaLabel(c) {
   if (c.modo === "corrente") return `${fmt(c.corrente, 1)} A`;
   return `${fmt(c.potencia, 1)} ${c.unidade} — FP ${fmt(c.fp)} · η ${fmt(c.rendimento)}`;
@@ -165,19 +177,19 @@ export async function exportMemorialPDF({ projectName, circuitos, resultados }) 
   // Tabela resumo
   const cols = [
     { w: 9, label: "Nº", get: (c, r, i) => String(i + 1).padStart(2, "0") },
-    { w: 22, label: "TAG", get: (c) => c.tag },
-    { w: 52, label: "Descrição", get: (c) => c.descricao || "—" },
-    { w: 20, label: "Tensão", get: (c) => `${c.tensao}V` },
-    { w: 34, label: "Carga", get: (c) => cargaLabel(c) },
-    { w: 18, label: "Ib (A)", get: (c, r) => (r.error ? "—" : fmt(r.corrente, 1)) },
+    { w: 20, label: "TAG", get: (c) => c.tag },
+    { w: 44, label: "Descrição", get: (c) => c.descricao || "—" },
+    { w: 16, label: "Tensão", get: (c) => `${c.tensao}V` },
+    { w: 44, label: "Carga", get: (c) => cargaLabel(c) },
+    { w: 16, label: "Ib (A)", get: (c, r) => (r.error ? "—" : fmt(r.corrente, 1)) },
     {
-      w: 54,
+      w: 50,
       label: "Cabos",
       get: (c, r) => (r.error ? "erro" : designacaoCabos({ esquemaId: c.esquemaId, tipoCabo: c.tipoCabo, result: r })),
     },
     { w: 14, label: "%R", get: (c, r) => (r.error ? "—" : fmt(r.quedaRegime)) },
     { w: 14, label: "%P", get: (c, r) => (r.error ? "—" : fmt(r.quedaPartida)) },
-    { w: 36, label: "Critério", get: (c, r) => (r.error ? "—" : CRITERIO_LABEL[r.criterio]) },
+    { w: 32, label: "Critério", get: (c, r) => (r.error ? "—" : CRITERIO_LABEL[r.criterio]) },
   ];
 
   const drawHeader = () => {
@@ -212,7 +224,7 @@ export async function exportMemorialPDF({ projectName, circuitos, resultados }) 
     let x = s.margin + 1;
     cols.forEach((col) => {
       const txt = String(col.get(c, r, i));
-      s.doc.text(txt.length > 34 ? `${txt.slice(0, 33)}…` : txt, x, s.y);
+      s.doc.text(fitWidth(s.doc, txt, col.w - 2), x, s.y);
       x += col.w;
     });
     s.y += 5.2;
