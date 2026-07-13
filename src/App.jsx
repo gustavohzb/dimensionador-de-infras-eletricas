@@ -17,6 +17,7 @@ import ReverseMode from "./components/ReverseMode";
 import DeratingPanel from "./components/DeratingPanel";
 import ComandoTab from "./components/ComandoTab";
 import CableSizingTab from "./components/CableSizingTab";
+import QuadroCargasTab from "./components/QuadroCargasTab";
 
 function ThemeToggle({ dark, onToggle }) {
   return (
@@ -184,6 +185,7 @@ export default function App() {
             { id: "comando", label: "Comando" },
             { id: "reverso", label: "Buscar Infraestrutura" },
             { id: "cabos", label: "Dimensionar Cabo" },
+            { id: "quadroCargas", label: "Quadro de Cargas" },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -326,6 +328,10 @@ export default function App() {
 
       <div className={activeTab === "cabos" ? "" : "hidden"}>
         <CableSizingTab />
+      </div>
+
+      <div className={activeTab === "quadroCargas" ? "" : "hidden"}>
+        <QuadroCargasTab />
       </div>
       </main>
     </div>
