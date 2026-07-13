@@ -105,8 +105,26 @@ export default function QuadroCargasTab() {
                 <th className="px-2 py-1.5">Tensão</th>
                 <th className="px-2 py-1.5">Ib (A)</th>
                 <th className="px-2 py-1.5">Cabos</th>
-                <th className="px-2 py-1.5">%R</th>
-                <th className="px-2 py-1.5">%P</th>
+                <th className="px-2 py-1.5">
+                  %R
+                  <span
+                    title="Queda de tensão em regime normal de operação, do início do trecho até o circuito. Limite usual: 4% a partir da entrada da concessionária (NBR 5410)."
+                    className="ml-1 inline-block cursor-help select-none rounded-full text-[10px] normal-case text-slate-400 dark:text-slate-500"
+                    aria-label="Queda de tensão em regime"
+                  >
+                    ⓘ
+                  </span>
+                </th>
+                <th className="px-2 py-1.5">
+                  %P
+                  <span
+                    title="Queda de tensão durante a partida do motor (corrente de partida Ip). Só é verificada quando há forma de partida diferente de 'não é motor'. Limite usual: 10%."
+                    className="ml-1 inline-block cursor-help select-none rounded-full text-[10px] normal-case text-slate-400 dark:text-slate-500"
+                    aria-label="Queda de tensão na partida"
+                  >
+                    ⓘ
+                  </span>
+                </th>
                 <th className="px-2 py-1.5">Critério</th>
                 <th className="px-2 py-1.5" />
               </tr>
