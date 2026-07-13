@@ -3,9 +3,8 @@
 // ambiente 30°C. Valores por método de instalação e nº de condutores
 // carregados (2 = circuito monofásico F+N; 3 = trifásico).
 //
-// ATENÇÃO: valores transcritos da tabela da norma (equivalente à IEC
-// 60364-5-52, tabela B.52.4/B.52.5) — confira contra a NBR 5410 impressa
-// antes de usar em projeto executivo.
+// Valores conferidos contra as tabelas 37/39/40 da ABNT NBR 5410:2004
+// (métodos B1, B2, C, D na Tab. 37; método E multipolar na Tab. 39).
 
 export const METODOS_INSTALACAO = [
   { id: "B1", label: "B1 — condutores isolados em eletroduto na parede" },
@@ -48,10 +47,10 @@ export const CAPACIDADE = {
     70: [221, 194],
     95: [265, 233],
     120: [305, 268],
-    150: [349, 300],
-    185: [395, 340],
-    240: [462, 398],
-    300: [529, 455],
+    150: [349, 307],
+    185: [395, 348],
+    240: [462, 407],
+    300: [529, 465],
   },
   C: {
     1.5: [24, 22],
