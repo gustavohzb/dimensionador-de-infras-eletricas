@@ -22,7 +22,7 @@ function fitWidth(doc, text, maxWidth) {
 
 function cargaLabel(c) {
   if (c.modo === "corrente") return `${fmt(c.corrente, 1)} A`;
-  return `${fmt(c.potencia, 1)} ${c.unidade} — FP ${fmt(c.fp)} · η ${fmt(c.rendimento)}`;
+  return `${fmt(c.potencia, 1)} ${c.unidade} — FP ${fmt(c.fp)} · Rend. ${fmt(c.rendimento)}`;
 }
 
 function novoDoc(jsPDF, orientation) {
