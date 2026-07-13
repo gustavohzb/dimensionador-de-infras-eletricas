@@ -149,17 +149,19 @@ export default function QuadroCargasTab() {
                     <td className="max-w-[180px] truncate px-2 py-1.5 text-slate-500 dark:text-slate-400">
                       {c.descricao || "—"}
                     </td>
-                    <td className="px-2 py-1.5">{c.tensao}V {esquema?.kQueda === 2 ? "1F" : "3F"}</td>
+                    <td className="px-2 py-1.5 text-slate-700 dark:text-slate-200">
+                      {c.tensao}V {esquema?.kQueda === 2 ? "1F" : "3F"}
+                    </td>
                     {r.error ? (
                       <td colSpan={5} className="px-2 py-1.5 text-red-500 dark:text-red-400">{r.error}</td>
                     ) : (
                       <>
-                        <td className="px-2 py-1.5">{fmt(r.corrente, 1)}</td>
+                        <td className="px-2 py-1.5 text-slate-700 dark:text-slate-200">{fmt(r.corrente, 1)}</td>
                         <td className="px-2 py-1.5 font-bold whitespace-nowrap text-emerald-600 dark:text-emerald-400">
                           {designacaoCabos({ esquemaId: c.esquemaId, tipoCabo: c.tipoCabo, result: r })}
                         </td>
-                        <td className="px-2 py-1.5">{fmt(r.quedaRegime)}</td>
-                        <td className="px-2 py-1.5">{fmt(r.quedaPartida)}</td>
+                        <td className="px-2 py-1.5 text-slate-700 dark:text-slate-200">{fmt(r.quedaRegime)}</td>
+                        <td className="px-2 py-1.5 text-slate-700 dark:text-slate-200">{fmt(r.quedaPartida)}</td>
                         <td className="px-2 py-1.5 text-slate-500 dark:text-slate-400">
                           {CRITERIO_LABEL[r.criterio]}
                         </td>
