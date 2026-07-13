@@ -17,9 +17,9 @@ const RHO = { cobre: 0.022, aluminio: 0.0362 };
 const REATANCIA = { unipolar: 0.08, multipolar: 0.09 };
 
 export const UNIDADES_POTENCIA = [
-  { id: "W", label: "W" },
-  { id: "kW", label: "kW" },
   { id: "CV", label: "CV" },
+  { id: "kW", label: "kW" },
+  { id: "W", label: "W" },
   { id: "kVA", label: "kVA" },
 ];
 

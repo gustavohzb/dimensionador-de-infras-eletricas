@@ -45,7 +45,7 @@ export const defaultCircuito = () => ({
   modo: "corrente", // "corrente" | "potencia"
   corrente: 40,
   potencia: 10,
-  unidade: "kW",
+  unidade: "CV",
   fp: 0.92,
   rendimento: 0.92,
   fatorServico: 1,
@@ -446,25 +446,6 @@ export function ResultadoCircuito({ result, esquemaId, tipoCabo, porFase }) {
         </div>
         <div className="text-xl font-bold text-emerald-700 dark:text-emerald-300">{designacao}</div>
       </div>
-
-      {(result.neutro != null || result.protecao != null) && (
-        <div className="grid grid-cols-2 gap-2">
-          {result.neutro != null && (
-            <div className="rounded-lg bg-sky-50 px-3 py-2 text-center dark:bg-sky-500/10">
-              <div className="text-[11px] text-sky-600 dark:text-sky-300">Neutro (Tab. 48)</div>
-              <div className="text-lg font-bold text-sky-700 dark:text-sky-300">
-                {nPar > 1 ? `${nPar}× ` : ""}{result.neutro}mm²
-              </div>
-            </div>
-          )}
-          {result.protecao != null && (
-            <div className="rounded-lg bg-lime-50 px-3 py-2 text-center dark:bg-lime-500/10">
-              <div className="text-[11px] text-lime-600 dark:text-lime-300">Proteção/Terra (Tab. 58)</div>
-              <div className="text-lg font-bold text-lime-700 dark:text-lime-300">{result.protecao}mm²</div>
-            </div>
-          )}
-        </div>
-      )}
 
       <div className="space-y-1.5 rounded-lg bg-slate-50 px-3 py-2.5 dark:bg-slate-800">
         <ResultRow label="Corrente de projeto Ib" value={`${fmt(result.corrente, 1)} A`} />
