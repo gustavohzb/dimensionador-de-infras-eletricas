@@ -1,4 +1,4 @@
-import logo from "../assets/logo.png";
+import emblema from "../assets/emblema.png";
 
 const APP_VERSION = "1.0";
 
@@ -19,9 +19,7 @@ export default function SobreTab() {
     <div className="mx-auto max-w-3xl space-y-3">
       <Card>
         <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:text-left">
-          <div className="rounded-xl px-3 py-1.5 dark:bg-slate-100/90">
-            <img src={logo} alt="Dimensionador do Gustavo" className="h-24 w-auto" />
-          </div>
+          <img src={emblema} alt="Dimensionador do Gustavo" className="h-24 w-auto" />
           <div>
             <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100">
               Dimensionador do Gustavo
