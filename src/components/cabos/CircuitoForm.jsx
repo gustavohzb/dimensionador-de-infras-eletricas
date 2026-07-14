@@ -250,7 +250,7 @@ export function CircuitoForm({ value, onChange, showIdentificacao = true, condut
               </button>
             ))}
           </div>
-          <div className="grid grid-cols-3 items-end gap-2">
+          <div className="grid grid-cols-2 items-end gap-2">
             <Field
               label="Condutores carregados"
               tip="Quantos condutores transportam corrente (fases e neutro). Define a coluna da tabela de ampacidade (2 ou 3 carregados) e se o circuito leva neutro e condutor de proteção. Harmônicas >15%: neutro conta como carregado (fator 0,86)."
@@ -261,9 +261,6 @@ export function CircuitoForm({ value, onChange, showIdentificacao = true, condut
                 ))}
               </select>
             </Field>
-            <Field label={esquema?.kQueda === 2 ? "Tensão (V)" : "Tensão de linha (V)"}>
-              <input type="number" min="0" value={c.tensao} onChange={(e) => set({ tensao: e.target.value })} className={inputCls} />
-            </Field>
             <Field
               label="Condutores por fase"
               tip="Cabos em paralelo por fase — a corrente se divide entre eles. Usado quando um cabo só não dá conta ou para facilitar a instalação. Material, seção mínima e tipo do cabo vêm do preset do quadro."
@@ -272,7 +269,10 @@ export function CircuitoForm({ value, onChange, showIdentificacao = true, condut
             </Field>
           </div>
           {c.modo === "corrente" ? (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 items-end gap-2">
+              <Field label={esquema?.kQueda === 2 ? "Tensão (V)" : "Tensão de linha (V)"}>
+                <input type="number" min="0" value={c.tensao} onChange={(e) => set({ tensao: e.target.value })} className={inputCls} />
+              </Field>
               <Field label="Corrente Ib (A)">
                 <input type="number" min="0" value={c.corrente} onChange={(e) => set({ corrente: e.target.value })} className={inputCls} />
               </Field>
@@ -282,7 +282,10 @@ export function CircuitoForm({ value, onChange, showIdentificacao = true, condut
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-[1fr_90px] gap-2">
+              <div className="grid grid-cols-[1fr_1fr_90px] items-end gap-2">
+                <Field label={esquema?.kQueda === 2 ? "Tensão (V)" : "Tensão de linha (V)"}>
+                  <input type="number" min="0" value={c.tensao} onChange={(e) => set({ tensao: e.target.value })} className={inputCls} />
+                </Field>
                 <Field label="Potência">
                   <input type="number" min="0" value={c.potencia} onChange={(e) => set({ potencia: e.target.value })} className={inputCls} />
                 </Field>
