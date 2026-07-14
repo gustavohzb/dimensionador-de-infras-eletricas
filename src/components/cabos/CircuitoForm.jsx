@@ -45,7 +45,6 @@ export const defaultTrecho = () => ({
 // `secaoMaxMultipolar`: multipolar até essa seção, unipolar acima.
 export const defaultPreset = () => ({
   quedaMaxRegime: 4,
-  quedaMaxPartida: 10,
   secaoMinima: 2.5,
   secaoMaxMultipolar: 16,
   material: "cobre", // "cobre" | "aluminio"
@@ -65,6 +64,7 @@ export const defaultCircuito = () => ({
   esquemaId: "trifCnCt",
   tensao: 380,
   formaPartidaId: "nenhuma",
+  quedaMaxPartida: 10, // só se aplica quando formaPartidaId !== "nenhuma" (carga motora)
   porFase: 1,
   trechos: [defaultTrecho()],
 });
@@ -82,7 +82,7 @@ export function computeCircuito(c, preset = defaultPreset()) {
     porFase: Number(c.porFase),
     formaPartidaId: c.formaPartidaId,
     quedaMaxRegime: Number(preset.quedaMaxRegime),
-    quedaMaxPartida: Number(preset.quedaMaxPartida),
+    quedaMaxPartida: Number(c.quedaMaxPartida) || 10,
     secaoMinima: Number(preset.secaoMinima),
     condutorTemp: Number(preset.condutorTemp) || 90,
     // Default de temperatura protege circuitos salvos antes do campo voltar ao trecho.
@@ -298,18 +298,28 @@ export function CircuitoForm({ value, onChange, showIdentificacao = true, condut
               <input type="number" min="0" value={c.tensao} onChange={(e) => set({ tensao: e.target.value })} className={inputCls} />
             </Field>
           </div>
-          <Field
-            label="Forma de partida (motores)"
-            tip="Motores puxam corrente muito maior na partida (Ip = fator × In). A queda de tensão na partida é verificada com essa corrente contra o limite '% na partida'."
-          >
-            <select value={c.formaPartidaId} onChange={(e) => set({ formaPartidaId: e.target.value })} className={inputCls}>
-              {FORMAS_PARTIDA.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.label}{f.fator > 1 ? ` — Ip ≈ ${f.fator}×In` : ""}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <div className={c.formaPartidaId !== "nenhuma" ? "grid grid-cols-2 gap-2" : ""}>
+            <Field
+              label="Forma de partida (motores)"
+              tip="Motores puxam corrente muito maior na partida (Ip = fator × In). A queda de tensão na partida é verificada com essa corrente contra o limite '% na partida'."
+            >
+              <select value={c.formaPartidaId} onChange={(e) => set({ formaPartidaId: e.target.value })} className={inputCls}>
+                {FORMAS_PARTIDA.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.label}{f.fator > 1 ? ` — Ip ≈ ${f.fator}×In` : ""}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {c.formaPartidaId !== "nenhuma" && (
+              <Field
+                label="Queda máx. partida (%)"
+                tip="Limite de queda durante a partida do motor — 10% é o valor usual de projeto para não derrubar contatores nem afetar outras cargas."
+              >
+                <input type="number" min="1" step="0.5" value={c.quedaMaxPartida ?? 10} onChange={(e) => set({ quedaMaxPartida: e.target.value })} className={inputCls} />
+              </Field>
+            )}
+          </div>
         </div>
       </div>
 

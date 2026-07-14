@@ -79,12 +79,6 @@ export default function PresetPanel({ value, onChange }) {
           <input type="number" min="0.5" step="0.5" value={p.quedaMaxRegime} onChange={(e) => set({ quedaMaxRegime: e.target.value })} className={inputCls} />
         </Field>
         <Field
-          label="Queda máx. partida (%)"
-          tip="Limite de queda durante a partida do motor — 10% é o valor usual de projeto para não derrubar contatores nem afetar outras cargas."
-        >
-          <input type="number" min="1" step="0.5" value={p.quedaMaxPartida} onChange={(e) => set({ quedaMaxPartida: e.target.value })} className={inputCls} />
-        </Field>
-        <Field
           label="F.P. (cos φ)"
           tip="Fator de potência do projeto (cos φ), usado na conversão potência → corrente e na queda de tensão. Vale para todos os circuitos."
         >

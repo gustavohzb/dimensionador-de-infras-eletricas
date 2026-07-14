@@ -149,7 +149,7 @@ function blocoCircuito(s, c, r, preset) {
   s.keyValue("Critério dominante", CRITERIO_LABEL[r.criterio]);
   s.keyValue("Capacidade corrigida", `${fmt(r.capacidadeCorrigida, 1)} A`);
   if (r.quedaRegime != null) s.keyValue(`Queda em regime (${fmt(r.comprimentoTotal, 0)}m)`, `${fmt(r.quedaRegime)}%`);
-  if (r.quedaPartida != null) s.keyValue("Queda na partida", `${fmt(r.quedaPartida)}%`);
+  if (r.quedaPartida != null) s.keyValue(`Queda na partida (lim. ${fmt(c.quedaMaxPartida ?? 10, 1)}%)`, `${fmt(r.quedaPartida)}%`);
 
   s.ensureSpace(10);
   s.doc.setFont("helvetica", "bold");
@@ -184,7 +184,7 @@ export async function exportMemorialPDF({ projectName, circuitos, resultados, pr
     const isol = preset.condutorTemp === 70 ? "PVC 70°C" : "EPR/XLPE 90°C";
     s.keyValue(
       "Preset",
-      `${preset.material === "aluminio" ? "Alumínio" : "Cobre"} · ${isol} · seção mín. ${preset.secaoMinima}mm² · multipolar até ${preset.secaoMaxMultipolar}mm² · queda ${preset.quedaMaxRegime}%/${preset.quedaMaxPartida}%`
+      `${preset.material === "aluminio" ? "Alumínio" : "Cobre"} · ${isol} · seção mín. ${preset.secaoMinima}mm² · multipolar até ${preset.secaoMaxMultipolar}mm² · queda regime ${preset.quedaMaxRegime}%`
     );
   }
   s.y += 2;
