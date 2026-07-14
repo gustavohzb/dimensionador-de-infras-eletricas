@@ -178,7 +178,7 @@ export async function exportMemorialPDF({ projectName, circuitos, resultados, pr
   if (preset) {
     s.keyValue(
       "Preset",
-      `${preset.material === "aluminio" ? "Alumínio" : "Cobre"} · ${preset.temperatura}°C · seção mín. ${preset.secaoMinima}mm² · multipolar até ${preset.secaoMaxMultipolar}mm² · queda ${preset.quedaMaxRegime}%/${preset.quedaMaxPartida}%`
+      `${preset.material === "aluminio" ? "Alumínio" : "Cobre"} · seção mín. ${preset.secaoMinima}mm² · multipolar até ${preset.secaoMaxMultipolar}mm² · queda ${preset.quedaMaxRegime}%/${preset.quedaMaxPartida}%`
     );
   }
   s.y += 2;

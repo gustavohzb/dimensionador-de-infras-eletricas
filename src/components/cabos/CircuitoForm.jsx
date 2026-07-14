@@ -1,5 +1,6 @@
 import {
   CONDUTOS, DISTRIBUICOES, ESQUEMAS, FORMAS_PARTIDA,
+  FATOR_TEMP_AMBIENTE, FATOR_TEMP_SOLO,
 } from "../../data/cabosNBR5410";
 import { correnteDeProjeto, dimensionarCircuitoPro, designacaoCabos, UNIDADES_POTENCIA } from "../../lib/cableSizingPro";
 
@@ -34,17 +35,18 @@ export const defaultTrecho = () => ({
   distribuicao: null,
   camadas: 1,
   circuitos: 1,
+  temperatura: 30, // temperatura ambiente/solo do trecho (Tab. 40)
   distancia: 30,
 });
 
 // Preset do projeto: parâmetros que valem para TODOS os circuitos do quadro
-// (fonte única — não são mais editáveis por circuito). O tipo de cabo
+// (fonte única — não são mais editáveis por circuito). A temperatura de cada
+// trecho (ambiente/solo) continua no próprio trecho. O tipo de cabo
 // (unipolar/multipolar) é decidido automaticamente a partir de
 // `secaoMaxMultipolar`: multipolar até essa seção, unipolar acima.
 export const defaultPreset = () => ({
   quedaMaxRegime: 4,
   quedaMaxPartida: 10,
-  temperatura: 30,
   secaoMinima: 2.5,
   secaoMaxMultipolar: 16,
   material: "cobre", // "cobre" | "aluminio"
@@ -70,8 +72,6 @@ export const defaultCircuito = () => ({
 export function computeCircuito(c, preset = defaultPreset()) {
   const ib = correnteDeProjeto(c);
   if (ib.error) return { error: ib.error };
-  // Temperatura do condutor vem do preset e vale para todos os trechos.
-  const trechos = c.trechos.map((t) => ({ ...t, temperatura: preset.temperatura }));
   const base = {
     corrente: ib.corrente,
     esquemaId: c.esquemaId,
@@ -83,7 +83,8 @@ export function computeCircuito(c, preset = defaultPreset()) {
     quedaMaxRegime: Number(preset.quedaMaxRegime),
     quedaMaxPartida: Number(preset.quedaMaxPartida),
     secaoMinima: Number(preset.secaoMinima),
-    trechos,
+    // Default de temperatura protege circuitos salvos antes do campo voltar ao trecho.
+    trechos: c.trechos.map((t) => ({ ...t, temperatura: t.temperatura ?? 30 })),
   };
   // Decisão automática do tipo de cabo: tenta multipolar; se a seção
   // resultante passa do limite do preset (ou nem cabe), refaz como unipolar.
@@ -98,6 +99,7 @@ export function computeCircuito(c, preset = defaultPreset()) {
 
 function TrechoEditor({ trecho, index, onChange, onRemove, removable }) {
   const conduto = CONDUTOS.find((x) => x.id === trecho.condutoId);
+  const temps = Object.keys(conduto?.subterraneo ? FATOR_TEMP_SOLO : FATOR_TEMP_AMBIENTE).map(Number);
   const mostraDistribuicao =
     conduto?.agrupamento === "dutos" ||
     conduto?.id === "leito" ||
@@ -138,6 +140,7 @@ function TrechoEditor({ trecho, index, onChange, onRemove, removable }) {
                 set({
                   condutoId: e.target.value,
                   distribuicao: novo?.agrupamento === "dutos" ? "variosPorDuto" : null,
+                  temperatura: novo?.subterraneo ? 20 : 30,
                 });
               }}
               className={inputCls}
@@ -167,7 +170,7 @@ function TrechoEditor({ trecho, index, onChange, onRemove, removable }) {
             </select>
           </Field>
         )}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <Field
             label="Circuitos agrup."
             tip="Total de circuitos que dividem este conduto (incluindo este). Mais circuitos juntos = menos dissipação de calor = fator de agrupamento (FCA) menor — Tab. 42/45."
@@ -185,6 +188,16 @@ function TrechoEditor({ trecho, index, onChange, onRemove, removable }) {
           ) : (
             <div />
           )}
+          <Field
+            label={conduto?.subterraneo ? "Temp. solo (°C)" : "Temp. amb. (°C)"}
+            tip="Temperatura ambiente (ou do solo, em dutos enterrados) no entorno do cabo neste trecho. Acima da referência (30°C no ar, 20°C no solo) a capacidade cai — fator FCT da Tab. 40."
+          >
+            <select value={trecho.temperatura ?? 30} onChange={(e) => set({ temperatura: Number(e.target.value) })} className={inputCls}>
+              {temps.map((t) => (
+                <option key={t} value={t}>{t}°C</option>
+              ))}
+            </select>
+          </Field>
         </div>
       </div>
     </div>

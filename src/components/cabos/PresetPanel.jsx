@@ -1,12 +1,11 @@
-import { SECOES, FATOR_TEMP_AMBIENTE } from "../../data/cabosNBR5410";
+import { SECOES } from "../../data/cabosNBR5410";
 import { Field } from "./CircuitoForm";
 
 const inputCls =
   "w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100";
 
-const TEMPS = Object.keys(FATOR_TEMP_AMBIENTE).map(Number);
-
 // Preset do quadro: parâmetros únicos que valem para todos os circuitos.
+// A temperatura ambiente/solo fica em cada trecho (não é global).
 export default function PresetPanel({ value, onChange }) {
   const p = value;
   const set = (patch) => onChange({ ...p, ...patch });
@@ -29,16 +28,6 @@ export default function PresetPanel({ value, onChange }) {
           <select value={p.material} onChange={(e) => set({ material: e.target.value })} className={inputCls}>
             <option value="cobre">Cobre</option>
             <option value="aluminio">Alumínio</option>
-          </select>
-        </Field>
-        <Field
-          label="Temp. condutor (°C)"
-          tip="Temperatura ambiente/solo usada em todos os trechos de todos os circuitos. Acima da referência (30°C ar, 20°C solo) a capacidade cai — fator FCT da Tab. 40."
-        >
-          <select value={p.temperatura} onChange={(e) => set({ temperatura: Number(e.target.value) })} className={inputCls}>
-            {TEMPS.map((t) => (
-              <option key={t} value={t}>{t}°C</option>
-            ))}
           </select>
         </Field>
         <Field
