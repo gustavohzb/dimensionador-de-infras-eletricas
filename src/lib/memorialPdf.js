@@ -78,14 +78,17 @@ function novoDoc(jsPDF, orientation) {
     );
     state.y += 9;
   };
-  state.rodape = () => {
+  state.rodape = (preset) => {
     state.ensureSpace(14);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(100, 116, 139);
+    const pvc = preset?.condutorTemp === 70;
+    const isol = pvc ? "PVC 70°C" : "EPR/XLPE 90°C";
+    const tabs = pvc ? "36/38/40/42/45/46/48/58" : "37/39/40/42/45/46/48/58";
     doc.text(
       doc.splitTextToSize(
-        "Cálculo conforme NBR 5410 (Tabelas 37/39/40/42/45/46/48/58), condutores com isolação EPR/XLPE 90°C. Queda de tensão com resistência a 90°C e reatância típica de projeto. Não substitui a coordenação com a proteção (Ib <= In <= Iz) nem a verificação de curto-circuito.",
+        `Cálculo conforme NBR 5410 (Tabelas ${tabs}), condutores com isolação ${isol}. Queda de tensão com resistência na temperatura de operação e reatância típica de projeto. Não substitui a coordenação com a proteção (Ib <= In <= Iz) nem a verificação de curto-circuito.`,
         state.contentW
       ),
       margin,
@@ -102,13 +105,14 @@ function blocoCircuito(s, c, r, preset) {
   const esquema = ESQUEMAS.find((e) => e.id === c.esquemaId);
   const partida = FORMAS_PARTIDA.find((f) => f.id === c.formaPartidaId);
   const material = preset?.material === "aluminio" ? "Alumínio" : "Cobre";
+  const isolacao = preset?.condutorTemp === 70 ? "PVC 70°C" : "EPR/XLPE 90°C";
 
   s.sectionTitle(`${c.tag}${c.descricao ? ` — ${c.descricao}` : ""}`);
   s.keyValue("Carga", cargaLabel(c));
   s.keyValue("Condutores carregados", esquema?.label ?? "—");
   s.keyValue("Tensão", `${c.tensao} V`);
   if (partida && partida.fator > 1) s.keyValue("Forma de partida", `${partida.label} (Ip ~ ${partida.fator}×In)`);
-  s.keyValue("Condutor", `${material} ${r.tipoCabo ?? ""} — ${c.porFase}× por fase`.replace("  ", " "));
+  s.keyValue("Condutor", `${material} ${isolacao} ${r.tipoCabo ?? ""} — ${c.porFase}× por fase`.replace(/\s+/g, " ").trim());
 
   if (r.error) {
     s.ensureSpace(8);
@@ -164,7 +168,7 @@ export async function exportCircuitoPDF({ circuito, result, preset }) {
   const s = novoDoc(jsPDF, "portrait");
   s.header("Memorial de Dimensionamento de Cabo");
   blocoCircuito(s, circuito, result, preset);
-  s.rodape();
+  s.rodape(preset);
   const nome = (circuito.tag || "circuito").replace(/[^\w\dÀ-ÿ -]+/g, "").trim() || "circuito";
   s.doc.save(`memorial-${nome}.pdf`);
 }
@@ -176,9 +180,10 @@ export async function exportMemorialPDF({ projectName, circuitos, resultados, pr
   s.header("Memorial de Cálculo — Quadro de Cargas");
   if (projectName) s.keyValue("Projeto", projectName);
   if (preset) {
+    const isol = preset.condutorTemp === 70 ? "PVC 70°C" : "EPR/XLPE 90°C";
     s.keyValue(
       "Preset",
-      `${preset.material === "aluminio" ? "Alumínio" : "Cobre"} · seção mín. ${preset.secaoMinima}mm² · multipolar até ${preset.secaoMaxMultipolar}mm² · queda ${preset.quedaMaxRegime}%/${preset.quedaMaxPartida}%`
+      `${preset.material === "aluminio" ? "Alumínio" : "Cobre"} · ${isol} · seção mín. ${preset.secaoMinima}mm² · multipolar até ${preset.secaoMaxMultipolar}mm² · queda ${preset.quedaMaxRegime}%/${preset.quedaMaxPartida}%`
     );
   }
   s.y += 2;
@@ -252,7 +257,7 @@ export async function exportMemorialPDF({ projectName, circuitos, resultados, pr
 
   // Detalhamento por circuito
   circuitos.forEach((c, i) => blocoCircuito(s, c, resultados[i], preset));
-  s.rodape();
+  s.rodape(preset);
 
   const nome = (projectName || "quadro-de-cargas").replace(/[^\w\dÀ-ÿ -]+/g, "").trim() || "quadro-de-cargas";
   s.doc.save(`memorial-${nome}.pdf`);

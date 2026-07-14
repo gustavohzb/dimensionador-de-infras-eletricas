@@ -1,4 +1,4 @@
-import { SECOES } from "../../data/cabosNBR5410";
+import { SECOES, CONDUTOR_TEMPS } from "../../data/cabosNBR5410";
 import { Field } from "./CircuitoForm";
 
 const inputCls =
@@ -28,6 +28,16 @@ export default function PresetPanel({ value, onChange }) {
           <select value={p.material} onChange={(e) => set({ material: e.target.value })} className={inputCls}>
             <option value="cobre">Cobre</option>
             <option value="aluminio">Alumínio</option>
+          </select>
+        </Field>
+        <Field
+          label="Temp. do condutor"
+          tip="Isolação/temperatura do condutor. Muda a tabela de ampacidade (Tab. 37/39 para 90°C EPR/XLPE; Tab. 36/38 para 70°C PVC), os fatores de temperatura (Tab. 40) e a resistência na queda de tensão. O PVC admite ambiente até 60°C."
+        >
+          <select value={p.condutorTemp ?? 90} onChange={(e) => set({ condutorTemp: Number(e.target.value) })} className={inputCls}>
+            {CONDUTOR_TEMPS.map((t) => (
+              <option key={t.id} value={t.id}>{t.label}</option>
+            ))}
           </select>
         </Field>
         <Field

@@ -7,6 +7,9 @@
 // Valores conferidos contra a norma.
 
 import { CAPACIDADE as CAPACIDADE_CU_37 } from "./nbr5410Ampacidade";
+import {
+  PVC_CU, PVC_AL, FATOR_TEMP_AMBIENTE_PVC, FATOR_TEMP_SOLO_PVC,
+} from "./nbr5410AmpacidadePvc";
 
 // ---------------------------------------------------------------------------
 // Ampacidade (A). Formato por método:
@@ -67,10 +70,27 @@ const G_AL = {
   240: [611, 561], 300: [708, 652],
 };
 
-export const TABELAS = {
+// Tabelas de ampacidade por temperatura do condutor (isolação):
+//   90 → EPR/XLPE (Tab. 37/39);  70 → PVC (Tab. 36/38).
+const TABELAS_90 = {
   cobre: { ...CAPACIDADE_CU_37, F: F_CU, G: G_CU },
   aluminio: { ...AL_37, F: F_AL, G: G_AL },
 };
+const TABELAS_70 = {
+  cobre: { B1: PVC_CU.B1, B2: PVC_CU.B2, C: PVC_CU.C, D: PVC_CU.D, E: PVC_CU.E, F: PVC_CU.F, G: PVC_CU.G },
+  aluminio: { B1: PVC_AL.B1, B2: PVC_AL.B2, C: PVC_AL.C, D: PVC_AL.D, E: PVC_AL.E, F: PVC_AL.F, G: PVC_AL.G },
+};
+
+export const TABELAS_POR_TEMP = { 70: TABELAS_70, 90: TABELAS_90 };
+
+// Retrocompat.: consumidores antigos que não passam a temperatura usam 90°C.
+export const TABELAS = TABELAS_90;
+
+// Temperaturas de condutor (isolação) disponíveis.
+export const CONDUTOR_TEMPS = [
+  { id: 90, label: "90°C — EPR/XLPE" },
+  { id: 70, label: "70°C — PVC" },
+];
 
 export const SECOES = Object.keys(CAPACIDADE_CU_37.B1)
   .map(Number)
@@ -145,9 +165,23 @@ export const FATOR_TEMP_SOLO = {
   45: 0.8, 50: 0.76, 55: 0.71, 60: 0.65, 65: 0.6, 70: 0.53, 75: 0.46, 80: 0.38,
 };
 
-export function fatorTemperatura(tempC, subterraneo) {
-  const tab = subterraneo ? FATOR_TEMP_SOLO : FATOR_TEMP_AMBIENTE;
+// Fatores de temperatura por isolação: 90 → EPR/XLPE; 70 → PVC (Tab. 40).
+const FATOR_TEMP_POR_TEMP = {
+  90: { ambiente: FATOR_TEMP_AMBIENTE, solo: FATOR_TEMP_SOLO },
+  70: { ambiente: FATOR_TEMP_AMBIENTE_PVC, solo: FATOR_TEMP_SOLO_PVC },
+};
+
+export function fatorTemperatura(tempC, subterraneo, condutorTemp = 90) {
+  const grupo = FATOR_TEMP_POR_TEMP[condutorTemp] ?? FATOR_TEMP_POR_TEMP[90];
+  const tab = subterraneo ? grupo.solo : grupo.ambiente;
   return tab[tempC] ?? null;
+}
+
+// Temperaturas ambiente/solo disponíveis para uma isolação (o PVC para em 60°C).
+export function temperaturasTrecho(subterraneo, condutorTemp = 90) {
+  const grupo = FATOR_TEMP_POR_TEMP[condutorTemp] ?? FATOR_TEMP_POR_TEMP[90];
+  const tab = subterraneo ? grupo.solo : grupo.ambiente;
+  return Object.keys(tab).map(Number).sort((a, b) => a - b);
 }
 
 // ---------------------------------------------------------------------------

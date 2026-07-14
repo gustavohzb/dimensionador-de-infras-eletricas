@@ -5,13 +5,17 @@
 // trecho define a seção por capacidade; a soma das distâncias define a queda.
 
 import {
-  TABELAS, SECOES, CONDUTOS, ESQUEMAS, FORMAS_PARTIDA,
+  TABELAS_POR_TEMP, SECOES, CONDUTOS, ESQUEMAS, FORMAS_PARTIDA,
   fatorAgrupamento, fatorTemperatura, secaoNeutro, secaoProtecao,
   SECAO_MINIMA_MATERIAL,
 } from "../data/cabosNBR5410";
 
-// Resistividade a 90°C (Ω·mm²/m): ρ20 × (1 + α·70).
-const RHO = { cobre: 0.022, aluminio: 0.0362 };
+// Resistividade na temperatura de operação do condutor (Ω·mm²/m): ρ20×(1+α·ΔT).
+// 90°C → EPR/XLPE; 70°C → PVC.
+const RHO_POR_TEMP = {
+  90: { cobre: 0.022, aluminio: 0.0362 },
+  70: { cobre: 0.0206, aluminio: 0.034 },
+};
 // Reatância indutiva típica (Ω/km): unipolares em trifólio/feixe ≈ 0,08;
 // cabos multipolares ≈ 0,09. Valor de projeto usual em memoriais.
 const REATANCIA = { unipolar: 0.08, multipolar: 0.09 };
@@ -72,9 +76,9 @@ export function designacaoCabos({ esquemaId, tipoCabo, result }) {
 }
 
 // Coluna de ampacidade para um trecho: devolve função (seção) → A admissível.
-function colunaAmpacidade({ material, conduto, tipoCabo, distribuicao, carregados }) {
+// `tab` já é o conjunto de tabelas do material na temperatura escolhida.
+function colunaAmpacidade({ tab, conduto, tipoCabo, distribuicao, carregados }) {
   const metodo = tipoCabo === "unipolar" ? conduto.uni : conduto.multi;
-  const tab = TABELAS[material];
   if (metodo === "F") {
     // Tab. 39 unipolares: espaçados → método G (horizontal); contíguos →
     // trifólio ou mesmo plano justapostos; 2 carregados → coluna própria.
@@ -100,8 +104,8 @@ function contextoAgrupamento(conduto, distribuicao, camadas) {
 }
 
 // Queda de tensão percentual para uma seção (por fase, corrente total).
-function quedaPct({ secao, corrente, comprimento, tensao, material, tipoCabo, kQueda, fp, porFase }) {
-  const r = (RHO[material] * 1000) / (secao * porFase); // Ω/km do conjunto
+function quedaPct({ secao, corrente, comprimento, tensao, rho, tipoCabo, kQueda, fp, porFase }) {
+  const r = (rho * 1000) / (secao * porFase); // Ω/km do conjunto
   const x = REATANCIA[tipoCabo] / porFase;
   const cosf = Math.min(1, Math.max(0, fp));
   const senf = Math.sqrt(1 - cosf * cosf);
@@ -122,6 +126,7 @@ export function dimensionarCircuitoPro({
   quedaMaxRegime = 4,
   quedaMaxPartida = 10,
   secaoMinima = null, // mm² (opcional; além do mínimo do material)
+  condutorTemp = 90, // 90 → EPR/XLPE | 70 → PVC
   trechos, // [{ condutoId, distribuicao, camadas, circuitos, temperatura, distancia }]
 }) {
   const esquema = ESQUEMAS.find((e) => e.id === esquemaId);
@@ -129,6 +134,9 @@ export function dimensionarCircuitoPro({
   if (!(corrente > 0)) return { error: "Informe a corrente de projeto." };
   if (!trechos?.length) return { error: "Adicione ao menos um trecho." };
 
+  const tabelas = TABELAS_POR_TEMP[condutorTemp] ?? TABELAS_POR_TEMP[90];
+  const tabMaterial = tabelas[material];
+  const rho = (RHO_POR_TEMP[condutorTemp] ?? RHO_POR_TEMP[90])[material];
   const nPar = Math.max(1, Math.round(porFase));
   const correntePorCabo = corrente / nPar;
   const partida = FORMAS_PARTIDA.find((f) => f.id === formaPartidaId) ?? FORMAS_PARTIDA[0];
@@ -139,13 +147,16 @@ export function dimensionarCircuitoPro({
   for (const t of trechos) {
     const conduto = CONDUTOS.find((c) => c.id === t.condutoId);
     if (!conduto) return { error: `Conduto inválido no trecho.` };
-    const fct = fatorTemperatura(Number(t.temperatura), conduto.subterraneo);
-    if (fct == null) return { error: `Temperatura ${t.temperatura}°C fora da Tabela 40.` };
+    const fct = fatorTemperatura(Number(t.temperatura), conduto.subterraneo, condutorTemp);
+    if (fct == null) {
+      const lim = condutorTemp === 70 ? " (PVC vai até 60°C)" : "";
+      return { error: `Temperatura ${t.temperatura}°C fora da Tabela 40${lim}.` };
+    }
     const ctx = contextoAgrupamento(conduto, t.distribuicao, Number(t.camadas) || 1);
     let fca = fatorAgrupamento(ctx, Number(t.circuitos) || 1);
     if (esquema.harmonicas) fca *= 0.86; // neutro carregado — NBR 5410 Tab. 46
     const col = colunaAmpacidade({
-      material, conduto, tipoCabo, distribuicao: t.distribuicao,
+      tab: tabMaterial, conduto, tipoCabo, distribuicao: t.distribuicao,
       carregados: esquema.carregados,
     });
     const iCorrigida = correntePorCabo / (fct * fca);
@@ -166,7 +177,7 @@ export function dimensionarCircuitoPro({
   const checaQueda = comprimentoTotal > 0 && Number(tensao) > 0;
   const argsQueda = {
     corrente, comprimento: comprimentoTotal, tensao: Number(tensao),
-    material, tipoCabo, kQueda: esquema.kQueda, fp: Number(fp) || 0.92, porFase: nPar,
+    rho, tipoCabo, kQueda: esquema.kQueda, fp: Number(fp) || 0.92, porFase: nPar,
   };
   const secaoQuedaRegime = checaQueda
     ? SECOES.find((s) => quedaPct({ ...argsQueda, secao: s }) <= quedaMaxRegime)

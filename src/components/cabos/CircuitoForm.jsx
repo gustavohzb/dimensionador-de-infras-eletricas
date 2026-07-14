@@ -1,6 +1,5 @@
 import {
-  CONDUTOS, DISTRIBUICOES, ESQUEMAS, FORMAS_PARTIDA,
-  FATOR_TEMP_AMBIENTE, FATOR_TEMP_SOLO,
+  CONDUTOS, DISTRIBUICOES, ESQUEMAS, FORMAS_PARTIDA, temperaturasTrecho,
 } from "../../data/cabosNBR5410";
 import { correnteDeProjeto, dimensionarCircuitoPro, designacaoCabos, UNIDADES_POTENCIA } from "../../lib/cableSizingPro";
 
@@ -50,6 +49,7 @@ export const defaultPreset = () => ({
   secaoMinima: 2.5,
   secaoMaxMultipolar: 16,
   material: "cobre", // "cobre" | "aluminio"
+  condutorTemp: 90, // 90 → EPR/XLPE | 70 → PVC
 });
 
 export const defaultCircuito = () => ({
@@ -83,6 +83,7 @@ export function computeCircuito(c, preset = defaultPreset()) {
     quedaMaxRegime: Number(preset.quedaMaxRegime),
     quedaMaxPartida: Number(preset.quedaMaxPartida),
     secaoMinima: Number(preset.secaoMinima),
+    condutorTemp: Number(preset.condutorTemp) || 90,
     // Default de temperatura protege circuitos salvos antes do campo voltar ao trecho.
     trechos: c.trechos.map((t) => ({ ...t, temperatura: t.temperatura ?? 30 })),
   };
@@ -97,9 +98,9 @@ export function computeCircuito(c, preset = defaultPreset()) {
   return r.error ? r : { ...r, tipoCabo };
 }
 
-function TrechoEditor({ trecho, index, onChange, onRemove, removable }) {
+function TrechoEditor({ trecho, index, onChange, onRemove, removable, condutorTemp }) {
   const conduto = CONDUTOS.find((x) => x.id === trecho.condutoId);
-  const temps = Object.keys(conduto?.subterraneo ? FATOR_TEMP_SOLO : FATOR_TEMP_AMBIENTE).map(Number);
+  const temps = temperaturasTrecho(conduto?.subterraneo, condutorTemp);
   const mostraDistribuicao =
     conduto?.agrupamento === "dutos" ||
     conduto?.id === "leito" ||
@@ -204,7 +205,7 @@ function TrechoEditor({ trecho, index, onChange, onRemove, removable }) {
   );
 }
 
-export function CircuitoForm({ value, onChange, showIdentificacao = true }) {
+export function CircuitoForm({ value, onChange, showIdentificacao = true, condutorTemp = 90 }) {
   const c = value;
   const set = (patch) => onChange({ ...c, ...patch });
   const setTrecho = (i, t) => {
@@ -345,6 +346,7 @@ export function CircuitoForm({ value, onChange, showIdentificacao = true }) {
               key={i}
               trecho={t}
               index={i}
+              condutorTemp={condutorTemp}
               removable={c.trechos.length > 1}
               onChange={(nt) => setTrecho(i, nt)}
               onRemove={() => set({ trechos: c.trechos.filter((_, j) => j !== i) })}
@@ -382,7 +384,7 @@ export const CRITERIO_LABEL = {
   minima: "seção mínima",
 };
 
-export function ResultadoCircuito({ result, esquemaId, porFase }) {
+export function ResultadoCircuito({ result, esquemaId, porFase, condutorTemp = 90 }) {
   if (result.error) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-500/10 dark:text-red-300">
@@ -392,6 +394,7 @@ export function ResultadoCircuito({ result, esquemaId, porFase }) {
   }
   const esquema = ESQUEMAS.find((e) => e.id === esquemaId);
   const nPar = result.porFase ?? porFase ?? 1;
+  const isolacaoLabel = condutorTemp === 70 ? "PVC 70°C" : "EPR/XLPE 90°C";
   const designacao = designacaoCabos({ esquemaId, tipoCabo: result.tipoCabo, result });
 
   return (
@@ -399,7 +402,7 @@ export function ResultadoCircuito({ result, esquemaId, porFase }) {
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-emerald-50 px-4 py-3 dark:bg-emerald-500/10">
         <div>
           <div className="text-xs text-emerald-700 dark:text-emerald-300">
-            Cabos do circuito (EPR/XLPE 90°C)
+            Cabos do circuito ({isolacaoLabel})
           </div>
           <div className="text-[11px] text-emerald-600/80 dark:text-emerald-400/70">
             critério dominante: {CRITERIO_LABEL[result.criterio]}
@@ -462,9 +465,13 @@ export function ResultadoCircuito({ result, esquemaId, porFase }) {
       )}
 
       <p className="text-[11px] leading-relaxed text-slate-400 dark:text-slate-500">
-        Cálculo conforme NBR 5410 (Tabelas 37/39/40/42/45/46/48/58) para isolação EPR/XLPE 90°C.
-        Queda de tensão com R a 90°C e reatância típica de projeto. Não substitui a coordenação com a
-        proteção (Ib ≤ In ≤ Iz) nem a verificação de curto-circuito — confira no projeto executivo.
+        Cálculo conforme NBR 5410 para isolação {isolacaoLabel}
+        {condutorTemp === 70
+          ? " (Tabelas 36/38/40/42/45/46/48/58)"
+          : " (Tabelas 37/39/40/42/45/46/48/58)"}.
+        Queda de tensão com R na temperatura de operação e reatância típica de projeto. Não substitui
+        a coordenação com a proteção (Ib ≤ In ≤ Iz) nem a verificação de curto-circuito — confira no
+        projeto executivo.
       </p>
     </div>
   );

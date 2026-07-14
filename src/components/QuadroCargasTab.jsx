@@ -280,7 +280,7 @@ export default function QuadroCargasTab() {
                 {atual.tag}{atual.descricao ? ` — ${atual.descricao}` : ""}
               </span>
             </div>
-            <CircuitoForm value={atual} onChange={setAtual} />
+            <CircuitoForm value={atual} onChange={setAtual} condutorTemp={preset.condutorTemp} />
           </section>
           <section>
             <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -302,6 +302,7 @@ export default function QuadroCargasTab() {
                 result={resultados[selecionado]}
                 esquemaId={atual.esquemaId}
                 porFase={Number(atual.porFase)}
+                condutorTemp={preset.condutorTemp}
               />
             </div>
           </section>
