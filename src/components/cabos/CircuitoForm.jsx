@@ -283,7 +283,7 @@ export function CircuitoForm({ value, onChange, showIdentificacao = true, condut
               </div>
             </>
           )}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <Field
               label="Condutores carregados"
               tip="Quantos condutores transportam corrente (fases e neutro). Define a coluna da tabela de ampacidade (2 ou 3 carregados) e se o circuito leva neutro e condutor de proteção. Harmônicas >15%: neutro conta como carregado (fator 0,86)."
@@ -296,6 +296,12 @@ export function CircuitoForm({ value, onChange, showIdentificacao = true, condut
             </Field>
             <Field label={esquema?.kQueda === 2 ? "Tensão (V)" : "Tensão de linha (V)"}>
               <input type="number" min="0" value={c.tensao} onChange={(e) => set({ tensao: e.target.value })} className={inputCls} />
+            </Field>
+            <Field
+              label="Condutores por fase"
+              tip="Cabos em paralelo por fase — a corrente se divide entre eles. Usado quando um cabo só não dá conta ou para facilitar a instalação. Material, seção mínima e tipo do cabo vêm do preset do quadro."
+            >
+              <input type="number" min="1" max="6" value={c.porFase} onChange={(e) => set({ porFase: e.target.value })} className={inputCls} />
             </Field>
           </div>
           <div className={c.formaPartidaId !== "nenhuma" ? "grid grid-cols-2 gap-2" : ""}>
@@ -321,16 +327,6 @@ export function CircuitoForm({ value, onChange, showIdentificacao = true, condut
             )}
           </div>
         </div>
-      </div>
-
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-200">Condutor</h2>
-        <Field
-          label="Condutores por fase"
-          tip="Cabos em paralelo por fase — a corrente se divide entre eles. Usado quando um cabo só não dá conta ou para facilitar a instalação. Material, seção mínima e tipo do cabo vêm do preset do quadro."
-        >
-          <input type="number" min="1" max="6" value={c.porFase} onChange={(e) => set({ porFase: e.target.value })} className={inputCls} />
-        </Field>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
