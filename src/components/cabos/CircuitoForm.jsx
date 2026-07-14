@@ -250,6 +250,27 @@ export function CircuitoForm({ value, onChange, showIdentificacao = true, condut
               </button>
             ))}
           </div>
+          <div className="grid grid-cols-3 items-end gap-2">
+            <Field
+              label="Condutores carregados"
+              tip="Quantos condutores transportam corrente (fases e neutro). Define a coluna da tabela de ampacidade (2 ou 3 carregados) e se o circuito leva neutro e condutor de proteção. Harmônicas >15%: neutro conta como carregado (fator 0,86)."
+            >
+              <select value={c.esquemaId} onChange={(e) => set({ esquemaId: e.target.value })} className={inputCls}>
+                {ESQUEMAS.map((e2) => (
+                  <option key={e2.id} value={e2.id}>{e2.label}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label={esquema?.kQueda === 2 ? "Tensão (V)" : "Tensão de linha (V)"}>
+              <input type="number" min="0" value={c.tensao} onChange={(e) => set({ tensao: e.target.value })} className={inputCls} />
+            </Field>
+            <Field
+              label="Condutores por fase"
+              tip="Cabos em paralelo por fase — a corrente se divide entre eles. Usado quando um cabo só não dá conta ou para facilitar a instalação. Material, seção mínima e tipo do cabo vêm do preset do quadro."
+            >
+              <input type="number" min="1" max="6" value={c.porFase} onChange={(e) => set({ porFase: e.target.value })} className={inputCls} />
+            </Field>
+          </div>
           {c.modo === "corrente" ? (
             <div className="grid grid-cols-2 gap-2">
               <Field label="Corrente Ib (A)">
@@ -283,27 +304,6 @@ export function CircuitoForm({ value, onChange, showIdentificacao = true, condut
               </div>
             </>
           )}
-          <div className="grid grid-cols-3 items-end gap-2">
-            <Field
-              label="Condutores carregados"
-              tip="Quantos condutores transportam corrente (fases e neutro). Define a coluna da tabela de ampacidade (2 ou 3 carregados) e se o circuito leva neutro e condutor de proteção. Harmônicas >15%: neutro conta como carregado (fator 0,86)."
-            >
-              <select value={c.esquemaId} onChange={(e) => set({ esquemaId: e.target.value })} className={inputCls}>
-                {ESQUEMAS.map((e2) => (
-                  <option key={e2.id} value={e2.id}>{e2.label}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label={esquema?.kQueda === 2 ? "Tensão (V)" : "Tensão de linha (V)"}>
-              <input type="number" min="0" value={c.tensao} onChange={(e) => set({ tensao: e.target.value })} className={inputCls} />
-            </Field>
-            <Field
-              label="Condutores por fase"
-              tip="Cabos em paralelo por fase — a corrente se divide entre eles. Usado quando um cabo só não dá conta ou para facilitar a instalação. Material, seção mínima e tipo do cabo vêm do preset do quadro."
-            >
-              <input type="number" min="1" max="6" value={c.porFase} onChange={(e) => set({ porFase: e.target.value })} className={inputCls} />
-            </Field>
-          </div>
           <div className={c.formaPartidaId !== "nenhuma" ? "grid grid-cols-2 gap-2" : ""}>
             <Field
               label="Forma de partida (motores)"
