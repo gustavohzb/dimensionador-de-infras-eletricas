@@ -392,6 +392,17 @@ export const CRITERIO_LABEL = {
   minima: "seção mínima",
 };
 
+// Siglas para caber em colunas estreitas (tabela do quadro e memorial PDF).
+export const CRITERIO_SIGLA = {
+  capacidade: "CC",
+  quedaRegime: "QR",
+  quedaPartida: "QP",
+  minima: "SM",
+};
+
+export const CRITERIO_LEGENDA =
+  "CC: capacidade de condução · QR: queda de tensão em regime · QP: queda de tensão na partida · SM: seção mínima";
+
 export function ResultadoCircuito({ result, esquemaId, porFase, condutorTemp = 90 }) {
   if (result.error) {
     return (

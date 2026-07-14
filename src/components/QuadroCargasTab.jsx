@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  CircuitoForm, ResultadoCircuito, computeCircuito, defaultCircuito, defaultPreset, CRITERIO_LABEL,
+  CircuitoForm, ResultadoCircuito, computeCircuito, defaultCircuito, defaultPreset, CRITERIO_LABEL, CRITERIO_SIGLA, CRITERIO_LEGENDA,
 } from "./cabos/CircuitoForm";
 import PresetPanel from "./cabos/PresetPanel";
 import ProjectsPanel from "./ProjectsPanel";
@@ -194,7 +194,16 @@ export default function QuadroCargasTab() {
                     ⓘ
                   </span>
                 </th>
-                <th className="px-2 py-1.5">Critério</th>
+                <th className="px-2 py-1.5">
+                  Critério
+                  <span
+                    title={CRITERIO_LEGENDA}
+                    className="ml-1 inline-block cursor-help select-none rounded-full text-[10px] normal-case text-slate-400 dark:text-slate-500"
+                    aria-label="Legenda dos critérios"
+                  >
+                    ⓘ
+                  </span>
+                </th>
                 <th className="px-2 py-1.5" />
               </tr>
             </thead>
@@ -231,8 +240,8 @@ export default function QuadroCargasTab() {
                         </td>
                         <td className="px-2 py-1.5 text-slate-700 dark:text-slate-200">{fmt(r.quedaRegime)}</td>
                         <td className="px-2 py-1.5 text-slate-700 dark:text-slate-200">{fmt(r.quedaPartida)}</td>
-                        <td className="px-2 py-1.5 text-slate-500 dark:text-slate-400">
-                          {CRITERIO_LABEL[r.criterio]}
+                        <td className="px-2 py-1.5 text-slate-500 dark:text-slate-400" title={CRITERIO_LABEL[r.criterio]}>
+                          {CRITERIO_SIGLA[r.criterio]}
                         </td>
                       </>
                     )}
@@ -267,6 +276,7 @@ export default function QuadroCargasTab() {
             </tbody>
           </table>
         </div>
+        <p className="mt-1.5 text-[11px] text-slate-400 dark:text-slate-500">{CRITERIO_LEGENDA}</p>
       </div>
 
       {atual && (

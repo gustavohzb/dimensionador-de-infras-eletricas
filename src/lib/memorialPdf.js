@@ -4,7 +4,7 @@
 
 import { ESQUEMAS, FORMAS_PARTIDA } from "../data/cabosNBR5410";
 import { designacaoCabos } from "./cableSizingPro";
-import { CRITERIO_LABEL } from "../components/cabos/CircuitoForm";
+import { CRITERIO_LABEL, CRITERIO_SIGLA, CRITERIO_LEGENDA } from "../components/cabos/CircuitoForm";
 
 const fmt = (n, d = 2) => (n == null ? "—" : Number(n).toFixed(d).replace(".", ","));
 
@@ -193,7 +193,7 @@ export async function exportMemorialPDF({ projectName, circuitos, resultados, pr
   const cols = [
     { w: 9, label: "Nº", get: (c, r, i) => String(i + 1).padStart(2, "0") },
     { w: 20, label: "TAG", get: (c) => c.tag },
-    { w: 44, label: "Descrição", get: (c) => c.descricao || "—" },
+    { w: 58, label: "Descrição", get: (c) => c.descricao || "—" },
     { w: 16, label: "Tensão", get: (c) => `${c.tensao}V` },
     { w: 44, label: "Carga", get: (c) => cargaLabel(c, preset) },
     { w: 16, label: "Ib (A)", get: (c, r) => (r.error ? "—" : fmt(r.corrente, 1)) },
@@ -204,7 +204,7 @@ export async function exportMemorialPDF({ projectName, circuitos, resultados, pr
     },
     { w: 14, label: "%R", get: (c, r) => (r.error ? "—" : fmt(r.quedaRegime)) },
     { w: 14, label: "%P", get: (c, r) => (r.error ? "—" : fmt(r.quedaPartida)) },
-    { w: 32, label: "Critério", get: (c, r) => (r.error ? "—" : CRITERIO_LABEL[r.criterio]) },
+    { w: 18, label: "Critério", get: (c, r) => (r.error ? "—" : CRITERIO_SIGLA[r.criterio]) },
   ];
 
   const drawHeader = () => {
@@ -250,7 +250,7 @@ export async function exportMemorialPDF({ projectName, circuitos, resultados, pr
   s.doc.setFontSize(7.5);
   s.doc.setTextColor(100, 116, 139);
   s.doc.text(
-    "%R: queda de tensão em regime (limite usual 4%). %P: queda de tensão na partida do motor, quando aplicável (limite usual 10%).",
+    `%R: queda de tensão em regime (limite usual 4%). %P: queda de tensão na partida do motor, quando aplicável (limite usual 10%). ${CRITERIO_LEGENDA}.`,
     s.margin,
     s.y
   );
