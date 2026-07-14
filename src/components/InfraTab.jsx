@@ -314,10 +314,12 @@ export default function InfraTab({ dark }) {
             </>
           )}
 
-          <div className={cardCls}>
-            <h2 className={h2Cls}>Importar do memorial de cálculo</h2>
-            <ImportarPlanilha onImport={addCable} onImportTrifolio={addTrifolio} />
-          </div>
+          {mode === "buscar" && (
+            <div className={cardCls}>
+              <h2 className={h2Cls}>Importar do memorial de cálculo</h2>
+              <ImportarPlanilha onImport={addCable} onImportTrifolio={addTrifolio} />
+            </div>
+          )}
 
           <div className={cardCls}>
             <h2 className={h2Cls}>Adicionar cabo</h2>
