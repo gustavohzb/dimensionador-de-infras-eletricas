@@ -96,16 +96,19 @@ function novoDoc(jsPDF, orientation) {
 }
 
 // Bloco de detalhamento de um circuito (compartilhado pelos dois relatórios).
-function blocoCircuito(s, c, r) {
+// `preset` fornece material e temperatura (globais do quadro); o tipo de cabo
+// vem do resultado (decidido automaticamente pela seção máxima multipolar).
+function blocoCircuito(s, c, r, preset) {
   const esquema = ESQUEMAS.find((e) => e.id === c.esquemaId);
   const partida = FORMAS_PARTIDA.find((f) => f.id === c.formaPartidaId);
+  const material = preset?.material === "aluminio" ? "Alumínio" : "Cobre";
 
   s.sectionTitle(`${c.tag}${c.descricao ? ` — ${c.descricao}` : ""}`);
   s.keyValue("Carga", cargaLabel(c));
   s.keyValue("Condutores carregados", esquema?.label ?? "—");
   s.keyValue("Tensão", `${c.tensao} V`);
   if (partida && partida.fator > 1) s.keyValue("Forma de partida", `${partida.label} (Ip ~ ${partida.fator}×In)`);
-  s.keyValue("Condutor", `${c.material === "aluminio" ? "Alumínio" : "Cobre"} ${c.tipoCabo} — ${c.porFase}× por fase`);
+  s.keyValue("Condutor", `${material} ${r.tipoCabo ?? ""} — ${c.porFase}× por fase`.replace("  ", " "));
 
   if (r.error) {
     s.ensureSpace(8);
@@ -148,7 +151,7 @@ function blocoCircuito(s, c, r) {
   s.doc.setFontSize(11);
   s.doc.setTextColor(5, 150, 105);
   s.doc.text(
-    `CABOS: ${designacaoCabos({ esquemaId: c.esquemaId, tipoCabo: c.tipoCabo, result: r })}`,
+    `CABOS: ${designacaoCabos({ esquemaId: c.esquemaId, tipoCabo: r.tipoCabo, result: r })}`,
     s.margin,
     s.y
   );
@@ -156,22 +159,28 @@ function blocoCircuito(s, c, r) {
 }
 
 // Relatório detalhado de um circuito (aba Dimensionar Cabo).
-export async function exportCircuitoPDF({ circuito, result }) {
+export async function exportCircuitoPDF({ circuito, result, preset }) {
   const { jsPDF } = await import("jspdf");
   const s = novoDoc(jsPDF, "portrait");
   s.header("Memorial de Dimensionamento de Cabo");
-  blocoCircuito(s, circuito, result);
+  blocoCircuito(s, circuito, result, preset);
   s.rodape();
   const nome = (circuito.tag || "circuito").replace(/[^\w\dÀ-ÿ -]+/g, "").trim() || "circuito";
   s.doc.save(`memorial-${nome}.pdf`);
 }
 
 // Memorial do quadro de cargas: tabela resumo + detalhamento por circuito.
-export async function exportMemorialPDF({ projectName, circuitos, resultados }) {
+export async function exportMemorialPDF({ projectName, circuitos, resultados, preset }) {
   const { jsPDF } = await import("jspdf");
   const s = novoDoc(jsPDF, "landscape");
   s.header("Memorial de Cálculo — Quadro de Cargas");
   if (projectName) s.keyValue("Projeto", projectName);
+  if (preset) {
+    s.keyValue(
+      "Preset",
+      `${preset.material === "aluminio" ? "Alumínio" : "Cobre"} · ${preset.temperatura}°C · seção mín. ${preset.secaoMinima}mm² · multipolar até ${preset.secaoMaxMultipolar}mm² · queda ${preset.quedaMaxRegime}%/${preset.quedaMaxPartida}%`
+    );
+  }
   s.y += 2;
 
   // Tabela resumo
@@ -185,7 +194,7 @@ export async function exportMemorialPDF({ projectName, circuitos, resultados }) 
     {
       w: 50,
       label: "Cabos",
-      get: (c, r) => (r.error ? "erro" : designacaoCabos({ esquemaId: c.esquemaId, tipoCabo: c.tipoCabo, result: r })),
+      get: (c, r) => (r.error ? "erro" : designacaoCabos({ esquemaId: c.esquemaId, tipoCabo: r.tipoCabo, result: r })),
     },
     { w: 14, label: "%R", get: (c, r) => (r.error ? "—" : fmt(r.quedaRegime)) },
     { w: 14, label: "%P", get: (c, r) => (r.error ? "—" : fmt(r.quedaPartida)) },
@@ -242,7 +251,7 @@ export async function exportMemorialPDF({ projectName, circuitos, resultados }) 
   s.y += 6;
 
   // Detalhamento por circuito
-  circuitos.forEach((c, i) => blocoCircuito(s, c, resultados[i]));
+  circuitos.forEach((c, i) => blocoCircuito(s, c, resultados[i], preset));
   s.rodape();
 
   const nome = (projectName || "quadro-de-cargas").replace(/[^\w\dÀ-ÿ -]+/g, "").trim() || "quadro-de-cargas";

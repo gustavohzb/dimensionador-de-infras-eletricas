@@ -1,6 +1,5 @@
 import {
   CONDUTOS, DISTRIBUICOES, ESQUEMAS, FORMAS_PARTIDA,
-  FATOR_TEMP_AMBIENTE, FATOR_TEMP_SOLO, SECOES,
 } from "../../data/cabosNBR5410";
 import { correnteDeProjeto, dimensionarCircuitoPro, designacaoCabos, UNIDADES_POTENCIA } from "../../lib/cableSizingPro";
 
@@ -35,8 +34,20 @@ export const defaultTrecho = () => ({
   distribuicao: null,
   camadas: 1,
   circuitos: 1,
-  temperatura: 30,
   distancia: 30,
+});
+
+// Preset do projeto: parâmetros que valem para TODOS os circuitos do quadro
+// (fonte única — não são mais editáveis por circuito). O tipo de cabo
+// (unipolar/multipolar) é decidido automaticamente a partir de
+// `secaoMaxMultipolar`: multipolar até essa seção, unipolar acima.
+export const defaultPreset = () => ({
+  quedaMaxRegime: 4,
+  quedaMaxPartida: 10,
+  temperatura: 30,
+  secaoMinima: 2.5,
+  secaoMaxMultipolar: 16,
+  material: "cobre", // "cobre" | "aluminio"
 });
 
 export const defaultCircuito = () => ({
@@ -52,40 +63,45 @@ export const defaultCircuito = () => ({
   esquemaId: "trifCnCt",
   tensao: 380,
   formaPartidaId: "nenhuma",
-  material: "cobre",
-  tipoCabo: "unipolar",
   porFase: 1,
-  secaoMinima: 2.5,
-  quedaMaxRegime: 4,
-  quedaMaxPartida: 10,
   trechos: [defaultTrecho()],
 });
 
-export function computeCircuito(c) {
+export function computeCircuito(c, preset = defaultPreset()) {
   const ib = correnteDeProjeto(c);
   if (ib.error) return { error: ib.error };
-  return dimensionarCircuitoPro({
+  // Temperatura do condutor vem do preset e vale para todos os trechos.
+  const trechos = c.trechos.map((t) => ({ ...t, temperatura: preset.temperatura }));
+  const base = {
     corrente: ib.corrente,
     esquemaId: c.esquemaId,
     tensao: Number(c.tensao),
     fp: Number(c.fp),
-    material: c.material,
-    tipoCabo: c.tipoCabo,
+    material: preset.material,
     porFase: Number(c.porFase),
     formaPartidaId: c.formaPartidaId,
-    quedaMaxRegime: Number(c.quedaMaxRegime),
-    quedaMaxPartida: Number(c.quedaMaxPartida),
-    secaoMinima: Number(c.secaoMinima),
-    trechos: c.trechos,
-  });
+    quedaMaxRegime: Number(preset.quedaMaxRegime),
+    quedaMaxPartida: Number(preset.quedaMaxPartida),
+    secaoMinima: Number(preset.secaoMinima),
+    trechos,
+  };
+  // Decisão automática do tipo de cabo: tenta multipolar; se a seção
+  // resultante passa do limite do preset (ou nem cabe), refaz como unipolar.
+  let tipoCabo = "multipolar";
+  let r = dimensionarCircuitoPro({ ...base, tipoCabo });
+  if (r.error || r.secaoFinal > Number(preset.secaoMaxMultipolar)) {
+    tipoCabo = "unipolar";
+    r = dimensionarCircuitoPro({ ...base, tipoCabo });
+  }
+  return r.error ? r : { ...r, tipoCabo };
 }
 
-function TrechoEditor({ trecho, index, onChange, onRemove, removable, tipoCabo }) {
+function TrechoEditor({ trecho, index, onChange, onRemove, removable }) {
   const conduto = CONDUTOS.find((x) => x.id === trecho.condutoId);
-  const temps = Object.keys(conduto?.subterraneo ? FATOR_TEMP_SOLO : FATOR_TEMP_AMBIENTE).map(Number);
   const mostraDistribuicao =
     conduto?.agrupamento === "dutos" ||
-    (tipoCabo === "unipolar" && (conduto?.id === "leito" || conduto?.id === "perfilado"));
+    conduto?.id === "leito" ||
+    conduto?.id === "perfilado";
   const opcoesDistribuicao =
     conduto?.agrupamento === "dutos" ? DISTRIBUICOES.dutos : DISTRIBUICOES.camadaUnica;
   const mostraCamadas =
@@ -122,7 +138,6 @@ function TrechoEditor({ trecho, index, onChange, onRemove, removable, tipoCabo }
                 set({
                   condutoId: e.target.value,
                   distribuicao: novo?.agrupamento === "dutos" ? "variosPorDuto" : null,
-                  temperatura: novo?.subterraneo ? 20 : 30,
                 });
               }}
               className={inputCls}
@@ -152,7 +167,7 @@ function TrechoEditor({ trecho, index, onChange, onRemove, removable, tipoCabo }
             </select>
           </Field>
         )}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <Field
             label="Circuitos agrup."
             tip="Total de circuitos que dividem este conduto (incluindo este). Mais circuitos juntos = menos dissipação de calor = fator de agrupamento (FCA) menor — Tab. 42/45."
@@ -170,16 +185,6 @@ function TrechoEditor({ trecho, index, onChange, onRemove, removable, tipoCabo }
           ) : (
             <div />
           )}
-          <Field
-            label={conduto?.subterraneo ? "Temp. solo (°C)" : "Temp. amb. (°C)"}
-            tip="Temperatura no entorno do cabo neste trecho. Acima da referência (30°C no ar, 20°C no solo) a capacidade cai — fator FCT da Tab. 40."
-          >
-            <select value={trecho.temperatura} onChange={(e) => set({ temperatura: Number(e.target.value) })} className={inputCls}>
-              {temps.map((t) => (
-                <option key={t} value={t}>{t}°C</option>
-              ))}
-            </select>
-          </Field>
         </div>
       </div>
     </div>
@@ -298,46 +303,12 @@ export function CircuitoForm({ value, onChange, showIdentificacao = true }) {
 
       <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <h2 className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-200">Condutor</h2>
-        <div className="space-y-2">
-          <div className="grid grid-cols-2 gap-2">
-            <Field
-              label="Material"
-              tip="Alumínio é mais barato porém conduz menos (seções maiores) e a NBR 5410 só permite a partir de 16mm²."
-            >
-              <select value={c.material} onChange={(e) => set({ material: e.target.value })} className={inputCls}>
-                <option value="cobre">Cobre</option>
-                <option value="aluminio">Alumínio</option>
-              </select>
-            </Field>
-            <Field
-              label="Tipo de cabo"
-              tip="Unipolar: um condutor por cabo (ex.: 3 cabos separados). Multipolar: todas as veias num só cabo. Muda o método de referência da NBR 5410 e a ampacidade."
-            >
-              <select value={c.tipoCabo} onChange={(e) => set({ tipoCabo: e.target.value })} className={inputCls}>
-                <option value="unipolar">Unipolar</option>
-                <option value="multipolar">Multipolar</option>
-              </select>
-            </Field>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Field
-              label="Condutores por fase"
-              tip="Cabos em paralelo por fase — a corrente se divide entre eles. Usado quando um cabo só não dá conta ou para facilitar a instalação."
-            >
-              <input type="number" min="1" max="6" value={c.porFase} onChange={(e) => set({ porFase: e.target.value })} className={inputCls} />
-            </Field>
-            <Field
-              label="Seção mínima (mm²)"
-              tip="Piso da seção: NBR 5410 Tab. 47 exige 1,5mm² para iluminação e 2,5mm² para força (cobre); alumínio no mínimo 16mm²."
-            >
-              <select value={c.secaoMinima} onChange={(e) => set({ secaoMinima: Number(e.target.value) })} className={inputCls}>
-                {SECOES.map((s) => (
-                  <option key={s} value={s}>{s}mm²</option>
-                ))}
-              </select>
-            </Field>
-          </div>
-        </div>
+        <Field
+          label="Condutores por fase"
+          tip="Cabos em paralelo por fase — a corrente se divide entre eles. Usado quando um cabo só não dá conta ou para facilitar a instalação. Material, seção mínima e tipo do cabo vêm do preset do quadro."
+        >
+          <input type="number" min="1" max="6" value={c.porFase} onChange={(e) => set({ porFase: e.target.value })} className={inputCls} />
+        </Field>
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -361,35 +332,12 @@ export function CircuitoForm({ value, onChange, showIdentificacao = true }) {
               key={i}
               trecho={t}
               index={i}
-              tipoCabo={c.tipoCabo}
               removable={c.trechos.length > 1}
               onChange={(nt) => setTrecho(i, nt)}
               onRemove={() => set({ trechos: c.trechos.filter((_, j) => j !== i) })}
             />
           ))}
         </div>
-      </div>
-
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-200">Queda de tensão</h2>
-        <div className="grid grid-cols-2 gap-2">
-          <Field
-            label="Máx. em regime (%)"
-            tip="Limite de queda de tensão em operação normal: NBR 5410 admite 4% a partir da entrada da concessionária e 7% a partir de transformador próprio."
-          >
-            <input type="number" min="0.5" step="0.5" value={c.quedaMaxRegime} onChange={(e) => set({ quedaMaxRegime: e.target.value })} className={inputCls} />
-          </Field>
-          <Field
-            label="Máx. na partida (%)"
-            tip="Limite de queda durante a partida do motor — 10% é o valor usual de projeto para não derrubar contatores nem afetar outras cargas."
-          >
-            <input type="number" min="1" step="0.5" value={c.quedaMaxPartida} onChange={(e) => set({ quedaMaxPartida: e.target.value })} className={inputCls} />
-          </Field>
-        </div>
-        <p className="mt-1.5 text-[11px] text-slate-400 dark:text-slate-500">
-          NBR 5410: 4% em regime a partir da entrada (7% de transformador próprio); 10% usual na
-          partida de motores. A queda usa a soma das distâncias dos trechos.
-        </p>
       </div>
     </div>
   );
@@ -421,7 +369,7 @@ export const CRITERIO_LABEL = {
   minima: "seção mínima",
 };
 
-export function ResultadoCircuito({ result, esquemaId, tipoCabo, porFase }) {
+export function ResultadoCircuito({ result, esquemaId, porFase }) {
   if (result.error) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-500/10 dark:text-red-300">
@@ -431,7 +379,7 @@ export function ResultadoCircuito({ result, esquemaId, tipoCabo, porFase }) {
   }
   const esquema = ESQUEMAS.find((e) => e.id === esquemaId);
   const nPar = result.porFase ?? porFase ?? 1;
-  const designacao = designacaoCabos({ esquemaId, tipoCabo, result });
+  const designacao = designacaoCabos({ esquemaId, tipoCabo: result.tipoCabo, result });
 
   return (
     <div className="space-y-3">

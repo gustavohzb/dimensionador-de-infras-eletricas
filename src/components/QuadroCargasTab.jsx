@@ -1,41 +1,62 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  CircuitoForm, ResultadoCircuito, computeCircuito, defaultCircuito, CRITERIO_LABEL,
+  CircuitoForm, ResultadoCircuito, computeCircuito, defaultCircuito, defaultPreset, CRITERIO_LABEL,
 } from "./cabos/CircuitoForm";
+import PresetPanel from "./cabos/PresetPanel";
+import ProjectsPanel from "./ProjectsPanel";
+import { useCabosProjects } from "../hooks/useCabosProjects";
 import { ESQUEMAS } from "../data/cabosNBR5410";
 import { designacaoCabos } from "../lib/cableSizingPro";
 import { exportCircuitoPDF, exportMemorialPDF } from "../lib/memorialPdf";
 
-const STORAGE_KEY = "quadroCargas.v1";
+const STORAGE_KEY = "quadroCargas.v2";
+const STORAGE_KEY_V1 = "quadroCargas.v1";
 const fmt = (n, d = 2) => (n == null ? "—" : n.toFixed(d).replace(".", ","));
 
 function novoCircuito(n) {
   return { ...defaultCircuito(), tag: `AL-${String(n).padStart(2, "0")}` };
 }
 
-// Quadro de cargas no formato da planilha: uma linha por circuito, com o
-// memorial resumido; a edição usa o mesmo formulário da aba individual.
-export default function QuadroCargasTab() {
-  const [circuitos, setCircuitos] = useState(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length) return parsed;
+// Carrega o estado salvo: formato v2 ({ circuitos, preset }) ou migra do v1
+// (só a lista de circuitos, antes do preset existir).
+function carregarEstado() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed.circuitos) && parsed.circuitos.length) {
+        return { circuitos: parsed.circuitos, preset: { ...defaultPreset(), ...parsed.preset } };
       }
-    } catch { /* estado inicial */ }
-    return [novoCircuito(1)];
-  });
+    }
+    const rawV1 = localStorage.getItem(STORAGE_KEY_V1);
+    if (rawV1) {
+      const arr = JSON.parse(rawV1);
+      if (Array.isArray(arr) && arr.length) return { circuitos: arr, preset: defaultPreset() };
+    }
+  } catch { /* estado inicial */ }
+  return { circuitos: [novoCircuito(1)], preset: defaultPreset() };
+}
+
+// Quadro de cargas: uma linha por circuito, com o memorial resumido. O preset
+// (material, temperatura, quedas, seções) vale para todos os circuitos; os
+// projetos ficam no Supabase (tabela projetos_cabos).
+export default function QuadroCargasTab() {
+  const inicial = carregarEstado();
+  const [circuitos, setCircuitos] = useState(inicial.circuitos);
+  const [preset, setPreset] = useState(inicial.preset);
   const [selecionado, setSelecionado] = useState(0);
   const formRef = useRef(null);
 
+  const projectsApi = useCabosProjects();
+  const [activeProject, setActiveProject] = useState(null);
+
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(circuitos));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ circuitos, preset }));
     } catch { /* quota */ }
-  }, [circuitos]);
+  }, [circuitos, preset]);
 
-  const resultados = circuitos.map(computeCircuito);
+  const resultados = circuitos.map((c) => computeCircuito(c, preset));
   const atual = circuitos[selecionado];
   const setAtual = (c) => {
     const next = circuitos.slice();
@@ -71,8 +92,56 @@ export default function QuadroCargasTab() {
     setSelecionado(Math.min(selecionado, next.length - 1));
   };
 
+  // ---- Projetos ----
+  const currentState = { circuitos, preset };
+
+  const handleCreateProject = async (nome, state) => {
+    const created = await projectsApi.createProject(nome, state);
+    setActiveProject({ id: created.id, nome: created.nome });
+  };
+  const handleSaveChanges = async (id, state) => {
+    await projectsApi.updateProject(id, state);
+  };
+  const handleLoadProject = async (id) => {
+    const saved = await projectsApi.loadProject(id);
+    setCircuitos(saved.circuitos?.length ? saved.circuitos : [novoCircuito(1)]);
+    setPreset({ ...defaultPreset(), ...saved.preset });
+    setSelecionado(0);
+    setActiveProject({ id: saved.id, nome: saved.nome });
+  };
+  const handleDeleteProject = async (id) => {
+    await projectsApi.deleteProject(id);
+    if (activeProject?.id === id) setActiveProject(null);
+  };
+  const handleUnlinkProject = () => {
+    if (!window.confirm("Desvincular e zerar o quadro (circuitos e preset)?")) return;
+    setActiveProject(null);
+    setCircuitos([novoCircuito(1)]);
+    setPreset(defaultPreset());
+    setSelecionado(0);
+  };
+
   return (
     <div className="space-y-3">
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <h2 className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-200">Projetos</h2>
+        <ProjectsPanel
+          projects={projectsApi.projects}
+          loading={projectsApi.loading}
+          error={projectsApi.error}
+          refresh={projectsApi.refresh}
+          activeProject={activeProject}
+          onCreate={handleCreateProject}
+          onSaveChanges={handleSaveChanges}
+          onLoad={handleLoadProject}
+          onDelete={handleDeleteProject}
+          onUnlink={handleUnlinkProject}
+          currentState={currentState}
+        />
+      </div>
+
+      <PresetPanel value={preset} onChange={setPreset} />
+
       <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-xs font-semibold text-slate-700 dark:text-slate-200">
@@ -81,7 +150,7 @@ export default function QuadroCargasTab() {
           <div className="flex gap-1.5">
             <button
               type="button"
-              onClick={() => exportMemorialPDF({ circuitos, resultados })}
+              onClick={() => exportMemorialPDF({ projectName: activeProject?.nome, circuitos, resultados, preset })}
               className="rounded-lg border border-blue-600 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-500/10"
             >
               Memorial PDF
@@ -158,7 +227,7 @@ export default function QuadroCargasTab() {
                       <>
                         <td className="px-2 py-1.5 text-slate-700 dark:text-slate-200">{fmt(r.corrente, 1)}</td>
                         <td className="px-2 py-1.5 font-bold whitespace-nowrap text-emerald-600 dark:text-emerald-400">
-                          {designacaoCabos({ esquemaId: c.esquemaId, tipoCabo: c.tipoCabo, result: r })}
+                          {designacaoCabos({ esquemaId: c.esquemaId, tipoCabo: r.tipoCabo, result: r })}
                         </td>
                         <td className="px-2 py-1.5 text-slate-700 dark:text-slate-200">{fmt(r.quedaRegime)}</td>
                         <td className="px-2 py-1.5 text-slate-700 dark:text-slate-200">{fmt(r.quedaPartida)}</td>
@@ -222,7 +291,7 @@ export default function QuadroCargasTab() {
                 {!resultados[selecionado].error && (
                   <button
                     type="button"
-                    onClick={() => exportCircuitoPDF({ circuito: atual, result: resultados[selecionado] })}
+                    onClick={() => exportCircuitoPDF({ circuito: atual, result: resultados[selecionado], preset })}
                     className="rounded-lg border border-blue-600 px-2.5 py-1 text-[11px] font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-500/10"
                   >
                     PDF do circuito
@@ -232,7 +301,6 @@ export default function QuadroCargasTab() {
               <ResultadoCircuito
                 result={resultados[selecionado]}
                 esquemaId={atual.esquemaId}
-                tipoCabo={atual.tipoCabo}
                 porFase={Number(atual.porFase)}
               />
             </div>
