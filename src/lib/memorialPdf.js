@@ -245,15 +245,17 @@ export async function exportMemorialPDF({ projectName, circuitos, resultados, pr
     s.y += 5.2;
   });
   s.y += 3;
-  s.ensureSpace(5);
+  s.ensureSpace(9);
   s.doc.setFont("helvetica", "normal");
   s.doc.setFontSize(7.5);
   s.doc.setTextColor(100, 116, 139);
   s.doc.text(
-    `%R: queda de tensão em regime (limite usual 4%). %P: queda de tensão na partida do motor, quando aplicável (limite usual 10%). ${CRITERIO_LEGENDA}.`,
+    "%R: queda de tensão em regime (limite usual 4%). %P: queda de tensão na partida do motor, quando aplicável (limite usual 10%).",
     s.margin,
     s.y
   );
+  s.y += 4;
+  s.doc.text(`${CRITERIO_LEGENDA}.`, s.margin, s.y);
   s.y += 6;
 
   // Detalhamento por circuito
