@@ -283,7 +283,7 @@ export function CircuitoForm({ value, onChange, showIdentificacao = true, condut
               </div>
             </>
           )}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 items-end gap-2">
             <Field
               label="Condutores carregados"
               tip="Quantos condutores transportam corrente (fases e neutro). Define a coluna da tabela de ampacidade (2 ou 3 carregados) e se o circuito leva neutro e condutor de proteção. Harmônicas >15%: neutro conta como carregado (fator 0,86)."
