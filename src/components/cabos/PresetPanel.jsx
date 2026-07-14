@@ -10,6 +10,18 @@ export default function PresetPanel({ value, onChange }) {
   const p = value;
   const set = (patch) => onChange({ ...p, ...patch });
 
+  // Alumínio de baixa tensão só existe com isolação XLPE/EPR (90°C) — não há
+  // cabo de alumínio isolado em PVC 70°C no mercado. Só o cobre oferece 70°C.
+  const tempsCondutor =
+    p.material === "aluminio" ? CONDUTOR_TEMPS.filter((t) => t.id === 90) : CONDUTOR_TEMPS;
+
+  // Ao trocar de material, força 90°C se o 70°C ficar indisponível (alumínio).
+  const setMaterial = (material) => {
+    const patch = { material };
+    if (material === "aluminio" && Number(p.condutorTemp) === 70) patch.condutorTemp = 90;
+    set(patch);
+  };
+
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="mb-1 flex items-center justify-between">
@@ -25,17 +37,17 @@ export default function PresetPanel({ value, onChange }) {
           label="Material"
           tip="Material dos condutores de todos os circuitos. Alumínio conduz menos (seções maiores) e a NBR 5410 só permite a partir de 16mm²."
         >
-          <select value={p.material} onChange={(e) => set({ material: e.target.value })} className={inputCls}>
+          <select value={p.material} onChange={(e) => setMaterial(e.target.value)} className={inputCls}>
             <option value="cobre">Cobre</option>
             <option value="aluminio">Alumínio</option>
           </select>
         </Field>
         <Field
           label="Temp. do condutor"
-          tip="Isolação/temperatura do condutor. Muda a tabela de ampacidade (Tab. 37/39 para 90°C EPR/XLPE; Tab. 36/38 para 70°C PVC), os fatores de temperatura (Tab. 40) e a resistência na queda de tensão. O PVC admite ambiente até 60°C."
+          tip="Isolação/temperatura do condutor. Muda a tabela de ampacidade (Tab. 37/39 para 90°C EPR/XLPE; Tab. 36/38 para 70°C PVC), os fatores de temperatura (Tab. 40) e a resistência na queda de tensão. O PVC admite ambiente até 60°C. Alumínio existe só em 90°C (XLPE/EPR)."
         >
           <select value={p.condutorTemp ?? 90} onChange={(e) => set({ condutorTemp: Number(e.target.value) })} className={inputCls}>
-            {CONDUTOR_TEMPS.map((t) => (
+            {tempsCondutor.map((t) => (
               <option key={t.id} value={t.id}>{t.label}</option>
             ))}
           </select>
@@ -71,6 +83,12 @@ export default function PresetPanel({ value, onChange }) {
           tip="Limite de queda durante a partida do motor — 10% é o valor usual de projeto para não derrubar contatores nem afetar outras cargas."
         >
           <input type="number" min="1" step="0.5" value={p.quedaMaxPartida} onChange={(e) => set({ quedaMaxPartida: e.target.value })} className={inputCls} />
+        </Field>
+        <Field
+          label="F.P. (cos φ)"
+          tip="Fator de potência do projeto (cos φ), usado na conversão potência → corrente e na queda de tensão. Vale para todos os circuitos."
+        >
+          <input type="number" min="0.1" max="1" step="0.01" value={p.fp ?? 0.92} onChange={(e) => set({ fp: e.target.value })} className={inputCls} />
         </Field>
       </div>
     </div>

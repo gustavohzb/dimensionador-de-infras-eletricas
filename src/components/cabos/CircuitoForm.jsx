@@ -50,6 +50,7 @@ export const defaultPreset = () => ({
   secaoMaxMultipolar: 16,
   material: "cobre", // "cobre" | "aluminio"
   condutorTemp: 90, // 90 → EPR/XLPE | 70 → PVC
+  fp: 0.92, // fator de potência (cos φ) do projeto
 });
 
 export const defaultCircuito = () => ({
@@ -59,7 +60,6 @@ export const defaultCircuito = () => ({
   corrente: 40,
   potencia: 10,
   unidade: "CV",
-  fp: 0.92,
   rendimento: 0.92,
   fatorServico: 1,
   esquemaId: "trifCnCt",
@@ -70,13 +70,14 @@ export const defaultCircuito = () => ({
 });
 
 export function computeCircuito(c, preset = defaultPreset()) {
-  const ib = correnteDeProjeto(c);
+  const fp = Number(preset.fp) || 0.92;
+  const ib = correnteDeProjeto({ ...c, fp });
   if (ib.error) return { error: ib.error };
   const base = {
     corrente: ib.corrente,
     esquemaId: c.esquemaId,
     tensao: Number(c.tensao),
-    fp: Number(c.fp),
+    fp,
     material: preset.material,
     porFase: Number(c.porFase),
     formaPartidaId: c.formaPartidaId,
@@ -272,10 +273,7 @@ export function CircuitoForm({ value, onChange, showIdentificacao = true, condut
                   </select>
                 </Field>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                <Field label="F.P." tip="Fator de potência da carga (cos φ). Usado na conversão potência → corrente e na queda de tensão.">
-                  <input type="number" min="0.1" max="1" step="0.01" value={c.fp} onChange={(e) => set({ fp: e.target.value })} className={inputCls} />
-                </Field>
+              <div className="grid grid-cols-2 gap-2">
                 <Field label="Rendimento" tip="Rendimento do motor (η). A corrente é calculada pela potência no eixo dividida pelo rendimento — só relevante para CV/kW de motores.">
                   <input type="number" min="0.1" max="1" step="0.01" value={c.rendimento} onChange={(e) => set({ rendimento: e.target.value })} className={inputCls} />
                 </Field>

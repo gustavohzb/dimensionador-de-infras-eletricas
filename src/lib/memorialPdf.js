@@ -20,9 +20,10 @@ function fitWidth(doc, text, maxWidth) {
   return `${cut}…`;
 }
 
-function cargaLabel(c) {
+function cargaLabel(c, preset) {
   if (c.modo === "corrente") return `${fmt(c.corrente, 1)} A`;
-  return `${fmt(c.potencia, 1)} ${c.unidade} — FP ${fmt(c.fp)} · Rend. ${fmt(c.rendimento)}`;
+  const fp = preset?.fp ?? c.fp;
+  return `${fmt(c.potencia, 1)} ${c.unidade} — FP ${fmt(fp)} · Rend. ${fmt(c.rendimento)}`;
 }
 
 function novoDoc(jsPDF, orientation) {
@@ -108,7 +109,7 @@ function blocoCircuito(s, c, r, preset) {
   const isolacao = preset?.condutorTemp === 70 ? "PVC 70°C" : "EPR/XLPE 90°C";
 
   s.sectionTitle(`${c.tag}${c.descricao ? ` — ${c.descricao}` : ""}`);
-  s.keyValue("Carga", cargaLabel(c));
+  s.keyValue("Carga", cargaLabel(c, preset));
   s.keyValue("Condutores carregados", esquema?.label ?? "—");
   s.keyValue("Tensão", `${c.tensao} V`);
   if (partida && partida.fator > 1) s.keyValue("Forma de partida", `${partida.label} (Ip ~ ${partida.fator}×In)`);
@@ -194,7 +195,7 @@ export async function exportMemorialPDF({ projectName, circuitos, resultados, pr
     { w: 20, label: "TAG", get: (c) => c.tag },
     { w: 44, label: "Descrição", get: (c) => c.descricao || "—" },
     { w: 16, label: "Tensão", get: (c) => `${c.tensao}V` },
-    { w: 44, label: "Carga", get: (c) => cargaLabel(c) },
+    { w: 44, label: "Carga", get: (c) => cargaLabel(c, preset) },
     { w: 16, label: "Ib (A)", get: (c, r) => (r.error ? "—" : fmt(r.corrente, 1)) },
     {
       w: 50,
