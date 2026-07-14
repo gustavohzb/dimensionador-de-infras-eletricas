@@ -102,10 +102,10 @@ export function computeCircuito(c, preset = defaultPreset()) {
 function TrechoEditor({ trecho, index, onChange, onRemove, removable, condutorTemp }) {
   const conduto = CONDUTOS.find((x) => x.id === trecho.condutoId);
   const temps = temperaturasTrecho(conduto?.subterraneo, condutorTemp);
-  const mostraDistribuicao =
-    conduto?.agrupamento === "dutos" ||
-    conduto?.id === "leito" ||
-    conduto?.id === "perfilado";
+  // Métodos B1/B2 (eletrocalha, eletroduto, canaleta embutida) tratam os cabos
+  // como feixe confinado — não há arranjo físico a escolher; mostramos "Feixe"
+  // fixo só para manter o padrão visual dos demais condutos.
+  const ehFeixe = conduto?.agrupamento === "feixe";
   const opcoesDistribuicao =
     conduto?.agrupamento === "dutos" ? DISTRIBUICOES.dutos : DISTRIBUICOES.camadaUnica;
   const mostraCamadas =
@@ -156,11 +156,15 @@ function TrechoEditor({ trecho, index, onChange, onRemove, removable, condutorTe
             <input type="number" min="0" value={trecho.distancia} onChange={(e) => set({ distancia: e.target.value })} className={inputCls} />
           </Field>
         </div>
-        {mostraDistribuicao && (
-          <Field
-            label="Distribuição dos condutores"
-            tip="Arranjo físico dos cabos: trifólio (3 cabos encostados em triângulo) dissipa melhor que justapostos em linha; espaçados ≥ 2× o diâmetro dissipam ainda mais. Nos dutos subterrâneos define o fator de agrupamento."
-          >
+        <Field
+          label="Distribuição dos condutores"
+          tip="Arranjo físico dos cabos: trifólio (3 cabos encostados em triângulo) dissipa melhor que justapostos em linha; espaçados ≥ 2× o diâmetro dissipam ainda mais. Nos dutos subterrâneos define o fator de agrupamento. Em eletrocalha/eletroduto (métodos B1/B2) os cabos formam um feixe confinado — o arranjo não se aplica."
+        >
+          {ehFeixe ? (
+            <select value="feixe" disabled className={`${inputCls} cursor-not-allowed opacity-70`}>
+              <option value="feixe">Feixe</option>
+            </select>
+          ) : (
             <select
               value={trecho.distribuicao ?? opcoesDistribuicao[0].id}
               onChange={(e) => set({ distribuicao: e.target.value })}
@@ -170,8 +174,8 @@ function TrechoEditor({ trecho, index, onChange, onRemove, removable, condutorTe
                 <option key={d.id} value={d.id}>{d.label}</option>
               ))}
             </select>
-          </Field>
-        )}
+          )}
+        </Field>
         <div className="grid grid-cols-3 gap-2">
           <Field
             label="Circuitos agrup."
