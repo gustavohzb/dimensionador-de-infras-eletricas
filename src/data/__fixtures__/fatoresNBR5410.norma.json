@@ -1,0 +1,22 @@
+{
+  "_nota": "Valores transcritos manualmente do PDF oficial da ABNT NBR 5410:2004 (Tabelas 40, 42, 43, 45, 48 e 58). Cada chave numérica de fatorTempAmbiente/Solo e neutroReduzido/protecao corresponde 1:1 a uma célula impressa na norma. Os arrays de agrupamento (feixeECamadaUnica, camadas, dutos) cobrem só as posições literalmente impressas na tabela — o código pode estender o array além disso para números de circuitos maiores, o que este fixture não valida (ver comentário no teste).",
+
+  "fatorTempAmbiente90": { "10": 1.15, "15": 1.12, "20": 1.08, "25": 1.04, "30": 1.0, "35": 0.96, "40": 0.91, "45": 0.87, "50": 0.82, "55": 0.76, "60": 0.71, "65": 0.65, "70": 0.58, "75": 0.5, "80": 0.41 },
+  "fatorTempSolo90": { "10": 1.07, "15": 1.04, "20": 1.0, "25": 0.96, "30": 0.93, "35": 0.89, "40": 0.85, "45": 0.8, "50": 0.76, "55": 0.71, "60": 0.65, "65": 0.6, "70": 0.53, "75": 0.46, "80": 0.38 },
+  "fatorTempAmbiente70": { "10": 1.22, "15": 1.17, "20": 1.12, "25": 1.06, "30": 1.0, "35": 0.94, "40": 0.87, "45": 0.79, "50": 0.71, "55": 0.61, "60": 0.5 },
+  "fatorTempSolo70": { "10": 1.1, "15": 1.05, "20": 1.0, "25": 0.95, "30": 0.89, "35": 0.84, "40": 0.77, "45": 0.71, "50": 0.63, "55": 0.55, "60": 0.45 },
+
+  "agrupamentoFeixe_n1a20": [1, 0.8, 0.7, 0.65, 0.6, 0.57, 0.54, 0.52, 0.5, 0.5, 0.5, 0.45, 0.45, 0.45, 0.45, 0.41, 0.41, 0.41, 0.41, 0.38],
+  "agrupamentoLeito_n1a9": [1, 0.87, 0.82, 0.8, 0.8, 0.79, 0.79, 0.78, 0.78],
+  "agrupamentoPerfilado_n1a9": [1, 0.88, 0.82, 0.77, 0.75, 0.73, 0.73, 0.72, 0.72],
+  "agrupamentoCamadas2_n2a12": [0.68, 0.62, 0.6, 0.6, 0.58, 0.58, 0.58, 0.56, 0.56, 0.56, 0.56],
+  "agrupamentoCamadas3_n2a12": [0.62, 0.57, 0.55, 0.55, 0.53, 0.53, 0.53, 0.51, 0.51, 0.51, 0.51],
+
+  "_notaDutos": "Tabela 45 (multipolar, um cabo por eletroduto). 'variosPorDuto' (vários circuitos no MESMO duto) não está na Tabela 45 — o código reaproveita a Tabela 42 (feixe/conduto fechado), verificado à parte no teste.",
+  "agrupamentoDutosNulo_n2a6": [0.85, 0.75, 0.7, 0.65, 0.6],
+  "agrupamentoDutosEsp025_n2a6": [0.9, 0.85, 0.8, 0.8, 0.8],
+  "agrupamentoDutosEsp05_n2a6": [0.95, 0.9, 0.85, 0.85, 0.8],
+
+  "neutroReduzido": { "35": 25, "50": 25, "70": 35, "95": 50, "120": 70, "150": 70, "185": 95, "240": 120, "300": 150 },
+  "protecao": { "25": 16, "35": 16, "50": 25, "70": 35, "95": 50, "120": 70, "150": 95, "185": 95, "240": 120, "300": 150 }
+}
