@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { parseMemorial } from "../lib/importCables";
 
 function specLabel(spec) {
@@ -6,28 +6,52 @@ function specLabel(spec) {
   return `${spec.quantity}× ${via}${spec.section}mm² (Ø ${spec.d.toFixed(1)}mm)`;
 }
 
-export default function ImportarPlanilha({ onImport, onImportTrifolio }) {
+export default function ImportarPlanilha({
+  onImport,
+  onImportTrifolio,
+  incoming = null, // { linhas, material } enviado do Quadro de Cargas | null
+  onConsumed,
+  existingCount = 0, // cabos já na aba (decide se pergunta somar/substituir)
+  onReplaceAll,
+}) {
   const [text, setText] = useState("");
   // null = ainda colando texto; array = já analisado, aguardando revisão/confirmação.
   const [preview, setPreview] = useState(null);
+  const [material, setMaterial] = useState("cobre"); // material do lote em análise
   // chaves "lineIdx-specIdx" marcadas pra virar trifólio (pré-marcadas nos
   // grupos de 3 condutores iguais — o usuário desmarca ramal por ramal).
   const [trifolioChoices, setTrifolioChoices] = useState(new Set());
+  const [askReplace, setAskReplace] = useState(false); // pergunta somar/substituir
   const [result, setResult] = useState(null); // { added, warnings } | null
 
-  const handleAnalyze = () => {
-    if (!text.trim()) return;
-    const parsed = parseMemorial(text);
+  const analisar = (raw, mat) => {
+    if (!raw.trim()) return;
+    const parsed = parseMemorial(raw, mat);
     const initialChoices = new Set();
     parsed.forEach((line, i) => {
       line.specs.forEach((spec, j) => {
         if (spec.canBeTrifolio) initialChoices.add(`${i}-${j}`);
       });
     });
+    setMaterial(mat);
     setPreview(parsed);
     setTrifolioChoices(initialChoices);
+    setAskReplace(false);
     setResult(null);
   };
+
+  const handleAnalyze = () => analisar(text, "cobre");
+
+  // Cabos enviados do Quadro de Cargas chegam por `incoming`: pré-preenche o
+  // texto, analisa (cai direto na revisão de trifólio) e avisa o pai que
+  // consumiu, para não reprocessar. Colar texto manualmente assume cobre.
+  useEffect(() => {
+    if (!incoming) return;
+    setText(incoming.linhas);
+    analisar(incoming.linhas, incoming.material || "cobre");
+    onConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incoming]);
 
   const toggleTrifolio = (key) => {
     setTrifolioChoices((prev) => {
@@ -38,7 +62,8 @@ export default function ImportarPlanilha({ onImport, onImportTrifolio }) {
     });
   };
 
-  const handleConfirm = () => {
+  const doImport = (replace) => {
+    if (replace) onReplaceAll?.();
     let added = 0;
     const warnings = [];
     // Um groupId por ramal+spec (marcado com o horário da importação, pra não
@@ -58,12 +83,12 @@ export default function ImportarPlanilha({ onImport, onImportTrifolio }) {
         }
         const groupId = `imp-${batch}-${i}-${j}`;
         if (spec.canBeTrifolio && trifolioChoices.has(`${i}-${j}`)) {
-          onImportTrifolio({ section: spec.section, groupId });
+          onImportTrifolio({ section: spec.section, groupId, material });
           added += 3;
           return;
         }
         for (let k = 0; k < spec.quantity; k++) {
-          onImport({ section: spec.section, cableType: spec.cableType, vias: spec.vias, groupId });
+          onImport({ section: spec.section, cableType: spec.cableType, vias: spec.vias, groupId, material });
           added++;
         }
       });
@@ -71,6 +96,16 @@ export default function ImportarPlanilha({ onImport, onImportTrifolio }) {
     setResult({ added, warnings });
     setPreview(null);
     setText("");
+    setAskReplace(false);
+  };
+
+  // Se a aba já tem cabos, pergunta somar ou substituir; senão importa direto.
+  const handleConfirm = () => {
+    if (existingCount > 0) {
+      setAskReplace(true);
+      return;
+    }
+    doImport(false);
   };
 
   return (
@@ -102,6 +137,11 @@ export default function ImportarPlanilha({ onImport, onImportTrifolio }) {
         <>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             Confira os ramais abaixo. Grupos de 3 condutores iguais já vêm marcados como <b>trifólio</b> — desmarque os que devem ficar soltos.
+            {material === "aluminio" && (
+              <span className="ml-1 rounded-xs bg-slate-200 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                Alumínio
+              </span>
+            )}
           </p>
           <ul className="max-h-72 space-y-1.5 overflow-y-auto pr-1">
             {preview.map((line, i) => (
@@ -138,22 +178,54 @@ export default function ImportarPlanilha({ onImport, onImportTrifolio }) {
               </li>
             ))}
           </ul>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleConfirm}
-              className="flex-1 rounded-xs bg-copper-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-copper-700"
-            >
-              Confirmar importação
-            </button>
-            <button
-              type="button"
-              onClick={() => setPreview(null)}
-              className="rounded-xs border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              Cancelar
-            </button>
-          </div>
+          {askReplace ? (
+            <div className="rounded-xs border border-copper-300 bg-copper-50 px-3 py-2.5 dark:border-copper-800 dark:bg-copper-500/10">
+              <p className="mb-2 text-xs text-slate-600 dark:text-slate-300">
+                Já há <b>{existingCount}</b> cabo{existingCount > 1 ? "s" : ""} na aba Infraestrutura. Somar os novos à
+                lista ou substituir tudo?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => doImport(false)}
+                  className="flex-1 rounded-xs bg-copper-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-copper-700"
+                >
+                  Somar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => doImport(true)}
+                  className="flex-1 rounded-xs border border-copper-600 px-3 py-1.5 text-sm font-semibold text-copper-700 transition hover:bg-copper-100 dark:border-copper-500 dark:text-copper-300 dark:hover:bg-copper-500/10"
+                >
+                  Substituir
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAskReplace(false)}
+                  className="rounded-xs border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleConfirm}
+                className="flex-1 rounded-xs bg-copper-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-copper-700"
+              >
+                Confirmar importação
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreview(null)}
+                className="rounded-xs border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Cancelar
+              </button>
+            </div>
+          )}
         </>
       )}
 

@@ -15,6 +15,24 @@ export const corfioHEPR = {
   },
 };
 
+// Diâmetros externos (mm) — Catálogo Corfio, Cabo de Alumínio XLPE 90°C 0,6/1 kV
+// (ABNT NBR 7287, "Dados construtivos"). O alumínio só existe a partir de 10mm²
+// e o multipolar vai só até 35mm² (2, 3 ou 4 vias) — sem 5 vias. Seções/vias
+// fora dessa faixa não têm cabo no catálogo (getDiameter falha alto).
+export const corfioAluminio = {
+  unipolar: {
+    10: 7.7, 16: 8.7, 25: 10.5, 35: 11.6, 50: 13.6, 70: 15.5, 95: 17.6,
+    120: 19.5, 150: 21.5, 185: 23.8, 240: 26.8,
+  },
+  multipolar: {
+    2: { 10: 13.7, 16: 15.8, 25: 19.1, 35: 21.7 },
+    3: { 10: 14.6, 16: 16.8, 25: 20.8, 35: 23.2 },
+    4: { 10: 16.0, 16: 18.8, 25: 22.8, 35: 25.8 },
+  },
+};
+
+const CATALOGO_POR_MATERIAL = { cobre: corfioHEPR, aluminio: corfioAluminio };
+
 export const TRAY_WIDTHS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
 export const TRAY_HEIGHTS = [50, 100];
 
@@ -171,15 +189,17 @@ export const COMANDO_COLOR = "#161616";
 // catálogo é um bug (formulário oferecendo algo que a tabela não tem), não
 // um caso a se "resolver" inventando uma medida — é melhor quebrar visível
 // na hora do que desenhar um cabo do tamanho errado sem avisar ninguém.
-export function getDiameter(section, type, vias) {
+export function getDiameter(section, type, vias, material = "cobre") {
+  const cat = CATALOGO_POR_MATERIAL[material] ?? corfioHEPR;
+  const mat = material === "aluminio" ? "alumínio" : "cobre";
   if (type === "unipolar") {
-    const d = corfioHEPR.unipolar[section];
-    if (d === undefined) throw new Error(`Diâmetro não encontrado no catálogo Corfio: unipolar ${section}mm²`);
+    const d = cat.unipolar[section];
+    if (d === undefined) throw new Error(`Diâmetro não encontrado no catálogo Corfio (${mat}): unipolar ${section}mm²`);
     return d;
   }
   if (type === "multipolar") {
-    const d = corfioHEPR.multipolar[vias]?.[section];
-    if (d === undefined) throw new Error(`Diâmetro não encontrado no catálogo Corfio: multipolar ${vias}x${section}mm²`);
+    const d = cat.multipolar[vias]?.[section];
+    if (d === undefined) throw new Error(`Diâmetro não encontrado no catálogo Corfio (${mat}): multipolar ${vias}x${section}mm²`);
     return d;
   }
   throw new Error(`Tipo de cabo desconhecido: "${type}"`);

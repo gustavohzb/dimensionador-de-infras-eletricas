@@ -86,9 +86,12 @@ export function layoutCables(cables, trayWidth, trayHeight) {
     return best;
   };
 
+  // material do cabo sendo depositado — a forEach abaixo o atualiza antes de
+  // cada add (só para render; a ocupação não depende de material).
+  let curMaterial;
   const add = (cx, cy, r, type, vias, key, trifolioGroup) => {
     placed.push({ cx, cy, r });
-    items.push({ cx, cy, r, type, vias, key, ...(trifolioGroup !== undefined ? { trifolioGroup } : {}) });
+    items.push({ cx, cy, r, type, vias, key, ...(trifolioGroup !== undefined ? { trifolioGroup } : {}), ...(curMaterial ? { material: curMaterial } : {}) });
   };
 
   // Deposição do feixe de trifólio (rígido): acha a origem X que deixa o
@@ -127,6 +130,7 @@ export function layoutCables(cables, trayWidth, trayHeight) {
   };
 
   cables.forEach((c, idx) => {
+    curMaterial = c.material;
     const r = c.d / 2;
     if (c.trifolio) {
       const { x, baseCy } = dropTrifolio(r);
@@ -281,9 +285,12 @@ export function layoutCablesCircular(cables, R) {
     return best || { cx: 0, cy: dropCy(0, r) };
   };
 
+  // material do cabo sendo depositado — a forEach abaixo o atualiza antes de
+  // cada add (só para render; a ocupação não depende de material).
+  let curMaterial;
   const add = (cx, cy, r, type, vias, key, trifolioGroup) => {
     placed.push({ cx, cy, r });
-    items.push({ cx, cy, r, type, vias, key, ...(trifolioGroup !== undefined ? { trifolioGroup } : {}) });
+    items.push({ cx, cy, r, type, vias, key, ...(trifolioGroup !== undefined ? { trifolioGroup } : {}), ...(curMaterial ? { material: curMaterial } : {}) });
   };
 
   // Feixe de trifólio (rígido): acha o centro horizontal que deixa o feixe
@@ -311,6 +318,7 @@ export function layoutCablesCircular(cables, R) {
   };
 
   cables.forEach((c, idx) => {
+    curMaterial = c.material;
     const r = c.d / 2;
     if (c.trifolio) {
       const { cxc, baseCy } = dropTrifolio(r);
