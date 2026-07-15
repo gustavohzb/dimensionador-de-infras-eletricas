@@ -100,6 +100,20 @@ describe("dimensionarCircuitoPro — critério capacidade", () => {
     expect(r.secaoCapacidade).toBe(25);
     expect(r.secaoFinal).toBe(25);
   });
+
+  it("Caso 12 — duto subt. unipolar usa a sub-tabela mais rigorosa da Tab. 45 (35→50 mm²)", () => {
+    // 2 circuitos, 1 cabo/duto, dutos próximos (espaçamento nulo). Método D é
+    // igual para uni/multi neste conduto — só o fca muda (Tab. 45 tem duas
+    // sub-tabelas distintas). Multipolar: fca=0,85 ⇒ iCorr=100/0,85=117,6 A
+    // ⇒ D col3: 25→101(falha), 35→122(passa) ⇒ 35. Unipolar: fca=0,80 ⇒
+    // iCorr=100/0,80=125 A ⇒ 35→122(falha) também, 50→144(passa) ⇒ 50.
+    const base = trecho({ condutoId: "dutoSubt", distribuicao: "dutosProximos", circuitos: 2, temperatura: 20, distancia: 10 });
+    const multi = dim({ corrente: 100, tipoCabo: "multipolar", trechos: [base] });
+    const uni = dim({ corrente: 100, tipoCabo: "unipolar", trechos: [base] });
+    expect(multi.secaoCapacidade).toBe(35);
+    expect(uni.secaoCapacidade).toBe(50);
+    expect(uni.secaoCapacidade).toBeGreaterThan(multi.secaoCapacidade);
+  });
 });
 
 describe("dimensionarCircuitoPro — outros critérios dominantes", () => {

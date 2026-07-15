@@ -94,9 +94,18 @@ function colunaAmpacidade({ tab, conduto, tipoCabo, distribuicao, carregados }) 
 }
 
 // Contexto do fator de agrupamento de um trecho.
-function contextoAgrupamento(conduto, distribuicao, camadas) {
+// Em dutos subterrâneos com um condutor por eletroduto (dutosProximos/
+// dutosEsp025/dutosEsp05), a Tab. 45 tem sub-tabelas distintas para cabo
+// multipolar e para condutores isolados/unipolares — usa a variante "Uni"
+// quando tipoCabo === "unipolar". "variosPorDuto" reaproveita a Tab. 42
+// (feixe) independente do tipo de cabo, então não tem variante unipolar.
+function contextoAgrupamento(conduto, distribuicao, camadas, tipoCabo) {
   if (conduto.agrupamento === "feixe") return "feixe";
-  if (conduto.agrupamento === "dutos") return distribuicao || "variosPorDuto";
+  if (conduto.agrupamento === "dutos") {
+    const dist = distribuicao || "variosPorDuto";
+    if (tipoCabo === "unipolar" && dist !== "variosPorDuto") return `${dist}Uni`;
+    return dist;
+  }
   const base = conduto.agrupamento; // leito | perfilado
   if (camadas >= 3) return "camadas3";
   if (camadas === 2) return "camadas2";
@@ -152,7 +161,7 @@ export function dimensionarCircuitoPro({
       const lim = condutorTemp === 70 ? " (PVC vai até 60°C)" : "";
       return { error: `Temperatura ${t.temperatura}°C fora da Tabela 40${lim}.` };
     }
-    const ctx = contextoAgrupamento(conduto, t.distribuicao, Number(t.camadas) || 1);
+    const ctx = contextoAgrupamento(conduto, t.distribuicao, Number(t.camadas) || 1, tipoCabo);
     let fca = fatorAgrupamento(ctx, Number(t.circuitos) || 1);
     if (esquema.harmonicas) fca *= 0.86; // neutro carregado — NBR 5410 Tab. 46
     const col = colunaAmpacidade({

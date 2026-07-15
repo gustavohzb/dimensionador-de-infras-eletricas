@@ -67,6 +67,26 @@ describe("Fator de agrupamento em dutos subterrâneos × Tabela 45 (multipolar)"
   });
 });
 
+describe("Fator de agrupamento em dutos subterrâneos × Tabela 45 (condutores isolados/unipolares)", () => {
+  it("1 circ./duto, dutos próximos (espaçamento nulo) — 2 a 6 circuitos", () => {
+    expect(AGRUPAMENTO.dutosProximosUni.slice(1, 6)).toEqual(norma.agrupamentoDutosNuloUni_n2a6);
+  });
+  it("1 circ./duto, espaçados 0,25 m — 2 a 6 circuitos", () => {
+    expect(AGRUPAMENTO.dutosEsp025Uni.slice(1, 6)).toEqual(norma.agrupamentoDutosEsp025Uni_n2a6);
+  });
+  it("1 circ./duto, espaçados 0,5 m — 2 a 6 circuitos", () => {
+    expect(AGRUPAMENTO.dutosEsp05Uni.slice(1, 6)).toEqual(norma.agrupamentoDutosEsp05Uni_n2a6);
+  });
+  it("sub-tabela unipolar é mais rigorosa (fator menor) que a multipolar", () => {
+    for (const par of [["dutosProximos", "dutosProximosUni"], ["dutosEsp025", "dutosEsp025Uni"], ["dutosEsp05", "dutosEsp05Uni"]]) {
+      const [multi, uni] = par;
+      for (let i = 1; i < 5; i++) {
+        expect(AGRUPAMENTO[uni][i]).toBeLessThanOrEqual(AGRUPAMENTO[multi][i]);
+      }
+    }
+  });
+});
+
 describe("Seções derivadas × Tabelas 48 e 58", () => {
   it("neutro reduzido (Tab. 48)", () => {
     expect(NEUTRO_REDUZIDO).toEqual(norma.neutroReduzido);

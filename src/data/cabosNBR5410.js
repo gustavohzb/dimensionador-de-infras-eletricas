@@ -132,6 +132,13 @@ export const DISTRIBUICOES = {
 // Fatores de agrupamento por contexto (índice = nº de circuitos − 1).
 // feixe: NBR 5410 Tab. 42; leito/perfilado + camadas: Tab. 42 camada única e
 // múltiplas camadas; dutos: Tab. 45.
+//
+// Tabela 45 tem DUAS sub-tabelas com valores diferentes: uma para "cabos
+// multipolares — um cabo por eletroduto" (dutosProximos/dutosEsp025/dutosEsp05)
+// e outra, mais rigorosa, para "condutores isolados ou cabos unipolares — um
+// condutor por eletroduto" (variantes *Uni abaixo). Além de n=6 a norma não
+// imprime mais valores; repetimos o último fator impresso (mesma convenção
+// usada em feixe/leito/perfilado além do range impresso).
 // ---------------------------------------------------------------------------
 export const AGRUPAMENTO = {
   feixe: [1, 0.8, 0.7, 0.65, 0.6, 0.57, 0.54, 0.52, 0.5, 0.5, 0.5, 0.45, 0.45, 0.45, 0.45, 0.41, 0.41, 0.41, 0.41, 0.38],
@@ -140,9 +147,14 @@ export const AGRUPAMENTO = {
   camadas2: [1, 0.68, 0.62, 0.6, 0.6, 0.58, 0.58, 0.58, 0.56, 0.56, 0.56, 0.56],
   camadas3: [1, 0.62, 0.57, 0.55, 0.55, 0.53, 0.53, 0.53, 0.51, 0.51, 0.51, 0.51],
   variosPorDuto: [1, 0.8, 0.7, 0.65, 0.6, 0.57, 0.54, 0.52, 0.5, 0.5, 0.5, 0.45, 0.45, 0.45, 0.45, 0.41, 0.41, 0.41, 0.41, 0.38],
+  // Tab. 45 — cabo multipolar, um cabo por eletroduto.
   dutosProximos: [1, 0.85, 0.75, 0.7, 0.65, 0.6, 0.55, 0.55, 0.55, 0.55, 0.55],
   dutosEsp025: [1, 0.9, 0.85, 0.8, 0.8, 0.8, 0.75, 0.75, 0.75, 0.75, 0.75],
   dutosEsp05: [1, 0.95, 0.9, 0.85, 0.85, 0.8, 0.75, 0.75, 0.75, 0.75, 0.75],
+  // Tab. 45 — condutores isolados ou cabos unipolares, um condutor por eletroduto.
+  dutosProximosUni: [1, 0.8, 0.7, 0.65, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6],
+  dutosEsp025Uni: [1, 0.9, 0.8, 0.75, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7],
+  dutosEsp05Uni: [1, 0.9, 0.85, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8],
 };
 
 export function fatorAgrupamento(contexto, circuitos) {
