@@ -33,6 +33,14 @@ function ThemeToggle({ dark, onToggle }) {
 export default function App() {
   const [dark, setDark] = useDarkMode();
   const [activeTab, setActiveTab] = useState("infra"); // "infra" | "quadroCargas"
+  // Ponte "enviar cabos do Quadro de Cargas → aba Infraestrutura (Auto)".
+  // { linhas, material } enquanto há um envio a consumir; null caso contrário.
+  const [pendingImport, setPendingImport] = useState(null);
+
+  const enviarParaInfra = (payload) => {
+    setPendingImport(payload);
+    setActiveTab("infra");
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -77,11 +85,15 @@ export default function App() {
 
       <main className="mx-auto max-w-6xl p-3">
         <div className={activeTab === "infra" ? "" : "hidden"}>
-          <InfraTab dark={dark} />
+          <InfraTab
+            dark={dark}
+            pendingImport={pendingImport}
+            onConsumeImport={() => setPendingImport(null)}
+          />
         </div>
 
         <div className={activeTab === "quadroCargas" ? "" : "hidden"}>
-          <QuadroCargasTab />
+          <QuadroCargasTab onEnviarParaInfra={enviarParaInfra} />
         </div>
 
         <div className={activeTab === "sobre" ? "" : "hidden"}>

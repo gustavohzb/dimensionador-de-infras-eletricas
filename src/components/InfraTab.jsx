@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useCableTray } from "../hooks/useCableTray";
 import { useProjects } from "../hooks/useProjects";
 import { getDimensions, INFRA_TYPES, ELETRODUTO_NORMAS } from "../data/corfioHEPR";
@@ -22,7 +22,7 @@ import ProjectsPanel from "./ProjectsPanel";
 // ocupação, o antigo Força/Comando) e "Buscar" (o app ranqueia as
 // infraestruturas que comportam os cabos, o antigo Buscar Infraestrutura).
 // A lista de cabos é compartilhada: alternar de modo não perde nada.
-export default function InfraTab({ dark }) {
+export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
   const {
     infraType,
     setInfraType,
@@ -52,6 +52,12 @@ export default function InfraTab({ dark }) {
 
   const [mode, setMode] = useState("verificar"); // "verificar" | "buscar"
   const [catalogo, setCatalogo] = useState("forca"); // "forca" | "comando"
+
+  // Ao receber cabos enviados do Quadro de Cargas, entra em modo Auto para que
+  // o painel de importação (só visível em "buscar") apareça e os consuma.
+  useEffect(() => {
+    if (pendingImport) setMode("buscar");
+  }, [pendingImport]);
 
   const svgRefVerificar = useRef(null);
   const svgRefBuscar = useRef(null);
@@ -317,7 +323,14 @@ export default function InfraTab({ dark }) {
           {mode === "buscar" && (
             <div className={cardCls}>
               <h2 className={h2Cls}>Importar do memorial de cálculo</h2>
-              <ImportarPlanilha onImport={addCable} onImportTrifolio={addTrifolio} />
+              <ImportarPlanilha
+                onImport={addCable}
+                onImportTrifolio={addTrifolio}
+                incoming={pendingImport}
+                onConsumed={onConsumeImport}
+                existingCount={cables.length}
+                onReplaceAll={removeAll}
+              />
             </div>
           )}
 

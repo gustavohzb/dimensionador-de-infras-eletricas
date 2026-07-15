@@ -29,16 +29,20 @@ function innerConductors(n) {
   }
 }
 
-// Condutor isolado em corte: isolação colorida (a capa) + núcleo de cobre.
-function Conductor({ cx, cy, r, color, uid }) {
-  const coreR = r * 0.52; // condutor de cobre interno
+// Condutor isolado em corte: isolação colorida (a capa) + núcleo metálico
+// (cobre por padrão; prata quando o cabo é de alumínio).
+function Conductor({ cx, cy, r, color, uid, material }) {
+  const coreR = r * 0.52; // condutor metálico interno
+  const aluminio = material === "aluminio";
+  const coreFill = aluminio ? `url(#aluminio-${uid})` : `url(#copper-${uid})`;
+  const coreStroke = aluminio ? "#6b7480" : "#6e3d17";
   return (
     <g>
       {/* isolação (capa) */}
       <circle cx={cx} cy={cy} r={r} fill={color} stroke="#00000066" strokeWidth={Math.max(0.3, r * 0.06)} />
-      {/* condutor de cobre */}
+      {/* condutor (cobre ou alumínio) */}
       {coreR > 0.9 && (
-        <circle cx={cx} cy={cy} r={coreR} fill={`url(#copper-${uid})`} stroke="#6e3d17" strokeWidth={Math.max(0.2, coreR * 0.1)} />
+        <circle cx={cx} cy={cy} r={coreR} fill={coreFill} stroke={coreStroke} strokeWidth={Math.max(0.2, coreR * 0.1)} />
       )}
       {/* brilho cilíndrico */}
       <circle cx={cx} cy={cy} r={r} fill={`url(#gloss-${uid})`} />
@@ -71,7 +75,7 @@ function ComandoConductor({ cx, cy, r, vias }) {
 
 // Um cabo desenhado em corte.
 function Cable({ item, uid }) {
-  const { cx, cy, r, type, vias } = item;
+  const { cx, cy, r, type, vias, material } = item;
 
   if (type === "comando") {
     return <ComandoConductor cx={cx} cy={cy} r={r} vias={vias} />;
@@ -86,7 +90,7 @@ function Cable({ item, uid }) {
         <circle cx={cx} cy={cy} r={r} fill="#3f4753" stroke="#1e2530" strokeWidth={Math.max(0.4, r * 0.05)} />
         {/* condutores internos isolados */}
         {inner.pos.map(([dx, dy], i) => (
-          <Conductor key={i} cx={cx + dx * r} cy={cy + dy * r} r={cr} color={VIAS_COLORS[vias]} uid={uid} />
+          <Conductor key={i} cx={cx + dx * r} cy={cy + dy * r} r={cr} color={VIAS_COLORS[vias]} uid={uid} material={material} />
         ))}
         {/* brilho na capa */}
         <circle cx={cx} cy={cy} r={r} fill={`url(#glossJacket-${uid})`} />
@@ -95,7 +99,7 @@ function Cable({ item, uid }) {
   }
 
   // unipolar (inclui condutores de trifólio)
-  return <Conductor cx={cx} cy={cy} r={r} color={VIAS_COLORS[vias] || VIAS_COLORS[1]} uid={uid} />;
+  return <Conductor cx={cx} cy={cy} r={r} color={VIAS_COLORS[vias] || VIAS_COLORS[1]} uid={uid} material={material} />;
 }
 
 // Miniatura de cabo para a legenda (cobre sólido — sem depender dos gradientes).
@@ -298,6 +302,12 @@ function SharedDefs({ uid }) {
         <stop offset="0%" stopColor="#f0b27a" />
         <stop offset="50%" stopColor="#c67c3c" />
         <stop offset="100%" stopColor="#8a4e22" />
+      </radialGradient>
+      {/* condutor de alumínio (prata) */}
+      <radialGradient id={`aluminio-${uid}`} cx="0.4" cy="0.34" r="0.72">
+        <stop offset="0%" stopColor="#eef1f4" />
+        <stop offset="50%" stopColor="#b7bec8" />
+        <stop offset="100%" stopColor="#7c8794" />
       </radialGradient>
       {/* aspecto metálico da chapa */}
       <linearGradient id={`metal-${uid}`} x1="0" y1="0" x2="0" y2="1">

@@ -7,6 +7,7 @@ import ProjectsPanel from "./ProjectsPanel";
 import { useCabosProjects } from "../hooks/useCabosProjects";
 import { ESQUEMAS } from "../data/cabosNBR5410";
 import { designacaoCabos } from "../lib/cableSizingPro";
+import { circuitosParaLinhas } from "../lib/quadroToMemorial";
 import { exportCircuitoPDF, exportMemorialPDF } from "../lib/memorialPdf";
 
 const STORAGE_KEY = "quadroCargas.v2";
@@ -62,11 +63,13 @@ function carregarEstado() {
 // Quadro de cargas: uma linha por circuito, com o memorial resumido. O preset
 // (material, temperatura, quedas, seções) vale para todos os circuitos; os
 // projetos ficam no Supabase (tabela projetos_cabos).
-export default function QuadroCargasTab() {
+export default function QuadroCargasTab({ onEnviarParaInfra }) {
   const inicial = carregarEstado();
   const [circuitos, setCircuitos] = useState(inicial.circuitos);
   const [preset, setPreset] = useState(inicial.preset);
   const [selecionado, setSelecionado] = useState(0);
+  // Índices marcados para envio à aba Infraestrutura (checkbox por linha).
+  const [selecionadosEnvio, setSelecionadosEnvio] = useState(() => new Set());
   const formRef = useRef(null);
 
   const projectsApi = useCabosProjects();
@@ -112,6 +115,36 @@ export default function QuadroCargasTab() {
     const next = circuitos.filter((_, j) => j !== i);
     setCircuitos(next);
     setSelecionado(Math.min(selecionado, next.length - 1));
+    setSelecionadosEnvio(new Set()); // índices deslocam ao remover — zera a seleção
+  };
+
+  // ---- Envio para a aba Infraestrutura (Auto) ----
+  // Só circuitos calculados com sucesso podem ser enviados (os com erro não
+  // têm designação de cabo).
+  const enviaveis = circuitos.map((_, i) => !resultados[i]?.error);
+  const idxEnviaveis = enviaveis.reduce((acc, ok, i) => (ok ? [...acc, i] : acc), []);
+  const selEnvio = [...selecionadosEnvio].filter((i) => enviaveis[i]);
+  const todosMarcados = idxEnviaveis.length > 0 && selEnvio.length === idxEnviaveis.length;
+
+  const toggleEnvio = (i) => {
+    setSelecionadosEnvio((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  };
+  const toggleTodosEnvio = () => {
+    setSelecionadosEnvio(todosMarcados ? new Set() : new Set(idxEnviaveis));
+  };
+  const enviarSelecionados = () => {
+    if (selEnvio.length === 0) return;
+    const ordenados = selEnvio.sort((a, b) => a - b);
+    const circuitosSel = ordenados.map((i) => circuitos[i]);
+    const resultadosSel = ordenados.map((i) => resultados[i]);
+    const linhas = circuitosParaLinhas(circuitosSel, resultadosSel);
+    if (!linhas) return;
+    onEnviarParaInfra?.({ linhas, material: preset.material });
   };
 
   // ---- Projetos ----
@@ -172,6 +205,15 @@ export default function QuadroCargasTab() {
           <div className="flex gap-1.5">
             <button
               type="button"
+              onClick={enviarSelecionados}
+              disabled={selEnvio.length === 0}
+              title="Envia os circuitos marcados para a aba Infraestrutura (modo Auto) e busca a melhor infraestrutura para esses cabos."
+              className="rounded-xs border border-copper-600 px-3 py-1.5 text-xs font-medium text-copper-600 hover:bg-copper-50 disabled:opacity-40 disabled:hover:bg-transparent dark:border-copper-500 dark:text-copper-300 dark:hover:bg-copper-500/10"
+            >
+              {selEnvio.length > 0 ? `Enviar ${selEnvio.length} p/ Infra (Auto)` : "Enviar p/ Infra (Auto)"}
+            </button>
+            <button
+              type="button"
               onClick={() => exportMemorialPDF({ projectName: activeProject?.nome, circuitos, resultados, preset })}
               className="rounded-xs border border-copper-600 px-3 py-1.5 text-xs font-medium text-copper-600 hover:bg-copper-50 dark:border-copper-500 dark:text-copper-300 dark:hover:bg-copper-500/10"
             >
@@ -190,6 +232,17 @@ export default function QuadroCargasTab() {
           <table className="w-full min-w-[900px] text-left text-xs">
             <thead>
               <tr className="border-b border-slate-200 font-display text-[11px] font-bold uppercase tracking-[0.07em] text-slate-400 dark:border-slate-700 dark:text-slate-500">
+                <th className="px-2 py-1.5">
+                  <input
+                    type="checkbox"
+                    checked={todosMarcados}
+                    onChange={toggleTodosEnvio}
+                    disabled={idxEnviaveis.length === 0}
+                    title="Selecionar todos para envio"
+                    aria-label="Selecionar todos os circuitos para envio"
+                    className="h-3.5 w-3.5 accent-copper-600 align-middle"
+                  />
+                </th>
                 <th className="px-2 py-1.5">Nº</th>
                 <th className="px-2 py-1.5">TAG</th>
                 <th className="px-2 py-1.5">Descrição</th>
@@ -244,6 +297,17 @@ export default function QuadroCargasTab() {
                         : "hover:bg-slate-50 dark:hover:bg-slate-800/60"
                     }`}
                   >
+                    <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selecionadosEnvio.has(i) && !r.error}
+                        onChange={() => toggleEnvio(i)}
+                        disabled={!!r.error}
+                        title={r.error ? "Circuito com erro — não pode ser enviado" : "Marcar para envio à Infraestrutura"}
+                        aria-label={`Marcar ${c.tag} para envio`}
+                        className="h-3.5 w-3.5 accent-copper-600 align-middle disabled:opacity-40"
+                      />
+                    </td>
                     <td className="px-2 py-1.5 font-mono tabular-nums text-slate-400">{String(i + 1).padStart(2, "0")}</td>
                     <td className="px-2 py-1.5 font-mono font-semibold text-slate-700 dark:text-slate-200">{c.tag}</td>
                     <td className="max-w-[180px] truncate px-2 py-1.5 text-slate-500 dark:text-slate-400">

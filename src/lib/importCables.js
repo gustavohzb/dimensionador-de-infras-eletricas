@@ -52,7 +52,7 @@ function guessLabel(cells, raw) {
 // Cada spec já vem validado contra o catálogo Corfio (getDiameter falha alto
 // em vez de inventar uma medida — o erro fica no próprio spec, sem travar a
 // análise das outras linhas).
-export function parseMemorial(text) {
+export function parseMemorial(text, material = "cobre") {
   const lines = text
     .split(/\r?\n/)
     .map((l) => l.trim())
@@ -69,8 +69,8 @@ export function parseMemorial(text) {
     const specs = parseSecao(secaoStr).map((spec) => {
       if (spec.error) return { ...spec, source: secaoStr };
       try {
-        const d = getDiameter(spec.section, spec.cableType, spec.vias);
-        return { ...spec, source: secaoStr, d, canBeTrifolio: spec.cableType === "unipolar" && spec.quantity === 3 };
+        const d = getDiameter(spec.section, spec.cableType, spec.vias, material);
+        return { ...spec, material, source: secaoStr, d, canBeTrifolio: spec.cableType === "unipolar" && spec.quantity === 3 };
       } catch (e) {
         return { error: e.message, source: secaoStr };
       }
