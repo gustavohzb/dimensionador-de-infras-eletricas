@@ -178,7 +178,7 @@ export default function InfraTab({ dark }) {
       canvas.width = img.width * scale;
       canvas.height = img.height * scale;
       const ctx = canvas.getContext("2d");
-      ctx.fillStyle = dark ? "#0f172a" : "#ffffff";
+      ctx.fillStyle = dark ? "#14181c" : "#ffffff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       const link = document.createElement("a");

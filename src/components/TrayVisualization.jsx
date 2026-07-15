@@ -340,8 +340,8 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
   const legendItems = [...new Map(cables.map((c) => [`${c.type}-${c.vias}`, { type: c.type, vias: c.vias }])).values()].sort(
     (a, b) => a.vias - b.vias
   );
-  const bgFill = dark ? "#1e293b" : "#ffffff";
-  const dimText = dark ? "#cbd5e1" : "#64748b";
+  const bgFill = dark ? "#232a30" : "#ffffff"; // cinza-aço (slate-800 do tema), não o azul antigo
+  const dimText = dark ? "#cbd2d8" : "#64707a";
 
   // Eletroduto: seção circular, sem gravidade — layout e desenho à parte.
   const ductDim = getDimensions(infraType, eletrodutoNorma);
