@@ -525,9 +525,22 @@ export function ResultadoCircuito({ result, esquemaId, porFase, condutorTemp = 9
         {condutorTemp === 70
           ? " (Tabelas 36/38/40/42/45/46/48/58)"
           : " (Tabelas 37/39/40/42/45/46/48/58)"}.
-        Queda de tensão com R na temperatura de operação e reatância típica de projeto. Não substitui
-        a coordenação com a proteção (Ib ≤ In ≤ Iz) nem a verificação de curto-circuito — confira no
-        projeto executivo.
+        A queda de tensão usa a resistência do cabo já{" "}
+        <span
+          title={`Resistência calculada a ${condutorTemp}°C — a temperatura real do condutor em operação normal, não a resistência "a frio" de catálogo (20°C). Isso deixa a conta mais realista, porque o cabo carregado esquenta.`}
+          className="cursor-help underline decoration-dotted"
+        >
+          aquecida pela operação
+        </span>{" "}
+        e uma{" "}
+        <span
+          title="A reatância indutiva (efeito do campo magnético do cabo) depende de detalhes físicos do cabo real (espaçamento, diâmetro, fabricante). Sem essa ficha técnica exata, o app usa o valor típico consolidado em projetos de engenharia: 0,08 Ω/km para unipolar e 0,09 Ω/km para multipolar."
+          className="cursor-help underline decoration-dotted"
+        >
+          reatância padrão de mercado
+        </span>{" "}
+        (não a do cabo específico do fabricante). Não substitui a coordenação com a proteção (Ib ≤ In
+        ≤ Iz) nem a verificação de curto-circuito — confira no projeto executivo.
       </p>
     </div>
   );
