@@ -231,14 +231,14 @@ export default function InfraTab({ dark }) {
   };
 
   const cardCls =
-    "rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900";
-  const h2Cls = "mb-2 text-xs font-semibold text-slate-700 dark:text-slate-200";
+    "rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900";
+  const h2Cls = "mb-2 font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400";
 
   return (
     <div className="space-y-3">
       {/* Toggle de modo: mesma lista de cabos, duas perguntas diferentes */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="inline-flex overflow-hidden rounded-lg border border-slate-300 dark:border-slate-700">
+        <div className="inline-flex overflow-hidden rounded-xs border border-slate-300 dark:border-slate-700">
           {[
             { id: "verificar", label: "Manual" },
             { id: "buscar", label: "Auto" },
@@ -253,7 +253,7 @@ export default function InfraTab({ dark }) {
               }}
               className={`px-4 py-2 text-sm font-medium transition ${
                 mode === m.id
-                  ? "bg-blue-600 text-white"
+                  ? "bg-copper-600 text-white"
                   : "bg-white text-slate-600 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
               }`}
             >
@@ -332,9 +332,9 @@ export default function InfraTab({ dark }) {
                   key={cat.id}
                   type="button"
                   onClick={() => setCatalogo(cat.id)}
-                  className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
+                  className={`rounded-xs border px-2.5 py-1.5 text-xs font-medium transition ${
                     catalogo === cat.id
-                      ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-500/15 dark:text-blue-300"
+                      ? "border-copper-600 bg-copper-50 text-copper-700 dark:border-copper-500 dark:bg-copper-500/15 dark:text-copper-300"
                       : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                   }`}
                 >
@@ -374,7 +374,7 @@ export default function InfraTab({ dark }) {
                 <select
                   value={maxLayers}
                   onChange={(e) => setMaxLayers(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  className="w-full rounded-xs border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-copper-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 >
                   <option value="">Sem limite</option>
                   <option value="1">1 (sem empilhar)</option>
@@ -392,7 +392,7 @@ export default function InfraTab({ dark }) {
                 type="button"
                 onClick={handleSearch}
                 disabled={cables.length === 0 || searching}
-                className="w-full rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
+                className="w-full rounded-xs bg-copper-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-copper-700 disabled:opacity-50"
               >
                 {searching ? "Buscando…" : "Buscar melhor infraestrutura"}
               </button>
@@ -404,23 +404,23 @@ export default function InfraTab({ dark }) {
           <section className="space-y-3">
             <div className={cardCls}>
               <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-xs font-semibold text-slate-700 dark:text-slate-200">Visualização</h2>
+                <h2 className="font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Visualização</h2>
                 <div className="flex gap-1.5">
                   <button
                     onClick={() => exportPNG(svgRefVerificar.current, "eletrocalha.png")}
-                    className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    className="rounded-xs border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                   >
                     Exportar PNG
                   </button>
                   <button
                     onClick={exportPDFVerificar}
-                    className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    className="rounded-xs border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                   >
                     Relatório PDF
                   </button>
                 </div>
               </div>
-              <div className="flex justify-center rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
+              <div className="flex justify-center rounded-sm bg-slate-50 p-3 dark:bg-slate-800/60">
                 <TrayVisualization
                   ref={svgRefVerificar}
                   cables={cables}
@@ -457,7 +457,7 @@ export default function InfraTab({ dark }) {
         ) : (
           <section className="space-y-3">
             {!results && (
-              <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+              <div className="rounded-sm border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
                 Monte a lista de cabos ao lado e clique em <b>"Buscar melhor infraestrutura"</b>.
                 <br />
                 <br />
@@ -473,7 +473,7 @@ export default function InfraTab({ dark }) {
             )}
 
             {results && results.length === 0 && layerHint && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-500/10 dark:text-amber-300">
+              <div className="rounded-sm border border-amber-200 bg-amber-50 p-6 text-center text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-500/10 dark:text-amber-300">
                 Nenhuma opção cabe com o limite de <b>{maxLayers} camada{Number(maxLayers) > 1 ? "s" : ""}</b>.
                 Com esses cabos, a pilha mais baixa possível precisa de pelo menos{" "}
                 <b>{layerHint} camada{layerHint > 1 ? "s" : ""}</b>
@@ -484,7 +484,7 @@ export default function InfraTab({ dark }) {
             )}
 
             {results && results.length === 0 && !layerHint && (
-              <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700 dark:border-red-900 dark:bg-red-500/10 dark:text-red-300">
+              <div className="rounded-sm border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700 dark:border-red-900 dark:bg-red-500/10 dark:text-red-300">
                 Nenhuma infraestrutura cadastrada comporta esses cabos dentro do limite de ocupação da
                 NBR 5410. Considere dividir em mais de um trecho.
               </div>
@@ -500,7 +500,7 @@ export default function InfraTab({ dark }) {
                   {displayResults.map((r, i) => (
                     <li
                       key={i}
-                      className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+                      className="flex items-center justify-between gap-2 rounded-xs border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
                     >
                       <div className="min-w-0">
                         <div className="truncate font-medium text-slate-700 dark:text-slate-200">
@@ -522,7 +522,7 @@ export default function InfraTab({ dark }) {
                         type="button"
                         onClick={() => applyResult(r)}
                         disabled={isApplied(r)}
-                        className="shrink-0 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
+                        className="shrink-0 rounded-xs bg-copper-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-copper-700 disabled:opacity-60"
                       >
                         {isApplied(r) ? "Visualizando ✓" : "Ver"}
                       </button>
@@ -536,25 +536,25 @@ export default function InfraTab({ dark }) {
               <>
                 <div className={cardCls}>
                   <div className="mb-2 flex items-center justify-between">
-                    <h2 className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    <h2 className="font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
                       Visualização — {applied.label}
                     </h2>
                     <div className="flex gap-1.5">
                       <button
                         onClick={() => exportPNG(svgRefBuscar.current, "infraestrutura-recomendada.png")}
-                        className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                        className="rounded-xs border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                       >
                         Exportar PNG
                       </button>
                       <button
                         onClick={exportPDFBuscar}
-                        className="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                        className="rounded-xs border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                       >
                         Relatório PDF
                       </button>
                     </div>
                   </div>
-                  <div className="flex justify-center rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
+                  <div className="flex justify-center rounded-sm bg-slate-50 p-3 dark:bg-slate-800/60">
                     <TrayVisualization
                       ref={svgRefBuscar}
                       cables={cables}

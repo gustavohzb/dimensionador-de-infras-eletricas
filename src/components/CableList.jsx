@@ -3,7 +3,7 @@ import { VIAS_COLORS, COMANDO_COLOR } from "../data/corfioHEPR";
 export default function CableList({ groupedCables, onRemoveGroup, onRemoveAll }) {
   if (groupedCables.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-center text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-500">
+      <p className="rounded-xs border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-center text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-500">
         Nenhum cabo adicionado ainda
       </p>
     );
@@ -15,7 +15,7 @@ export default function CableList({ groupedCables, onRemoveGroup, onRemoveAll })
         {groupedCables.map((c) => (
           <li
             key={c.key}
-            className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
+            className="flex items-center justify-between gap-2 rounded-xs border border-slate-200 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
           >
             <div className="flex items-center gap-2 min-w-0">
               <span
@@ -40,7 +40,7 @@ export default function CableList({ groupedCables, onRemoveGroup, onRemoveAll })
             </div>
             <button
               onClick={() => onRemoveGroup(c.key)}
-              className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+              className="shrink-0 rounded-xs px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
             >
               Remover
             </button>
@@ -49,7 +49,7 @@ export default function CableList({ groupedCables, onRemoveGroup, onRemoveAll })
       </ul>
       <button
         onClick={onRemoveAll}
-        className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+        className="w-full rounded-xs border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
       >
         Remover todos
       </button>

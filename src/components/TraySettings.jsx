@@ -10,7 +10,7 @@ export default function TraySettings({ trayWidth, setTrayWidth, trayHeight, setT
             setTrayWidth(v);
             setTrayHeight(v);
           }}
-          className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          className="w-full rounded-xs border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-copper-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         >
           {dim.sizes.map((s) => (
             <option key={s.value} value={s.value}>{s.label} (Ø int. {s.value}mm)</option>
@@ -28,7 +28,7 @@ export default function TraySettings({ trayWidth, setTrayWidth, trayHeight, setT
           value={trayWidth}
           onChange={(e) => setTrayWidth(+e.target.value)}
           disabled={dim.widths.length <= 1}
-          className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          className="w-full rounded-xs border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-copper-500 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         >
           {dim.widths.map((w) => (
             <option key={w} value={w}>{w}</option>
@@ -40,7 +40,7 @@ export default function TraySettings({ trayWidth, setTrayWidth, trayHeight, setT
         <select
           value={trayHeight}
           onChange={(e) => setTrayHeight(+e.target.value)}
-          className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          className="w-full rounded-xs border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-copper-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         >
           {dim.heights.map((h) => (
             <option key={h} value={h}>{h}</option>

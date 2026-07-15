@@ -13,6 +13,28 @@ const STORAGE_KEY = "quadroCargas.v2";
 const STORAGE_KEY_V1 = "quadroCargas.v1";
 const fmt = (n, d = 2) => (n == null ? "—" : n.toFixed(d).replace(".", ","));
 
+// Pill de critério dominante: cor semântica separada do acento cobre —
+// capacidade em verde (dimensionou pela tabela), quedas em âmbar (o circuito
+// está limitado por tensão), seção mínima em neutro (piso normativo).
+const PILL_CRITERIO = {
+  capacidade: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  quedaRegime: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+  quedaPartida: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+  minima: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+};
+
+function CriterioPill({ criterio }) {
+  return (
+    <span
+      title={CRITERIO_LABEL[criterio]}
+      className={`inline-flex items-center gap-1 rounded-xs px-1.5 py-0.5 font-mono text-[11px] font-semibold ${PILL_CRITERIO[criterio] ?? PILL_CRITERIO.minima}`}
+    >
+      <span className="h-1 w-1 rounded-full bg-current" />
+      {CRITERIO_SIGLA[criterio]}
+    </span>
+  );
+}
+
 function novoCircuito(n) {
   return { ...defaultCircuito(), tag: `AL-${String(n).padStart(2, "0")}` };
 }
@@ -123,8 +145,8 @@ export default function QuadroCargasTab() {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-200">Projetos</h2>
+      <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <h2 className="mb-2 font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Projetos</h2>
         <ProjectsPanel
           projects={projectsApi.projects}
           loading={projectsApi.loading}
@@ -142,23 +164,23 @@ export default function QuadroCargasTab() {
 
       <PresetPanel value={preset} onChange={setPreset} />
 
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+          <h2 className="font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
             Quadro de cargas — {circuitos.length} circuito{circuitos.length > 1 ? "s" : ""}
           </h2>
           <div className="flex gap-1.5">
             <button
               type="button"
               onClick={() => exportMemorialPDF({ projectName: activeProject?.nome, circuitos, resultados, preset })}
-              className="rounded-lg border border-blue-600 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-500/10"
+              className="rounded-xs border border-copper-600 px-3 py-1.5 text-xs font-medium text-copper-600 hover:bg-copper-50 dark:border-copper-500 dark:text-copper-300 dark:hover:bg-copper-500/10"
             >
               Memorial PDF
             </button>
             <button
               type="button"
               onClick={adicionar}
-              className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+              className="rounded-xs bg-copper-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-copper-700"
             >
               + circuito
             </button>
@@ -167,7 +189,7 @@ export default function QuadroCargasTab() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wide text-slate-400 dark:border-slate-700 dark:text-slate-500">
+              <tr className="border-b border-slate-200 font-display text-[11px] font-bold uppercase tracking-[0.07em] text-slate-400 dark:border-slate-700 dark:text-slate-500">
                 <th className="px-2 py-1.5">Nº</th>
                 <th className="px-2 py-1.5">TAG</th>
                 <th className="px-2 py-1.5">Descrição</th>
@@ -218,30 +240,30 @@ export default function QuadroCargasTab() {
                     onClick={() => setSelecionado(i)}
                     className={`cursor-pointer border-b border-slate-100 dark:border-slate-800 ${
                       sel
-                        ? "bg-blue-50 dark:bg-blue-500/10"
+                        ? "bg-copper-50 shadow-[inset_3px_0_0_var(--color-copper-600)] dark:bg-copper-500/10 dark:shadow-[inset_3px_0_0_var(--color-copper-400)]"
                         : "hover:bg-slate-50 dark:hover:bg-slate-800/60"
                     }`}
                   >
-                    <td className="px-2 py-1.5 text-slate-400">{String(i + 1).padStart(2, "0")}</td>
-                    <td className="px-2 py-1.5 font-semibold text-slate-700 dark:text-slate-200">{c.tag}</td>
+                    <td className="px-2 py-1.5 font-mono tabular-nums text-slate-400">{String(i + 1).padStart(2, "0")}</td>
+                    <td className="px-2 py-1.5 font-mono font-semibold text-slate-700 dark:text-slate-200">{c.tag}</td>
                     <td className="max-w-[180px] truncate px-2 py-1.5 text-slate-500 dark:text-slate-400">
                       {c.descricao || "—"}
                     </td>
-                    <td className="px-2 py-1.5 text-slate-700 dark:text-slate-200">
+                    <td className="px-2 py-1.5 font-mono tabular-nums text-slate-700 dark:text-slate-200">
                       {c.tensao}V {esquema?.kQueda === 2 ? "1F" : "3F"}
                     </td>
                     {r.error ? (
                       <td colSpan={5} className="px-2 py-1.5 text-red-500 dark:text-red-400">{r.error}</td>
                     ) : (
                       <>
-                        <td className="px-2 py-1.5 text-slate-700 dark:text-slate-200">{fmt(r.corrente, 1)}</td>
-                        <td className="px-2 py-1.5 font-bold whitespace-nowrap text-emerald-600 dark:text-emerald-400">
+                        <td className="px-2 py-1.5 font-mono tabular-nums text-slate-700 dark:text-slate-200">{fmt(r.corrente, 1)}</td>
+                        <td className="px-2 py-1.5 font-mono font-semibold whitespace-nowrap text-emerald-600 dark:text-emerald-400">
                           {designacaoCabos({ esquemaId: c.esquemaId, tipoCabo: r.tipoCabo, result: r })}
                         </td>
-                        <td className="px-2 py-1.5 text-slate-700 dark:text-slate-200">{fmt(r.quedaRegime)}</td>
-                        <td className="px-2 py-1.5 text-slate-700 dark:text-slate-200">{fmt(r.quedaPartida)}</td>
-                        <td className="px-2 py-1.5 text-slate-500 dark:text-slate-400" title={CRITERIO_LABEL[r.criterio]}>
-                          {CRITERIO_SIGLA[r.criterio]}
+                        <td className="px-2 py-1.5 font-mono tabular-nums text-slate-700 dark:text-slate-200">{fmt(r.quedaRegime)}</td>
+                        <td className="px-2 py-1.5 font-mono tabular-nums text-slate-700 dark:text-slate-200">{fmt(r.quedaPartida)}</td>
+                        <td className="px-2 py-1.5">
+                          <CriterioPill criterio={r.criterio} />
                         </td>
                       </>
                     )}
@@ -256,7 +278,7 @@ export default function QuadroCargasTab() {
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); copiar(i); }}
-                        className="mr-2 text-[11px] font-medium text-blue-500 hover:text-blue-600 dark:text-blue-400"
+                        className="mr-2 text-[11px] font-medium text-copper-500 hover:text-copper-600 dark:text-copper-400"
                       >
                         copiar
                       </button>
@@ -276,33 +298,33 @@ export default function QuadroCargasTab() {
             </tbody>
           </table>
         </div>
-        <p className="mt-1.5 text-[11px] text-slate-400 dark:text-slate-500">{CRITERIO_LEGENDA}</p>
+        <p className="mt-1.5 font-mono text-[10.5px] text-slate-400 dark:text-slate-500">{CRITERIO_LEGENDA}</p>
       </div>
 
       {atual && (
         <div ref={formRef} className="grid grid-cols-1 gap-3 lg:grid-cols-[360px_1fr]">
           <section>
             <div className="mb-2 flex items-center gap-2">
-              <span className="rounded-md bg-blue-600 px-2 py-0.5 text-[11px] font-semibold text-white">
+              <span className="rounded-xs bg-copper-600 px-2 py-0.5 font-display text-[11px] font-bold uppercase tracking-[0.06em] text-white">
                 Editando
               </span>
-              <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+              <span className="font-mono text-xs font-medium text-slate-600 dark:text-slate-300">
                 {atual.tag}{atual.descricao ? ` — ${atual.descricao}` : ""}
               </span>
             </div>
             <CircuitoForm value={atual} onChange={setAtual} condutorTemp={preset.condutorTemp} />
           </section>
           <section>
-            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
               <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                <h2 className="font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
                   Resultado — {atual.tag}
                 </h2>
                 {!resultados[selecionado].error && (
                   <button
                     type="button"
                     onClick={() => exportCircuitoPDF({ circuito: atual, result: resultados[selecionado], preset })}
-                    className="rounded-lg border border-blue-600 px-2.5 py-1 text-[11px] font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-500/10"
+                    className="rounded-xs border border-copper-600 px-2.5 py-1 text-[11px] font-medium text-copper-600 hover:bg-copper-50 dark:border-copper-500 dark:text-copper-300 dark:hover:bg-copper-500/10"
                   >
                     PDF do circuito
                   </button>
@@ -313,6 +335,10 @@ export default function QuadroCargasTab() {
                 esquemaId={atual.esquemaId}
                 porFase={Number(atual.porFase)}
                 condutorTemp={preset.condutorTemp}
+                limites={{
+                  regime: Number(preset.quedaMaxRegime) || 4,
+                  partida: Number(atual.quedaMaxPartida) || 10,
+                }}
               />
             </div>
           </section>

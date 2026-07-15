@@ -56,9 +56,9 @@ function ToggleGroup({ options, value, onChange }) {
             key={id}
             type="button"
             onClick={() => onChange(id)}
-            className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
+            className={`rounded-xs border px-2.5 py-1.5 text-xs font-medium transition ${
               active
-                ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-500/15 dark:text-blue-300"
+                ? "border-copper-600 bg-copper-50 text-copper-700 dark:border-copper-500 dark:bg-copper-500/15 dark:text-copper-300"
                 : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
             }`}
           >
@@ -88,13 +88,13 @@ export default function InfraSelector({
               key={id}
               type="button"
               onClick={() => setInfraType(id)}
-              className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
+              className={`flex items-center gap-1.5 rounded-xs border px-2.5 py-1.5 text-xs font-medium transition ${
                 active
-                  ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-500/15 dark:text-blue-300"
+                  ? "border-copper-600 bg-copper-50 text-copper-700 dark:border-copper-500 dark:bg-copper-500/15 dark:text-copper-300"
                   : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
               }`}
             >
-              <span className={active ? "text-blue-600 dark:text-blue-300" : "text-slate-400 dark:text-slate-400"}>
+              <span className={active ? "text-copper-600 dark:text-copper-300" : "text-slate-400 dark:text-slate-400"}>
                 <InfraIcon id={id} />
               </span>
               {label}

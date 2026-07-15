@@ -2,7 +2,7 @@ import { SECOES, CONDUTOR_TEMPS } from "../../data/cabosNBR5410";
 import { Field } from "./CircuitoForm";
 
 const inputCls =
-  "w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100";
+  "w-full rounded-xs border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-copper-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100";
 
 // Preset do quadro: parâmetros únicos que valem para todos os circuitos.
 // A temperatura ambiente/solo fica em cada trecho (não é global).
@@ -23,9 +23,9 @@ export default function PresetPanel({ value, onChange }) {
   };
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="mb-1 flex items-center justify-between">
-        <h2 className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+        <h2 className="font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
           Preset do quadro
         </h2>
         <span className="text-[11px] text-slate-400 dark:text-slate-500">

@@ -3,17 +3,77 @@
 /* Dark mode acionado por classe (.dark no <html>), não só por prefers-color-scheme */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ---------------------------------------------------------------------------
+   Sistema visual "prancha de projeto": neutros cinza-aço (a escala slate é
+   retonalizada abaixo — nenhuma classe muda), acento único em cobre (a cor do
+   condutor), display condensada de carimbo técnico e mono tabular para todo
+   número calculado.
+--------------------------------------------------------------------------- */
+@theme {
+  /* Escala slate retonalizada para o cinza-aço neutro (menos azulado) */
+  --color-slate-50: #f2f4f6;
+  --color-slate-100: #e7eaed;
+  --color-slate-200: #dde2e6;
+  --color-slate-300: #cbd2d8;
+  --color-slate-400: #8b959d;
+  --color-slate-500: #64707a;
+  --color-slate-600: #4b545c;
+  --color-slate-700: #2c333a;
+  --color-slate-800: #232a30;
+  --color-slate-900: #1b2126;
+  --color-slate-950: #14181c;
+
+  /* Cobre — acento único do app */
+  --color-copper-50: #faf4ee;
+  --color-copper-100: #f3e3d6;
+  --color-copper-200: #e9cdb4;
+  --color-copper-300: #ddb089;
+  --color-copper-400: #d98a4b;
+  --color-copper-500: #c37339;
+  --color-copper-600: #b4622a;
+  --color-copper-700: #96501f;
+  --color-copper-800: #7a4218;
+  --color-copper-900: #5e3413;
+  --color-copper-950: #33241a;
+
+  --font-display: "Archivo Narrow", "Bahnschrift", "Arial Narrow", sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, "Roboto Mono", monospace;
+}
+
 body {
   margin: 0;
   font-family: system-ui, "Segoe UI", Roboto, sans-serif;
-  background: #f8fafc;
+  background: #f2f4f6;
 }
 
 html.dark body {
-  background: #020617;
+  background: #14181c;
 }
 
 /* selects nativos acompanham o tema (setinha e popup) */
 html.dark select {
   color-scheme: dark;
+}
+
+/* Números calculados/digitados são dados: mono tabular em todo input numérico */
+input[type="number"] {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: #f3e3d6;
+  color: #7a4218;
+}
+html.dark ::selection {
+  background: #33241a;
+  color: #ddb089;
+}
+
+:focus-visible {
+  outline: 2px solid #b4622a;
+  outline-offset: 1px;
+}
+html.dark :focus-visible {
+  outline-color: #d98a4b;
 }
