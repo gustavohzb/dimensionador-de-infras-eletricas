@@ -4,8 +4,9 @@ import {
 import { correnteDeProjeto, dimensionarCircuitoPro, designacaoCabos, UNIDADES_POTENCIA } from "../../lib/cableSizingPro";
 
 const inputCls =
-  "w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100";
-const labelCls = "mb-1 block text-[11px] font-medium text-slate-500 dark:text-slate-400";
+  "w-full rounded-xs border border-slate-300 bg-white px-2.5 py-1.5 text-sm tabular-nums text-slate-800 focus:outline-none focus:ring-2 focus:ring-copper-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100";
+const labelCls =
+  "mb-1 block text-[10.5px] font-semibold uppercase tracking-[0.04em] text-slate-500 dark:text-slate-400";
 
 // Tooltip nativo (atributo title): funciona em desktop no hover; em mobile o
 // ⓘ segura o texto no toque longo na maioria dos navegadores.
@@ -114,10 +115,10 @@ function TrechoEditor({ trecho, index, onChange, onRemove, removable, condutorTe
   const set = (patch) => onChange({ ...trecho, ...patch });
 
   return (
-    <div className="rounded-lg border border-slate-200 p-2.5 dark:border-slate-700">
+    <div className="rounded-xs border border-slate-200 p-2.5 dark:border-slate-700">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-          Trecho {String(index + 1).padStart(2, "0")}
+        <span className="font-display text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+          Trecho <span className="font-mono">{String(index + 1).padStart(2, "0")}</span>
         </span>
         {removable && (
           <button
@@ -222,8 +223,8 @@ export function CircuitoForm({ value, onChange, showIdentificacao = true, condut
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-200">Carga</h2>
+      <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <h2 className="mb-2 font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Carga</h2>
         <div className="space-y-2">
           {showIdentificacao && (
             <div className="grid grid-cols-[100px_1fr] gap-2">
@@ -244,9 +245,9 @@ export function CircuitoForm({ value, onChange, showIdentificacao = true, condut
                 key={m.id}
                 type="button"
                 onClick={() => set({ modo: m.id })}
-                className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
+                className={`rounded-xs border px-2.5 py-1.5 text-xs font-medium transition ${
                   c.modo === m.id
-                    ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-500/15 dark:text-blue-300"
+                    ? "border-copper-600 bg-copper-50 text-copper-700 dark:border-copper-500 dark:bg-copper-500/15 dark:text-copper-300"
                     : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                 }`}
               >
@@ -336,16 +337,16 @@ export function CircuitoForm({ value, onChange, showIdentificacao = true, condut
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+          <h2 className="font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
             Trechos da instalação
           </h2>
           {c.trechos.length < 4 && (
             <button
               type="button"
               onClick={() => set({ trechos: [...c.trechos, defaultTrecho()] })}
-              className="rounded-lg border border-blue-600 px-2 py-1 text-[11px] font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-500/10"
+              className="rounded-xs border border-copper-600 px-2 py-1 text-[11px] font-medium text-copper-600 hover:bg-copper-50 dark:border-copper-500 dark:text-copper-300 dark:hover:bg-copper-500/10"
             >
               + trecho
             </button>
@@ -378,11 +379,34 @@ function ResultRow({ label, value, strong }) {
       <span
         className={
           strong
-            ? "text-base font-bold text-slate-800 dark:text-slate-100"
-            : "font-semibold text-slate-700 dark:text-slate-200"
+            ? "font-mono text-base font-bold tabular-nums text-slate-800 dark:text-slate-100"
+            : "font-mono font-semibold tabular-nums text-slate-700 dark:text-slate-200"
         }
       >
         {value}
+      </span>
+    </div>
+  );
+}
+
+// Barra de aproveitamento de um limite (queda medida vs. queda máxima).
+// Cobre enquanto folgado, âmbar quando passa de 85% do limite — o circuito
+// continua conforme, mas está perto de estourar.
+function LimitBar({ label, valor, limite }) {
+  if (valor == null || !(limite > 0)) return null;
+  const pct = Math.min((valor / limite) * 100, 100);
+  const apertado = pct > 85;
+  return (
+    <div className="grid grid-cols-[110px_1fr_72px] items-center gap-2">
+      <span className="text-[11px] text-slate-500 dark:text-slate-400">{label}</span>
+      <div className="h-1.5 overflow-hidden rounded-xs border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+        <div
+          className={`h-full ${apertado ? "bg-amber-500" : "bg-copper-500 dark:bg-copper-400"}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-right font-mono text-[11px] tabular-nums text-slate-600 dark:text-slate-300">
+        {fmt(valor)}/{fmt(limite, 1)}%
       </span>
     </div>
   );
@@ -406,10 +430,10 @@ export const CRITERIO_SIGLA = {
 export const CRITERIO_LEGENDA =
   "CC: capacidade de condução · QR: queda de tensão em regime · QP: queda de tensão na partida · SM: seção mínima";
 
-export function ResultadoCircuito({ result, esquemaId, porFase, condutorTemp = 90 }) {
+export function ResultadoCircuito({ result, esquemaId, porFase, condutorTemp = 90, limites = null }) {
   if (result.error) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-500/10 dark:text-red-300">
+      <div className="rounded-xs border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-500/10 dark:text-red-300">
         {result.error}
       </div>
     );
@@ -421,19 +445,21 @@ export function ResultadoCircuito({ result, esquemaId, porFase, condutorTemp = 9
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-emerald-50 px-4 py-3 dark:bg-emerald-500/10">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xs border-t-2 border-copper-600 bg-copper-50 px-4 py-3 dark:border-copper-400 dark:bg-copper-500/10">
         <div>
-          <div className="text-xs text-emerald-700 dark:text-emerald-300">
-            Cabos do circuito ({isolacaoLabel})
+          <div className="font-display text-[11px] font-bold uppercase tracking-[0.08em] text-copper-800 dark:text-copper-300">
+            Cabos do circuito
           </div>
-          <div className="text-[11px] text-emerald-600/80 dark:text-emerald-400/70">
-            critério dominante: {CRITERIO_LABEL[result.criterio]}
+          <div className="text-[11px] text-copper-700/80 dark:text-copper-300/70">
+            {isolacaoLabel} · critério dominante: {CRITERIO_LABEL[result.criterio]}
           </div>
         </div>
-        <div className="text-xl font-bold text-emerald-700 dark:text-emerald-300">{designacao}</div>
+        <div className="font-display text-2xl font-bold tracking-tight text-copper-800 dark:text-copper-300">
+          {designacao}
+        </div>
       </div>
 
-      <div className="space-y-1.5 rounded-lg bg-slate-50 px-3 py-2.5 dark:bg-slate-800">
+      <div className="space-y-1.5 rounded-xs bg-slate-50 px-3 py-2.5 dark:bg-slate-800">
         <ResultRow label="Corrente de projeto Ib" value={`${fmt(result.corrente, 1)} A`} />
         {nPar > 1 && <ResultRow label="Corrente por cabo (paralelo)" value={`${fmt(result.correntePorCabo, 1)} A`} />}
         {result.correntePartida != null && (
@@ -442,7 +468,7 @@ export function ResultadoCircuito({ result, esquemaId, porFase, condutorTemp = 9
         <ResultRow label="Capacidade corrigida do conjunto" value={`${fmt(result.capacidadeCorrigida, 1)} A`} />
       </div>
 
-      <div className="space-y-1.5 rounded-lg bg-slate-50 px-3 py-2.5 dark:bg-slate-800">
+      <div className="space-y-1.5 rounded-xs bg-slate-50 px-3 py-2.5 dark:bg-slate-800">
         <ResultRow label="Seção por capacidade" value={`${result.secaoCapacidade}mm²`} />
         <ResultRow
           label="Seção por queda em regime"
@@ -458,9 +484,15 @@ export function ResultadoCircuito({ result, esquemaId, porFase, condutorTemp = 9
         {result.quedaPartida != null && (
           <ResultRow label="Queda na partida" value={`${fmt(result.quedaPartida)}%`} />
         )}
+        {limites && (result.quedaRegime != null || result.quedaPartida != null) && (
+          <div className="space-y-1.5 border-t border-slate-200 pt-2 dark:border-slate-700">
+            <LimitBar label="Queda regime" valor={result.quedaRegime} limite={limites.regime} />
+            <LimitBar label="Queda partida" valor={result.quedaPartida} limite={limites.partida} />
+          </div>
+        )}
       </div>
 
-      <div className="space-y-1.5 rounded-lg bg-slate-50 px-3 py-2.5 dark:bg-slate-800">
+      <div className="space-y-1.5 rounded-xs bg-slate-50 px-3 py-2.5 dark:bg-slate-800">
         <div
           className="cursor-help text-[11px] font-semibold text-slate-500 dark:text-slate-400"
           title="FCT: fator de correção de temperatura (Tab. 40). FCA: fator de agrupamento (Tab. 42/45). I′: corrente que o cabo precisa suportar já descontados os fatores — Ib ÷ (FCT × FCA)."
@@ -470,9 +502,11 @@ export function ResultadoCircuito({ result, esquemaId, porFase, condutorTemp = 9
         {result.detalhesTrechos.map((t, i) => (
           <div key={i} className="flex items-baseline justify-between gap-2 text-xs">
             <span className="text-slate-500 dark:text-slate-400">
-              {String(i + 1).padStart(2, "0")} · {t.condutoLabel} (mét. {t.metodo}) · FCT {fmt(t.fct)} · FCA {fmt(t.fca)}
+              <span className="font-mono tabular-nums">{String(i + 1).padStart(2, "0")}</span> · {t.condutoLabel} (mét.{" "}
+              {t.metodo}) · FCT <span className="font-mono tabular-nums">{fmt(t.fct)}</span> · FCA{" "}
+              <span className="font-mono tabular-nums">{fmt(t.fca)}</span>
             </span>
-            <span className="font-semibold text-slate-700 dark:text-slate-200">
+            <span className="font-mono font-semibold tabular-nums text-slate-700 dark:text-slate-200">
               I′ {fmt(t.iCorrigida, 1)} A
             </span>
           </div>

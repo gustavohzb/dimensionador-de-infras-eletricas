@@ -27,9 +27,9 @@ export default function CableForm({ onAddCable, onAddTrifolio }) {
               key={type}
               type="button"
               onClick={() => setCableType(type)}
-              className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
+              className={`rounded-xs border px-3 py-1.5 text-sm font-medium transition ${
                 cableType === type
-                  ? "border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-500/15 dark:text-blue-300"
+                  ? "border-copper-600 bg-copper-50 text-copper-700 dark:border-copper-500 dark:bg-copper-500/15 dark:text-copper-300"
                   : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
               }`}
             >
@@ -46,7 +46,7 @@ export default function CableForm({ onAddCable, onAddTrifolio }) {
             <select
               value={vias}
               onChange={(e) => setVias(+e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              className="w-full rounded-xs border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-copper-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             >
               {VIAS_OPTIONS.map((v) => (
                 <option key={v} value={v}>{v}</option>
@@ -59,7 +59,7 @@ export default function CableForm({ onAddCable, onAddTrifolio }) {
           <select
             value={section}
             onChange={(e) => setSection(+e.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            className="w-full rounded-xs border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-copper-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           >
             {validSections.map((s) => (
               <option key={s} value={s}>{s}</option>
@@ -72,7 +72,7 @@ export default function CableForm({ onAddCable, onAddTrifolio }) {
         <button
           type="button"
           onClick={() => onAddCable({ section, cableType, vias })}
-          className="flex-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.98]"
+          className="flex-1 rounded-xs bg-copper-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-copper-700 active:scale-[0.98]"
         >
           + Adicionar cabo
         </button>
@@ -80,7 +80,7 @@ export default function CableForm({ onAddCable, onAddTrifolio }) {
           <button
             type="button"
             onClick={() => onAddTrifolio({ section })}
-            className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-600 active:scale-[0.98]"
+            className="rounded-xs bg-amber-500 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-600 active:scale-[0.98]"
             title="Adiciona um trifólio (3 condutores unipolares agrupados)"
           >
             Trifólio

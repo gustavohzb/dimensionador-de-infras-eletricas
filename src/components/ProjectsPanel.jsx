@@ -24,7 +24,7 @@ export default function ProjectsPanel({
 
   if (!supabaseConfigured) {
     return (
-      <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400">
+      <p className="rounded-xs border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400">
         Salvar projetos requer configurar o Supabase (arquivo <code>.env.local</code>).
       </p>
     );
@@ -80,8 +80,8 @@ export default function ProjectsPanel({
   return (
     <div className="space-y-2.5">
       {activeProject && (
-        <div className="flex items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 dark:border-blue-800 dark:bg-blue-500/10">
-          <span className="truncate text-sm text-blue-800 dark:text-blue-300">
+        <div className="flex items-center justify-between gap-2 rounded-xs border border-copper-200 bg-copper-50 px-3 py-2 dark:border-copper-800 dark:bg-copper-500/10">
+          <span className="truncate text-sm text-copper-800 dark:text-copper-300">
             Editando: <b>{activeProject.nome}</b>
           </span>
           <div className="flex shrink-0 gap-2">
@@ -89,7 +89,7 @@ export default function ProjectsPanel({
               type="button"
               onClick={handleSaveChanges}
               disabled={busy}
-              className="rounded-md bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50"
+              className="rounded-xs bg-copper-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-copper-700 disabled:opacity-50"
             >
               Salvar alterações
             </button>
@@ -98,7 +98,7 @@ export default function ProjectsPanel({
               onClick={onUnlink}
               disabled={busy}
               title="Sai da edição deste projeto e zera a tela (infraestrutura, dimensões e cabos)"
-              className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+              className="rounded-xs border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
             >
               Desvincular
             </button>
@@ -113,13 +113,13 @@ export default function ProjectsPanel({
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleCreate()}
           placeholder="Nome do projeto"
-          className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          className="w-full rounded-xs border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-copper-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         />
         <button
           type="button"
           onClick={handleCreate}
           disabled={busy || !name.trim()}
-          className="shrink-0 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50"
+          className="shrink-0 rounded-xs bg-copper-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-copper-700 disabled:opacity-50"
         >
           {activeProject ? "Salvar como novo" : "Criar projeto"}
         </button>
@@ -129,7 +129,7 @@ export default function ProjectsPanel({
       {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
 
       {!loading && projects.length === 0 && (
-        <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-center text-xs text-slate-400 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-500">
+        <p className="rounded-xs border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-center text-xs text-slate-400 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-500">
           Nenhum projeto salvo ainda
         </p>
       )}
@@ -139,9 +139,9 @@ export default function ProjectsPanel({
           {projects.map((p) => (
             <li
               key={p.id}
-              className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-1.5 text-sm ${
+              className={`flex items-center justify-between gap-2 rounded-xs border px-3 py-1.5 text-sm ${
                 activeProject?.id === p.id
-                  ? "border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-500/10"
+                  ? "border-copper-300 bg-copper-50 dark:border-copper-700 dark:bg-copper-500/10"
                   : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800"
               }`}
             >
@@ -151,7 +151,7 @@ export default function ProjectsPanel({
                   type="button"
                   disabled={busyId === p.id}
                   onClick={() => handleLoad(p.id)}
-                  className="text-xs font-medium text-blue-600 hover:underline disabled:opacity-50 dark:text-blue-400"
+                  className="text-xs font-medium text-copper-600 hover:underline disabled:opacity-50 dark:text-copper-400"
                 >
                   Carregar
                 </button>

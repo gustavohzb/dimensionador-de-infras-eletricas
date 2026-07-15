@@ -23,7 +23,7 @@ export default function ComandoCableForm({ onAddCable }) {
           <select
             value={condutores}
             onChange={(e) => setCondutores(+e.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            className="w-full rounded-xs border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-copper-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           >
             {COMANDO_CONDUTORES_OPTIONS.map((v) => (
               <option key={v} value={v}>{v}</option>
@@ -35,7 +35,7 @@ export default function ComandoCableForm({ onAddCable }) {
           <select
             value={section}
             onChange={(e) => setSection(+e.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            className="w-full rounded-xs border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-copper-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           >
             {validSections.map((s) => (
               <option key={s} value={s}>{s}</option>
@@ -50,7 +50,7 @@ export default function ComandoCableForm({ onAddCable }) {
           const d = getComandoDiameter(section, condutores);
           onAddCable({ section, d, type: "comando", vias: condutores });
         }}
-        className="w-full rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.98]"
+        className="w-full rounded-xs bg-copper-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-copper-700 active:scale-[0.98]"
       >
         + Adicionar cabo
       </button>

@@ -12,7 +12,7 @@ function ThemeToggle({ dark, onToggle }) {
       onClick={onToggle}
       aria-label={dark ? "Mudar para tema claro" : "Mudar para tema escuro"}
       title={dark ? "Tema claro" : "Tema escuro"}
-      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+      className="inline-flex h-9 w-9 items-center justify-center rounded-xs border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
     >
       {dark ? (
         // sol
@@ -36,20 +36,24 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <div className="mx-auto grid max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-3">
-          <div />
+      {/* Titleblock: cabeçalho no espírito de carimbo de prancha técnica —
+          régua de cobre embaixo, identificação à esquerda, selos à direita. */}
+      <header className="border-b-2 border-copper-600 bg-white dark:border-copper-500 dark:bg-slate-900">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-2.5">
           {/* O texto "Gustavo" e a linha divisória do logo são pretos/cinza-
               escuros (parte da arte original) e ficam ilegíveis no modo
               escuro — o painel claro por trás só aparece no dark mode. */}
-          <div className="rounded-xl px-4 py-1.5 dark:bg-slate-100/90">
-            <img src={logo} alt="Dimensionador do Gustavo" className="h-32 w-auto" />
+          <div className="rounded-xs px-2 py-1 dark:bg-slate-100/90">
+            <img src={logo} alt="Dimensionador do Gustavo" className="h-20 w-auto" />
           </div>
-          <div className="flex justify-end">
+          <div className="flex items-center gap-2">
+            <span className="rounded-xs border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-[11px] text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+              NBR 5410:2004
+            </span>
             <ThemeToggle dark={dark} onToggle={() => setDark((v) => !v)} />
           </div>
         </div>
-        <div className="mx-auto flex max-w-6xl gap-1 px-4">
+        <div className="mx-auto flex max-w-6xl gap-4 px-4">
           {[
             { id: "infra", label: "Infraestrutura" },
             { id: "quadroCargas", label: "Cabos Elétricos" },
@@ -59,10 +63,10 @@ export default function App() {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`rounded-t-lg border border-b-0 px-4 py-2 text-sm font-medium transition ${
+              className={`-mb-0.5 border-b-2 px-1 pb-2 pt-1 font-display text-[13px] font-bold uppercase tracking-[0.08em] transition ${
                 activeTab === tab.id
-                  ? "border-slate-200 bg-slate-50 text-blue-700 dark:border-slate-800 dark:bg-slate-950 dark:text-blue-400"
-                  : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                  ? "border-copper-600 text-copper-700 dark:border-copper-400 dark:text-copper-400"
+                  : "border-transparent text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
               }`}
             >
               {tab.label}

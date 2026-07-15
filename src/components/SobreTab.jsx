@@ -4,7 +4,7 @@ const APP_VERSION = "1.0";
 
 function Card({ children }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="rounded-sm border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       {children}
     </div>
   );
@@ -28,7 +28,7 @@ export default function SobreTab() {
               Ferramenta para dimensionamento de infraestruturas elétricas (eletrocalhas, leitos,
               perfilados, aramados e eletrodutos) e de cabos de baixa tensão, conforme a ABNT NBR 5410.
             </p>
-            <span className="mt-2 inline-block rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+            <span className="mt-2 inline-block rounded-full bg-copper-50 px-2.5 py-0.5 text-xs font-medium text-copper-700 dark:bg-copper-500/15 dark:text-copper-300">
               Versão {APP_VERSION}
             </span>
           </div>
@@ -39,7 +39,7 @@ export default function SobreTab() {
         <SectionTitle>O que ela faz</SectionTitle>
         <ul className="space-y-1.5 text-sm text-slate-600 dark:text-slate-300">
           <li className="flex gap-2">
-            <span className="text-blue-600 dark:text-blue-400">•</span>
+            <span className="text-copper-600 dark:text-copper-400">•</span>
             <span>
               <b className="font-semibold text-slate-700 dark:text-slate-200">Infraestrutura — Manual:</b>{" "}
               você escolhe a infraestrutura e as dimensões, monta o trecho de cabos e confere a taxa de
@@ -47,7 +47,7 @@ export default function SobreTab() {
             </span>
           </li>
           <li className="flex gap-2">
-            <span className="text-blue-600 dark:text-blue-400">•</span>
+            <span className="text-copper-600 dark:text-copper-400">•</span>
             <span>
               <b className="font-semibold text-slate-700 dark:text-slate-200">Infraestrutura — Auto:</b>{" "}
               a partir dos cabos, o app testa todas as infraestruturas cadastradas e ranqueia as que
@@ -55,7 +55,7 @@ export default function SobreTab() {
             </span>
           </li>
           <li className="flex gap-2">
-            <span className="text-blue-600 dark:text-blue-400">•</span>
+            <span className="text-copper-600 dark:text-copper-400">•</span>
             <span>
               <b className="font-semibold text-slate-700 dark:text-slate-200">Cabos Elétricos:</b>{" "}
               dimensiona a seção dos condutores por capacidade de condução, queda de tensão em regime e

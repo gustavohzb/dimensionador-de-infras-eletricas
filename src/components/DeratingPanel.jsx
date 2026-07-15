@@ -30,7 +30,7 @@ export default function DeratingPanel({
           <select
             value={arranjo}
             onChange={(e) => onArranjoChange(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            className="w-full rounded-xs border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-copper-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           >
             {ARRANJOS.map((a) => (
               <option key={a.id} value={a.id}>
@@ -49,14 +49,14 @@ export default function DeratingPanel({
               min="1"
               value={circuitos}
               onChange={(e) => onCircuitosChange(Math.max(1, Number(e.target.value) || 1))}
-              className="w-20 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              className="w-20 rounded-xs border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-copper-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             />
             {isOverride && (
               <button
                 type="button"
                 onClick={() => onCircuitosChange(null)}
                 title={`Voltar à estimativa automática (${circuitosAuto})`}
-                className="rounded-md px-1.5 py-1 text-[11px] font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-500/10"
+                className="rounded-xs px-1.5 py-1 text-[11px] font-medium text-copper-600 hover:bg-copper-50 dark:text-copper-400 dark:hover:bg-copper-500/10"
               >
                 auto
               </button>
@@ -65,7 +65,7 @@ export default function DeratingPanel({
         </div>
       </div>
 
-      <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-800">
+      <div className="flex items-center justify-between rounded-xs bg-slate-50 px-3 py-2 dark:bg-slate-800">
         <span className="text-xs text-slate-500 dark:text-slate-400">
           Fator de correção da capacidade de condução
         </span>

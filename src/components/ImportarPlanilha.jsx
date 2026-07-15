@@ -85,13 +85,13 @@ export default function ImportarPlanilha({ onImport, onImportTrifolio }) {
             onChange={(e) => setText(e.target.value)}
             rows={4}
             placeholder={"Cole aqui as linhas copiadas do Excel..."}
-            className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            className="w-full rounded-xs border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-copper-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
           <button
             type="button"
             onClick={handleAnalyze}
             disabled={!text.trim()}
-            className="w-full rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50"
+            className="w-full rounded-xs bg-copper-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-copper-700 disabled:opacity-50"
           >
             Analisar linhas
           </button>
@@ -107,7 +107,7 @@ export default function ImportarPlanilha({ onImport, onImportTrifolio }) {
             {preview.map((line, i) => (
               <li
                 key={i}
-                className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-800"
+                className="rounded-xs border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-800"
               >
                 <div className="truncate font-medium text-slate-700 dark:text-slate-200">{line.label}</div>
                 {line.error && (
@@ -142,14 +142,14 @@ export default function ImportarPlanilha({ onImport, onImportTrifolio }) {
             <button
               type="button"
               onClick={handleConfirm}
-              className="flex-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+              className="flex-1 rounded-xs bg-copper-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-copper-700"
             >
               Confirmar importação
             </button>
             <button
               type="button"
               onClick={() => setPreview(null)}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              className="rounded-xs border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               Cancelar
             </button>
@@ -158,7 +158,7 @@ export default function ImportarPlanilha({ onImport, onImportTrifolio }) {
       )}
 
       {result && (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-800">
+        <div className="rounded-xs border border-slate-200 bg-slate-50 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-800">
           {result.added > 0 && (
             <p className="font-medium text-emerald-700 dark:text-emerald-400">
               {result.added} cabo{result.added > 1 ? "s" : ""} importado{result.added > 1 ? "s" : ""}.
