@@ -51,6 +51,8 @@ export const ELETRODUTO_NORMAS = [
   { id: "nbr5597", label: "NBR 5597" },
   { id: "nbr5598", label: "NBR 5598" },
   { id: "nbr15715", label: "PEAD NBR 15715" },
+  { id: "inoxSch10", label: "Inox A312 Sch 10" },
+  { id: "inoxSch40", label: "Inox A312 Sch 40" },
 ];
 
 // Eletroduto de aço galvanizado a fogo, rebarba interna removida, rosca NPT —
@@ -123,6 +125,42 @@ export const NBR15715_SIZES = [
   { bitola: '8"', dn: 200, od: 250.0, id: 206.0 },
 ];
 
+// Eletroduto de aço inoxidável (TP304/304L ou TP316/316L) — ASTM A312 (o tubo)
+// e ASME/ANSI B36.19 (as dimensões da série Schedule). Não há NBR de eletroduto
+// inox: as 5597/5598/5624 são todas de aço-carbono. Usado onde o galvanizado não
+// resiste — maresia, atmosfera corrosiva, hospital, indústria alimentícia.
+//
+// Série 10S, rosca BSP. Fonte: catálogo Elecon
+// (elecon.com.br/produto/eletrodutos-rigidos), cujas paredes conferem exatamente
+// com a B36.19. Só até 2" — é onde o catálogo para; a B36.19 define a série
+// acima disso, mas aí já não é eletroduto de prateleira.
+// Parede fina: dá o maior diâmetro interno do app (2" = 54,8mm, contra 54,3 da
+// NBR 5598 e 53,6 da 5597).
+export const INOX_SCH10_SIZES = [
+  { bitola: '1/2"', dn: 15, od: 21.3, wall: 2.11 },
+  { bitola: '3/4"', dn: 20, od: 26.7, wall: 2.11 },
+  { bitola: '1"', dn: 25, od: 33.7, wall: 2.77 },
+  { bitola: '1.1/4"', dn: 32, od: 42.4, wall: 2.77 },
+  { bitola: '1.1/2"', dn: 40, od: 48.3, wall: 2.77 },
+  { bitola: '2"', dn: 50, od: 60.3, wall: 2.77 },
+].map((s) => ({ ...s, id: +(s.od - 2 * s.wall).toFixed(1) }));
+
+// Eletroduto de aço inoxidável, série 40S, rosca BSP ou NPT — mesma fonte e
+// normas da série 10S acima. Vai até 4".
+// Parede grossa (é tubo de pressão): dá o menor diâmetro interno do app, então
+// na busca reversa costuma exigir uma bitola acima do galvanizado equivalente.
+export const INOX_SCH40_SIZES = [
+  { bitola: '1/2"', dn: 15, od: 21.3, wall: 2.77 },
+  { bitola: '3/4"', dn: 20, od: 26.7, wall: 2.87 },
+  { bitola: '1"', dn: 25, od: 33.7, wall: 3.38 },
+  { bitola: '1.1/4"', dn: 32, od: 42.4, wall: 3.56 },
+  { bitola: '1.1/2"', dn: 40, od: 48.3, wall: 3.68 },
+  { bitola: '2"', dn: 50, od: 60.3, wall: 3.91 },
+  { bitola: '2.1/2"', dn: 65, od: 73.0, wall: 5.16 },
+  { bitola: '3"', dn: 80, od: 88.9, wall: 5.49 },
+  { bitola: '4"', dn: 100, od: 114.3, wall: 6.02 },
+].map((s) => ({ ...s, id: +(s.od - 2 * s.wall).toFixed(1) }));
+
 // Tamanhos de eletroduto por norma (o tipo "eletroduto" é único; a norma é
 // escolhida por um sub-toggle, assim como as abas do Leito).
 export const DUCT_SIZES_BY_NORMA = {
@@ -130,6 +168,8 @@ export const DUCT_SIZES_BY_NORMA = {
   nbr5597: NBR5597_SIZES,
   nbr5598: NBR5598_SIZES,
   nbr15715: NBR15715_SIZES,
+  inoxSch10: INOX_SCH10_SIZES,
+  inoxSch40: INOX_SCH40_SIZES,
 };
 
 // Dimensões disponíveis por infraestrutura.
