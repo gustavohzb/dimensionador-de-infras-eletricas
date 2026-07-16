@@ -154,22 +154,26 @@ export function findBestFits(cables, options = {}) {
 }
 
 // Cura a lista de resultados pra exibição: no máximo `maxPerGroup` opções por
-// tipo de infraestrutura (eletroduto conta a norma como parte do tipo, já
-// que são catálogos/produtos diferentes), cada uma com uma ALTURA diferente
-// (pra eletroduto, que não tem largura x altura, a bitola faz esse papel) —
-// evita mostrar duas variações "quase iguais" do mesmo tipo (só a largura
-// mudando) e sempre dá pelo menos duas alturas pra comparar. Como `results`
-// já vem ordenado por área crescente, a primeira ocorrência de cada altura
-// dentro do grupo é sempre a de menor área.
+// tipo de infraestrutura, cada uma com uma ALTURA diferente — evita mostrar
+// duas variações "quase iguais" do mesmo tipo (só a largura mudando) e ainda
+// dá alturas pra comparar. Como `results` já vem ordenado por área crescente,
+// a primeira ocorrência de cada altura dentro do grupo é sempre a de menor área.
+//
+// O eletroduto é a exceção: mostra só a MENOR bitola que comporta, uma por
+// norma. Ele conta a norma como parte do tipo (são catálogos/produtos
+// diferentes) e já são seis normas cadastradas — dar duas bitolas a cada uma
+// encheria a lista de opções previsíveis (a bitola seguinte sempre cabe). Numa
+// bandeja a segunda altura é informação; num eletroduto, é ruído.
 export function selectDiverseResults(results, maxPerGroup = 2) {
   const groupKey = (r) => (r.infraType === "eletroduto" ? `eletroduto-${r.eletrodutoNorma}` : r.infraType);
+  const limitFor = (r) => (r.infraType === "eletroduto" ? 1 : maxPerGroup);
   const seenHeightsByGroup = new Map();
   const selected = [];
   for (const r of results) {
     const key = groupKey(r);
     if (!seenHeightsByGroup.has(key)) seenHeightsByGroup.set(key, new Set());
     const seenHeights = seenHeightsByGroup.get(key);
-    if (seenHeights.has(r.trayHeight) || seenHeights.size >= maxPerGroup) continue;
+    if (seenHeights.has(r.trayHeight) || seenHeights.size >= limitFor(r)) continue;
     seenHeights.add(r.trayHeight);
     selected.push(r);
   }
