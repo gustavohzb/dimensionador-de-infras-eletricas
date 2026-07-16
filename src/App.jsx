@@ -3,6 +3,7 @@ import logo from "./assets/logo.png";
 import { useDarkMode } from "./hooks/useDarkMode";
 import InfraTab from "./components/InfraTab";
 import QuadroCargasTab from "./components/QuadroCargasTab";
+import CapacitoresTab from "./components/CapacitoresTab";
 import SobreTab from "./components/SobreTab";
 
 function ThemeToggle({ dark, onToggle }) {
@@ -65,6 +66,7 @@ export default function App() {
           {[
             { id: "infra", label: "Infraestrutura" },
             { id: "quadroCargas", label: "Cabos Elétricos" },
+            { id: "capacitores", label: "Capacitores" },
             { id: "sobre", label: "Sobre" },
           ].map((tab) => (
             <button
@@ -94,6 +96,10 @@ export default function App() {
 
         <div className={activeTab === "quadroCargas" ? "" : "hidden"}>
           <QuadroCargasTab onEnviarParaInfra={enviarParaInfra} />
+        </div>
+
+        <div className={activeTab === "capacitores" ? "" : "hidden"}>
+          <CapacitoresTab />
         </div>
 
         <div className={activeTab === "sobre" ? "" : "hidden"}>
