@@ -99,7 +99,7 @@ export default function App() {
         </div>
 
         <div className={activeTab === "capacitores" ? "" : "hidden"}>
-          <CapacitoresTab />
+          <CapacitoresTab dark={dark} />
         </div>
 
         <div className={activeTab === "sobre" ? "" : "hidden"}>

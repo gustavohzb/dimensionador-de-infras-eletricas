@@ -118,6 +118,23 @@ header + render sempre montado, escondido via CSS (`className="hidden"`),
 padrão das outras abas. Nenhum outro arquivo muda — a aba não toca em
 useCableTray, ocupação nem Quadro de Cargas.
 
+## Adendo (2026-07-16): placa de montagem + remover todos
+
+Aprovado após a entrega inicial:
+
+- **Botão "remover todos"** no cabeçalho do painel Estágios, padrão do
+  "Cabos do trecho".
+- **Vista superior da placa de montagem** (novo painel na coluna de
+  resultados): células como **círculos** — o catálogo WEG confirma que as
+  unidades UCW/UCWT são todas cilíndricas (Ø×H; em 480V: 7,5–15 kvar ≈ Ø75mm,
+  17,5–25 kvar ≈ Ø84mm). Campos editáveis com defaults: Ø célula 85mm,
+  espaçamento 40mm, margem 50mm, células por fileira 6. Layout automático em
+  grade na ordem dos estágios (células do mesmo estágio adjacentes), e a
+  **placa mínima calculada** com cotas: `L = 2×margem + n×Ø + (n−1)×esp` por
+  eixo. Motor de layout em `src/lib/plateLayout.js` (puro, testado: contagem
+  de células, quebra de fileira, dimensões, posições dentro da placa).
+  Persistência dos campos junto do estado da aba (capacitores.v1).
+
 ## Verificação
 
 Branch `feat-banco-capacitores`.
