@@ -7,6 +7,23 @@
 // A UI oferece "Outra..." para qualquer valor fora desta lista.
 export const POTENCIAS_CELULA = [5, 7.5, 10, 12.5, 15, 16.7, 20, 25, 30, 33.3, 33.7, 35, 40, 50];
 
+// Diâmetro típico da caneca cilíndrica por potência da célula (kvar como
+// selecionado no app, ~60Hz). Consolidado de dois catálogos que concordam bem:
+// EPCOS/TDK PhiCap 440V (brochure ND: Ø53/63,5/75/85/90; datasheet HD
+// B32344E4282 = 28kvar@50Hz = 33,7kvar@60Hz = Ø85×345mm — a célula da prática
+// Eletromindy) e WEG UCWT 380–480V (Ø61 até 5kvar, Ø75 de 7,5–15, Ø84 de
+// 17,5–25). Faixas aproximadas para desenho de placa, não para fabricação.
+export const DIAMETROS_CELULA = [
+  { maxKvar: 6, d: 63.5 },
+  { maxKvar: 15, d: 75 },
+  { maxKvar: 34, d: 85 },
+  { maxKvar: Infinity, d: 90 },
+];
+
+export function diametroCelula(kvar) {
+  return DIAMETROS_CELULA.find((t) => kvar <= t.maxKvar).d;
+}
+
 // Escala comercial de disjuntores (A) — correntes nominais usuais de caixa
 // moldada até 1250A. Acima disso o cálculo mostra a corrente e avisa, sem
 // inventar um degrau.

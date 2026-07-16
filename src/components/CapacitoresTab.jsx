@@ -59,9 +59,9 @@ function defaults() {
     trafoKva: "",
     percentualAlvo: 33,
     estagios: [],
-    // Placa de montagem — Ø editável porque varia por fabricante/linha
-    // (catálogo WEG UCWT: Ø75mm até 15 kvar, Ø84mm de 17,5 a 25 kvar).
-    placaDiametro: 85,
+    // Placa de montagem — "auto" usa o Ø típico do catálogo por kvar
+    // (DIAMETROS_CELULA); um número trava todas as células no mesmo Ø.
+    placaDiametro: "auto",
     placaEspacamento: 40,
     placaMargem: 50,
     placaCelulasPorFileira: 6,
@@ -104,13 +104,13 @@ function PlacaMontagem({ placa, dark }) {
       {/* células */}
       {celulas.map((c, i) => (
         <g key={i}>
-          <circle cx={c.cx} cy={c.cy} r={placa.diametro / 2} fill="url(#celula-topo)" stroke="#6b7480" strokeWidth={placa.diametro / 60} />
+          <circle cx={c.cx} cy={c.cy} r={c.d / 2} fill="url(#celula-topo)" stroke="#6b7480" strokeWidth={c.d / 60} />
           {/* terminal central da caneca */}
-          <circle cx={c.cx} cy={c.cy} r={placa.diametro / 9} fill={dark ? "#39424a" : "#5c6670"} />
-          <text x={c.cx} y={c.cy - placa.diametro / 5} textAnchor="middle" fontSize={fonte} fontWeight="600" fill={corTexto} fontFamily="JetBrains Mono, monospace">
+          <circle cx={c.cx} cy={c.cy} r={c.d / 9} fill={dark ? "#39424a" : "#5c6670"} />
+          <text x={c.cx} y={c.cy - c.d / 5} textAnchor="middle" fontSize={fonte} fontWeight="600" fill={corTexto} fontFamily="JetBrains Mono, monospace">
             E{String(c.estagio).padStart(2, "0")}
           </text>
-          <text x={c.cx} y={c.cy + placa.diametro / 2.9} textAnchor="middle" fontSize={fonte * 0.85} fill={corTexto} fontFamily="JetBrains Mono, monospace">
+          <text x={c.cx} y={c.cy + c.d / 2.9} textAnchor="middle" fontSize={fonte * 0.85} fill={corTexto} fontFamily="JetBrains Mono, monospace">
             {String(c.kvar).replace(".", ",")}
           </text>
         </g>
@@ -195,7 +195,7 @@ export default function CapacitoresTab({ dark }) {
 
   const placa = layoutPlaca({
     estagios: st.estagios,
-    diametro: Number(st.placaDiametro) || 85,
+    diametro: st.placaDiametro === "auto" ? "auto" : Number(st.placaDiametro) || 85,
     espacamento: Number(st.placaEspacamento) || 0,
     margem: Number(st.placaMargem) || 0,
     celulasPorFileira: Number(st.placaCelulasPorFileira) || 6,
@@ -405,8 +405,26 @@ export default function CapacitoresTab({ dark }) {
             </span>
           </div>
           <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Field label="Ø célula (mm)" tip="Diâmetro da caneca da célula. Catálogo WEG UCWT: Ø75mm até 15 kvar, Ø84mm de 17,5 a 25 kvar — células maiores variam por linha/fabricante, por isso o campo é editável.">
-              <input type="number" min="10" value={st.placaDiametro} onChange={(e) => set({ placaDiametro: e.target.value })} className={inputCls} />
+            <Field label="Ø célula (mm)" tip="Automático usa o Ø típico de catálogo por kvar (EPCOS/Siemens PhiCap e WEG UCWT: Ø63,5 até 6 kvar, Ø75 até 15, Ø85 até 34 — o 33,7 kvar real é Ø85×345mm — e Ø90 acima). Manual trava todas as células no mesmo Ø.">
+              <div className="flex gap-1">
+                <select
+                  value={st.placaDiametro === "auto" ? "auto" : "manual"}
+                  onChange={(e) => set({ placaDiametro: e.target.value === "auto" ? "auto" : 85 })}
+                  className={inputCls}
+                >
+                  <option value="auto">Automático</option>
+                  <option value="manual">Manual</option>
+                </select>
+                {st.placaDiametro !== "auto" && (
+                  <input
+                    type="number"
+                    min="10"
+                    value={st.placaDiametro}
+                    onChange={(e) => set({ placaDiametro: e.target.value })}
+                    className={`${inputCls} w-20`}
+                  />
+                )}
+              </div>
             </Field>
             <Field label="Espaçamento (mm)" tip="Folga entre células, para ventilação e passagem da fiação.">
               <input type="number" min="0" value={st.placaEspacamento} onChange={(e) => set({ placaEspacamento: e.target.value })} className={inputCls} />
