@@ -1,11 +1,47 @@
 // Dados de mercado para o dimensionamento de banco de capacitores.
 
 // Potências típicas de célula capacitiva trifásica (kvar, na tensão nominal
-// da célula). Consolidado dos catálogos ABB CLMD, WEG UCW/UCWT e linhas
-// equivalentes em 440V — 16,7 e 33,3 são as frações de 50/3 comuns na ABB;
-// 33,7 vem da prática da planilha de origem (CAPAC-380 PARA 440.xlsx).
+// da célula). Base: catálogo Siemens BR B32 em 440V/60Hz (5, 6, 7,5, 9, 10,
+// 12, 12,5, 15, 18, 20, 25, 30, 33,7 — ver CELULAS_SIEMENS_440V), mais os
+// valores usuais ABB CLMD (16,7 e 33,3, frações de 50/3) e WEG (35/40/50).
 // A UI oferece "Outra..." para qualquer valor fora desta lista.
-export const POTENCIAS_CELULA = [5, 7.5, 10, 12.5, 15, 16.7, 20, 25, 30, 33.3, 33.7, 35, 40, 50];
+export const POTENCIAS_CELULA = [5, 6, 7.5, 9, 10, 12, 12.5, 15, 16.7, 18, 20, 25, 30, 33.3, 33.7, 35, 40, 50];
+
+// Diâmetro típico da caneca cilíndrica por potência da célula (kvar como
+// selecionado no app). Fonte: catálogo Siemens Brasil "Capacitores - Células
+// trifásicas e monofásicas B32" (60Hz, coluna 440V) — Ø53×113 até 2,5kvar,
+// Ø63×128–152 de 3 a 6, Ø79,5×160–198 de 7,5 a 15, Ø89,5×198–348 de 18 a
+// 33,7 (B32344-E4282-Z040 = 33,7kvar = Ø89,5×348). WEG UCWT fica próximo
+// (Ø61/75/84). Faixas para desenho de placa, não para fabricação.
+export const DIAMETROS_CELULA = [
+  { maxKvar: 2.5, d: 53 },
+  { maxKvar: 6, d: 63 },
+  { maxKvar: 15, d: 79.5 },
+  { maxKvar: Infinity, d: 89.5 },
+];
+
+export function diametroCelula(kvar) {
+  return DIAMETROS_CELULA.find((t) => kvar <= t.maxKvar).d;
+}
+
+// Códigos de catálogo Siemens (células trifásicas B32, 440V/60Hz), com o Ø×h
+// de cada uma — referência para especificação; exibidos como tooltip quando o
+// kvar escolhido bate com uma célula do catálogo.
+export const CELULAS_SIEMENS_440V = {
+  5: { codigo: "B32343-C4051-Z040", d: 63, h: 138 },
+  6: { codigo: "B32343-C4052-Z040", d: 63, h: 152 },
+  7.5: { codigo: "B32344-E4071-Z540", d: 79.5, h: 160 },
+  9: { codigo: "B32344-E4072-Z540", d: 79.5, h: 160 },
+  10: { codigo: "B32344-E4101-Z040", d: 79.5, h: 198 },
+  12: { codigo: "B32344-E4102-Z040", d: 79.5, h: 198 },
+  12.5: { codigo: "B32344-E4121-Z540", d: 79.5, h: 198 },
+  15: { codigo: "B32344-E4151-Z040", d: 79.5, h: 198 },
+  18: { codigo: "B32344-E4152-Z040", d: 89.5, h: 198 },
+  20: { codigo: "B32344-E4201-Z040", d: 89.5, h: 273 },
+  25: { codigo: "B32344-E4251-Z040", d: 89.5, h: 273 },
+  30: { codigo: "B32344-E4252-Z040", d: 89.5, h: 273 },
+  33.7: { codigo: "B32344-E4282-Z040", d: 89.5, h: 348 },
+};
 
 // Escala comercial de disjuntores (A) — correntes nominais usuais de caixa
 // moldada até 1250A. Acima disso o cálculo mostra a corrente e avisa, sem

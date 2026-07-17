@@ -5,7 +5,9 @@
 
 import { describe, it, expect } from "vitest";
 import { calcularBanco } from "./capacitorBank";
-import { disjuntorComercial, DISJUNTORES, POTENCIAS_CELULA } from "../data/capacitores";
+import {
+  disjuntorComercial, DISJUNTORES, POTENCIAS_CELULA, CELULAS_SIEMENS_440V, diametroCelula,
+} from "../data/capacitores";
 
 // O banco da planilha: 8 estágios de 2×33,7 kvar + 4 de 1×30 kvar, células
 // de 440V numa rede de 380V, trafo de 1500 kVA com alvo de 33%.
@@ -98,5 +100,17 @@ describe("dados de mercado", () => {
     const crescente = (arr) => arr.every((v, i) => i === 0 || v > arr[i - 1]);
     expect(crescente(DISJUNTORES)).toBe(true);
     expect(crescente(POTENCIAS_CELULA)).toBe(true);
+  });
+
+  it("células Siemens 440V: Ø do catálogo bate com a faixa de diametroCelula", () => {
+    // As duas tabelas vêm da mesma página do catálogo; se uma faixa mudar sem
+    // a outra, este teste acusa a inconsistência.
+    for (const [kvar, cel] of Object.entries(CELULAS_SIEMENS_440V)) {
+      expect(diametroCelula(Number(kvar))).toBe(cel.d);
+    }
+  });
+
+  it("a célula da planilha (33,7 kvar) é a B32344-E4282-Z040, Ø89,5×348mm", () => {
+    expect(CELULAS_SIEMENS_440V[33.7]).toEqual({ codigo: "B32344-E4282-Z040", d: 89.5, h: 348 });
   });
 });

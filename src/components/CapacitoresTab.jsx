@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Field } from "./cabos/CircuitoForm";
 import { calcularBanco } from "../lib/capacitorBank";
-import { POTENCIAS_CELULA } from "../data/capacitores";
+import { layoutPlaca } from "../lib/plateLayout";
+import { POTENCIAS_CELULA, CELULAS_SIEMENS_440V } from "../data/capacitores";
 
 const STORAGE_KEY = "capacitores.v1";
 const inputCls =
@@ -40,10 +41,16 @@ function SeletorPotencia({ value, onChange }) {
 }
 
 function estadoInicial() {
+  // Merge com os defaults: estados salvos antes de um campo existir (ex.: os
+  // da placa de montagem) ganham o valor default em vez de undefined.
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) return { ...defaults(), ...JSON.parse(raw) };
   } catch { /* estado inicial */ }
+  return defaults();
+}
+
+function defaults() {
   return {
     vRede: 380,
     vCapacitor: 440,
@@ -52,14 +59,97 @@ function estadoInicial() {
     trafoKva: "",
     percentualAlvo: 33,
     estagios: [],
+    // Placa de montagem — "auto" usa o Ø típico do catálogo por kvar
+    // (DIAMETROS_CELULA); um número trava todas as células no mesmo Ø.
+    placaDiametro: "auto",
+    placaEspacamento: 40,
+    placaMargem: 50,
+    placaCelulasPorFileira: 6,
   };
+}
+
+// Vista superior da placa de montagem: células cilíndricas (vista de topo =
+// círculos) em grade, com as dimensões mínimas da placa cotadas. SVG em mm.
+function PlacaMontagem({ placa, dark }) {
+  const { celulas, largura, altura } = placa;
+  if (!celulas.length) return null;
+  const cota = 26; // faixa fora da placa para as cotas, em unidades do viewBox
+  const fonte = Math.max(10, largura / 55);
+  const corCota = dark ? "#8f9aa5" : "#64748b";
+  const corTexto = dark ? "#e2e8f0" : "#334155";
+  return (
+    <svg
+      viewBox={`${-cota} -8 ${largura + cota + 8} ${altura + cota + 16}`}
+      className="w-full"
+      role="img"
+      aria-label={`Placa de montagem ${Math.round(largura)} × ${Math.round(altura)} mm`}
+    >
+      <defs>
+        <radialGradient id="celula-topo" cx="38%" cy="35%" r="72%">
+          <stop offset="0%" stopColor="#eef1f4" />
+          <stop offset="55%" stopColor="#b7bec8" />
+          <stop offset="100%" stopColor="#7c8794" />
+        </radialGradient>
+      </defs>
+      {/* a placa */}
+      <rect
+        x="0"
+        y="0"
+        width={largura}
+        height={altura}
+        fill={dark ? "#232a30" : "#e8ebee"}
+        stroke={dark ? "#4b565f" : "#94a3b8"}
+        strokeWidth={largura / 400}
+      />
+      {/* células */}
+      {celulas.map((c, i) => (
+        <g key={i}>
+          <circle cx={c.cx} cy={c.cy} r={c.d / 2} fill="url(#celula-topo)" stroke="#6b7480" strokeWidth={c.d / 60} />
+          {/* terminal central da caneca */}
+          <circle cx={c.cx} cy={c.cy} r={c.d / 9} fill={dark ? "#39424a" : "#5c6670"} />
+          <text x={c.cx} y={c.cy - c.d / 5} textAnchor="middle" fontSize={fonte} fontWeight="600" fill={corTexto} fontFamily="JetBrains Mono, monospace">
+            E{String(c.estagio).padStart(2, "0")}
+          </text>
+          <text x={c.cx} y={c.cy + c.d / 2.9} textAnchor="middle" fontSize={fonte * 0.85} fill={corTexto} fontFamily="JetBrains Mono, monospace">
+            {String(c.kvar).replace(".", ",")}
+          </text>
+        </g>
+      ))}
+      {/* cota horizontal (embaixo) */}
+      <g stroke={corCota} strokeWidth={largura / 600}>
+        <line x1="0" y1={altura + cota / 2} x2={largura} y2={altura + cota / 2} />
+        <line x1="0" y1={altura + 4} x2="0" y2={altura + cota - 4} />
+        <line x1={largura} y1={altura + 4} x2={largura} y2={altura + cota - 4} />
+      </g>
+      <text x={largura / 2} y={altura + cota / 2 - 4} textAnchor="middle" fontSize={fonte} fill={corCota} fontFamily="JetBrains Mono, monospace">
+        {Math.round(largura)} mm
+      </text>
+      {/* cota vertical (esquerda) */}
+      <g stroke={corCota} strokeWidth={largura / 600}>
+        <line x1={-cota / 2} y1="0" x2={-cota / 2} y2={altura} />
+        <line x1={-cota + 4} y1="0" x2={-4} y2="0" />
+        <line x1={-cota + 4} y1={altura} x2={-4} y2={altura} />
+      </g>
+      <text
+        x={-cota / 2 - 4}
+        y={altura / 2}
+        textAnchor="middle"
+        fontSize={fonte}
+        fill={corCota}
+        fontFamily="JetBrains Mono, monospace"
+        transform={`rotate(-90 ${-cota / 2 - 4} ${altura / 2})`}
+      >
+        {Math.round(altura)} mm
+      </text>
+    </svg>
+  );
 }
 
 // Aba Capacitores: dimensionamento de banco de capacitores — correção da
 // potência pela tensão de aplicação, corrente e disjuntor por estágio e a
 // régua "banco ≈ 33% do trafo". Migração da planilha CAPAC-380 PARA 440.xlsx;
 // o motor de cálculo (capacitorBank.js) tem a planilha como fixture de teste.
-export default function CapacitoresTab() {
+export default function CapacitoresTab({ dark }) {
   const [st, setSt] = useState(estadoInicial);
   // Formulário de novo estágio.
   const [numCelulas, setNumCelulas] = useState(2);
@@ -101,6 +191,15 @@ export default function CapacitoresTab() {
     setRepetir(1);
   };
   const removerEstagio = (i) => set({ estagios: st.estagios.filter((_, j) => j !== i) });
+  const removerTodos = () => set({ estagios: [] });
+
+  const placa = layoutPlaca({
+    estagios: st.estagios,
+    diametro: st.placaDiametro === "auto" ? "auto" : Number(st.placaDiametro) || 85,
+    espacamento: Number(st.placaEspacamento) || 0,
+    margem: Number(st.placaMargem) || 0,
+    celulasPorFileira: Number(st.placaCelulasPorFileira) || 6,
+  });
 
   // Veredito do trafo: verde dentro de ±10% relativos do alvo, âmbar fora.
   const veredito = banco?.trafo
@@ -147,9 +246,20 @@ export default function CapacitoresTab() {
         </div>
 
         <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="mb-2 font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-            Estágios
-          </h2>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+              Estágios
+            </h2>
+            {st.estagios.length > 0 && (
+              <button
+                type="button"
+                onClick={removerTodos}
+                className="text-[12px] text-slate-400 transition hover:text-red-600 dark:hover:text-red-400"
+              >
+                remover todos
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <Field label="Células por estágio">
               <select value={numCelulas} onChange={(e) => setNumCelulas(Number(e.target.value))} className={inputCls}>
@@ -184,7 +294,16 @@ export default function CapacitoresTab() {
                   key={i}
                   className="flex items-center justify-between rounded-xs border border-slate-200 px-2 py-1 text-[13px] dark:border-slate-700"
                 >
-                  <span className="font-mono text-slate-700 dark:text-slate-200">
+                  <span
+                    className="font-mono text-slate-700 dark:text-slate-200"
+                    title={e.celulas
+                      .map((c) => {
+                        const cel = CELULAS_SIEMENS_440V[c];
+                        return cel ? `${String(c).replace(".", ",")} kvar: ${cel.codigo} (Ø${String(cel.d).replace(".", ",")}×${cel.h}mm)` : null;
+                      })
+                      .filter(Boolean)
+                      .join("\n") || undefined}
+                  >
                     EST {String(i + 1).padStart(2, "0")} — {e.celulas.map((c) => String(c).replace(".", ",")).join(" + ")} kvar
                   </span>
                   <button
@@ -202,6 +321,7 @@ export default function CapacitoresTab() {
       </div>
 
       {/* ==================== Coluna de resultados ==================== */}
+      <div className="space-y-3">
       <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <h2 className="mb-2 font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
           Resultado
@@ -281,6 +401,57 @@ export default function CapacitoresTab() {
             )}
           </>
         )}
+      </div>
+
+      {st.estagios.length > 0 && (
+        <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+              Placa de montagem — vista superior
+            </h2>
+            <span className="font-mono text-[12px] text-slate-500 dark:text-slate-400">
+              placa mín. {Math.round(placa.largura)} × {Math.round(placa.altura)} mm
+            </span>
+          </div>
+          <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <Field label="Ø célula (mm)" tip="Automático usa o Ø do catálogo Siemens BR (células B32, 440V/60Hz) por kvar: Ø53 até 2,5 kvar, Ø63 até 6, Ø79,5 até 15 e Ø89,5 acima — o 33,7 kvar (B32344-E4282-Z040) é Ø89,5×348mm. WEG UCWT fica próximo. Manual trava todas as células no mesmo Ø.">
+              <div className="flex gap-1">
+                <select
+                  value={st.placaDiametro === "auto" ? "auto" : "manual"}
+                  onChange={(e) => set({ placaDiametro: e.target.value === "auto" ? "auto" : 85 })}
+                  className={inputCls}
+                >
+                  <option value="auto">Automático</option>
+                  <option value="manual">Manual</option>
+                </select>
+                {st.placaDiametro !== "auto" && (
+                  <input
+                    type="number"
+                    min="10"
+                    value={st.placaDiametro}
+                    onChange={(e) => set({ placaDiametro: e.target.value })}
+                    className={`${inputCls} w-20`}
+                  />
+                )}
+              </div>
+            </Field>
+            <Field label="Espaçamento (mm)" tip="Folga entre células, para ventilação e passagem da fiação.">
+              <input type="number" min="0" value={st.placaEspacamento} onChange={(e) => set({ placaEspacamento: e.target.value })} className={inputCls} />
+            </Field>
+            <Field label="Margem (mm)" tip="Distância da primeira/última célula até a borda da placa.">
+              <input type="number" min="0" value={st.placaMargem} onChange={(e) => set({ placaMargem: e.target.value })} className={inputCls} />
+            </Field>
+            <Field label="Células por fileira">
+              <input type="number" min="1" max="20" value={st.placaCelulasPorFileira} onChange={(e) => set({ placaCelulasPorFileira: e.target.value })} className={inputCls} />
+            </Field>
+          </div>
+          <PlacaMontagem placa={placa} dark={dark} />
+          <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+            Layout de referência — a placa mínima sai do arranjo (margem + células + espaçamentos).
+            Confira os diâmetros no catálogo do fabricante antes de fabricar.
+          </p>
+        </div>
+      )}
       </div>
     </div>
   );
