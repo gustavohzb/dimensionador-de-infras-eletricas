@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Field } from "./cabos/CircuitoForm";
 import { calcularBanco } from "../lib/capacitorBank";
 import { layoutPlaca } from "../lib/plateLayout";
@@ -40,12 +40,21 @@ function SeletorPotencia({ value, onChange }) {
   );
 }
 
+// Id estável do estágio: é o que amarra o arranjo da placa à célula, mesmo
+// quando outro estágio some da lista e os índices deslocam.
+const novoId = () =>
+  globalThis.crypto?.randomUUID?.() ?? `e${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
+
 function estadoInicial() {
   // Merge com os defaults: estados salvos antes de um campo existir (ex.: os
   // da placa de montagem) ganham o valor default em vez de undefined.
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return { ...defaults(), ...JSON.parse(raw) };
+    if (raw) {
+      const salvo = { ...defaults(), ...JSON.parse(raw) };
+      // Estados salvos antes do arrasto existir não têm id nos estágios.
+      return { ...salvo, estagios: salvo.estagios.map((e) => ({ ...e, id: e.id ?? novoId() })) };
+    }
   } catch { /* estado inicial */ }
   return defaults();
 }
@@ -65,22 +74,106 @@ function defaults() {
     placaEspacamento: 40,
     placaMargem: 50,
     placaCelulasPorFileira: 6,
+    // Arranjo das células nos slots da grade (lista de chaves), quando o
+    // usuário arrastou algo. null = automático, na ordem dos estágios.
+    placaOrdem: null,
   };
 }
 
 // Vista superior da placa de montagem: células cilíndricas (vista de topo =
 // círculos) em grade, com as dimensões mínimas da placa cotadas. SVG em mm.
-function PlacaMontagem({ placa, dark }) {
+// Arrastar uma célula troca ela de slot com a de destino (ver onTrocar) — a
+// grade continua governando a placa, então a cota segue sendo um cálculo.
+function PlacaMontagem({ placa, dark, onTrocar }) {
   const { celulas, largura, altura } = placa;
+  const svgRef = useRef(null);
+  // { slot, dx, dy, x, y, alvo } enquanto uma célula está sendo arrastada.
+  const [drag, setDrag] = useState(null);
+
+  // Pixel de tela → milímetro do desenho.
+  const paraMm = (e) => {
+    const svg = svgRef.current;
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse());
+  };
+
+  const slotMaisProximo = (x, y) => {
+    let melhor = null;
+    let menor = Infinity;
+    celulas.forEach((c, i) => {
+      const d = (c.cx - x) ** 2 + (c.cy - y) ** 2;
+      if (d < menor) {
+        menor = d;
+        melhor = i;
+      }
+    });
+    return melhor;
+  };
+
+  const iniciar = (i, c) => (e) => {
+    if (!onTrocar) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const p = paraMm(e);
+    // guarda onde dentro da célula o usuário pegou, pra ela não "pular"
+    setDrag({ slot: i, dx: c.cx - p.x, dy: c.cy - p.y, x: p.x, y: p.y, alvo: i });
+  };
+  const mover = (e) => {
+    if (!drag) return;
+    const p = paraMm(e);
+    setDrag((d) => (d ? { ...d, x: p.x, y: p.y, alvo: slotMaisProximo(p.x + d.dx, p.y + d.dy) } : d));
+  };
+  const soltar = () => {
+    if (drag && drag.alvo != null && drag.alvo !== drag.slot) onTrocar(drag.slot, drag.alvo);
+    setDrag(null);
+  };
+
   if (!celulas.length) return null;
-  const cota = 26; // faixa fora da placa para as cotas, em unidades do viewBox
+
   const fonte = Math.max(10, largura / 55);
+  // A faixa das cotas e o respiro do viewBox acompanham a fonte — fixos, o
+  // texto rotacionado da cota vertical vazava pra fora da imagem nas placas
+  // largas (a fonte escala com a largura, a faixa não escalava).
+  const cota = fonte * 2.4;
+  const pad = fonte * 1.4;
   const corCota = dark ? "#8f9aa5" : "#64748b";
-  const corTexto = dark ? "#e2e8f0" : "#334155";
+  // A caneca é prateada nos dois temas, então o texto sobre ela é sempre
+  // escuro — no dark mode o texto claro sumia em cima do alumínio.
+  const corTextoCelula = "#2b333a";
+
+  const celulaSvg = (c, i, arrastada) => {
+    const cx = arrastada ? drag.x + drag.dx : c.cx;
+    const cy = arrastada ? drag.y + drag.dy : c.cy;
+    return (
+      <g
+        key={c.key}
+        onPointerDown={iniciar(i, c)}
+        onPointerMove={mover}
+        onPointerUp={soltar}
+        onPointerCancel={soltar}
+        style={{ cursor: onTrocar ? (arrastada ? "grabbing" : "grab") : "default" }}
+        opacity={arrastada ? 0.9 : 1}
+      >
+        <circle cx={cx} cy={cy} r={c.d / 2} fill="url(#celula-topo)" stroke="#6b7480" strokeWidth={c.d / 60} />
+        {/* terminal central da caneca */}
+        <circle cx={cx} cy={cy} r={c.d / 9} fill={dark ? "#39424a" : "#5c6670"} />
+        <text x={cx} y={cy - c.d / 5} textAnchor="middle" fontSize={fonte} fontWeight="600" fill={corTextoCelula} fontFamily="JetBrains Mono, monospace">
+          E{String(c.estagio).padStart(2, "0")}
+        </text>
+        <text x={cx} y={cy + c.d / 2.9} textAnchor="middle" fontSize={fonte * 0.85} fill={corTextoCelula} fontFamily="JetBrains Mono, monospace">
+          {String(c.kvar).replace(".", ",")}
+        </text>
+      </g>
+    );
+  };
+
   return (
     <svg
-      viewBox={`${-cota} -8 ${largura + cota + 8} ${altura + cota + 16}`}
-      className="w-full"
+      ref={svgRef}
+      viewBox={`${-(cota + pad)} ${-pad} ${largura + cota + pad * 2} ${altura + cota + pad * 2}`}
+      className="w-full select-none"
+      style={{ touchAction: "none" }}
       role="img"
       aria-label={`Placa de montagem ${Math.round(largura)} × ${Math.round(altura)} mm`}
     >
@@ -101,43 +194,45 @@ function PlacaMontagem({ placa, dark }) {
         stroke={dark ? "#4b565f" : "#94a3b8"}
         strokeWidth={largura / 400}
       />
-      {/* células */}
-      {celulas.map((c, i) => (
-        <g key={i}>
-          <circle cx={c.cx} cy={c.cy} r={c.d / 2} fill="url(#celula-topo)" stroke="#6b7480" strokeWidth={c.d / 60} />
-          {/* terminal central da caneca */}
-          <circle cx={c.cx} cy={c.cy} r={c.d / 9} fill={dark ? "#39424a" : "#5c6670"} />
-          <text x={c.cx} y={c.cy - c.d / 5} textAnchor="middle" fontSize={fonte} fontWeight="600" fill={corTexto} fontFamily="JetBrains Mono, monospace">
-            E{String(c.estagio).padStart(2, "0")}
-          </text>
-          <text x={c.cx} y={c.cy + c.d / 2.9} textAnchor="middle" fontSize={fonte * 0.85} fill={corTexto} fontFamily="JetBrains Mono, monospace">
-            {String(c.kvar).replace(".", ",")}
-          </text>
-        </g>
-      ))}
+      {/* slot de destino do arrasto */}
+      {drag && drag.alvo != null && drag.alvo !== drag.slot && (
+        <circle
+          cx={celulas[drag.alvo].cx}
+          cy={celulas[drag.alvo].cy}
+          r={placa.diametro / 2 + fonte * 0.35}
+          fill="none"
+          stroke={dark ? "#d98a4b" : "#b4622a"}
+          strokeWidth={fonte / 5}
+          strokeDasharray={`${fonte / 2} ${fonte / 3}`}
+        />
+      )}
+      {/* células — a arrastada sai da ordem e é redesenhada por último, pra
+          ficar por cima das demais (SVG pinta na ordem do documento) */}
+      {celulas.map((c, i) => (drag?.slot === i ? null : celulaSvg(c, i, false)))}
+      {drag && celulaSvg(celulas[drag.slot], drag.slot, true)}
       {/* cota horizontal (embaixo) */}
       <g stroke={corCota} strokeWidth={largura / 600}>
-        <line x1="0" y1={altura + cota / 2} x2={largura} y2={altura + cota / 2} />
-        <line x1="0" y1={altura + 4} x2="0" y2={altura + cota - 4} />
-        <line x1={largura} y1={altura + 4} x2={largura} y2={altura + cota - 4} />
+        <line x1="0" y1={altura + cota * 0.72} x2={largura} y2={altura + cota * 0.72} />
+        <line x1="0" y1={altura + fonte * 0.3} x2="0" y2={altura + cota * 0.9} />
+        <line x1={largura} y1={altura + fonte * 0.3} x2={largura} y2={altura + cota * 0.9} />
       </g>
-      <text x={largura / 2} y={altura + cota / 2 - 4} textAnchor="middle" fontSize={fonte} fill={corCota} fontFamily="JetBrains Mono, monospace">
+      <text x={largura / 2} y={altura + cota * 0.72 - fonte * 0.35} textAnchor="middle" fontSize={fonte} fill={corCota} fontFamily="JetBrains Mono, monospace">
         {Math.round(largura)} mm
       </text>
       {/* cota vertical (esquerda) */}
       <g stroke={corCota} strokeWidth={largura / 600}>
-        <line x1={-cota / 2} y1="0" x2={-cota / 2} y2={altura} />
-        <line x1={-cota + 4} y1="0" x2={-4} y2="0" />
-        <line x1={-cota + 4} y1={altura} x2={-4} y2={altura} />
+        <line x1={-cota * 0.72} y1="0" x2={-cota * 0.72} y2={altura} />
+        <line x1={-cota * 0.9} y1="0" x2={-fonte * 0.3} y2="0" />
+        <line x1={-cota * 0.9} y1={altura} x2={-fonte * 0.3} y2={altura} />
       </g>
       <text
-        x={-cota / 2 - 4}
+        x={-cota * 0.72 - fonte * 0.35}
         y={altura / 2}
         textAnchor="middle"
         fontSize={fonte}
         fill={corCota}
         fontFamily="JetBrains Mono, monospace"
-        transform={`rotate(-90 ${-cota / 2 - 4} ${altura / 2})`}
+        transform={`rotate(-90 ${-cota * 0.72 - fonte * 0.35} ${altura / 2})`}
       >
         {Math.round(altura)} mm
       </text>
@@ -187,19 +282,31 @@ export default function CapacitoresTab({ dark }) {
     const celulas = numCelulas === 2 ? [pot1, pot2] : [pot1];
     if (celulas.some((c) => !(c > 0))) return;
     const n = Math.max(1, Math.min(50, Math.round(Number(repetir) || 1)));
-    set({ estagios: [...st.estagios, ...Array.from({ length: n }, () => ({ celulas }))] });
+    set({ estagios: [...st.estagios, ...Array.from({ length: n }, () => ({ id: novoId(), celulas }))] });
     setRepetir(1);
   };
+  // O arranjo da placa sobrevive a adicionar/remover — as chaves apontam para
+  // o id do estágio, e reconciliarOrdem descarta as que sumiram (ver layout).
   const removerEstagio = (i) => set({ estagios: st.estagios.filter((_, j) => j !== i) });
-  const removerTodos = () => set({ estagios: [] });
+  const removerTodos = () => set({ estagios: [], placaOrdem: null });
 
   const placa = layoutPlaca({
     estagios: st.estagios,
+    ordem: st.placaOrdem,
     diametro: st.placaDiametro === "auto" ? "auto" : Number(st.placaDiametro) || 85,
     espacamento: Number(st.placaEspacamento) || 0,
     margem: Number(st.placaMargem) || 0,
     celulasPorFileira: Number(st.placaCelulasPorFileira) || 6,
   });
+
+  // Arrasto na placa: as duas células trocam de slot. Grava a ordem já
+  // reconciliada, então o arranjo salvo nunca guarda chave morta.
+  const trocarSlots = (a, b) => {
+    const ordem = placa.ordem.slice();
+    [ordem[a], ordem[b]] = [ordem[b], ordem[a]];
+    set({ placaOrdem: ordem });
+  };
+  const rearranjar = () => set({ placaOrdem: null });
 
   // Veredito do trafo: verde dentro de ±10% relativos do alvo, âmbar fora.
   const veredito = banco?.trafo
@@ -409,9 +516,20 @@ export default function CapacitoresTab({ dark }) {
             <h2 className="font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
               Placa de montagem — vista superior
             </h2>
-            <span className="font-mono text-[12px] text-slate-500 dark:text-slate-400">
-              placa mín. {Math.round(placa.largura)} × {Math.round(placa.altura)} mm
-            </span>
+            <div className="flex items-center gap-3">
+              {st.placaOrdem && (
+                <button
+                  type="button"
+                  onClick={rearranjar}
+                  className="text-[12px] text-slate-400 transition hover:text-copper-600 dark:hover:text-copper-400"
+                >
+                  rearranjar automaticamente
+                </button>
+              )}
+              <span className="font-mono text-[12px] text-slate-500 dark:text-slate-400">
+                placa mín. {Math.round(placa.largura)} × {Math.round(placa.altura)} mm
+              </span>
+            </div>
           </div>
           <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Field label="Ø célula (mm)" tip="Automático usa o Ø do catálogo Siemens BR (células B32, 440V/60Hz) por kvar: Ø53 até 2,5 kvar, Ø63 até 6, Ø79,5 até 15 e Ø89,5 acima — o 33,7 kvar (B32344-E4282-Z040) é Ø89,5×348mm. WEG UCWT fica próximo. Manual trava todas as células no mesmo Ø.">
@@ -445,10 +563,11 @@ export default function CapacitoresTab({ dark }) {
               <input type="number" min="1" max="20" value={st.placaCelulasPorFileira} onChange={(e) => set({ placaCelulasPorFileira: e.target.value })} className={inputCls} />
             </Field>
           </div>
-          <PlacaMontagem placa={placa} dark={dark} />
+          <PlacaMontagem placa={placa} dark={dark} onTrocar={trocarSlots} />
           <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-            Layout de referência — a placa mínima sai do arranjo (margem + células + espaçamentos).
-            Confira os diâmetros no catálogo do fabricante antes de fabricar.
+            Arraste um capacitor para trocá-lo de lugar com outro. Layout de referência — a placa
+            mínima sai do arranjo (margem + células + espaçamentos). Confira os diâmetros no
+            catálogo do fabricante antes de fabricar.
           </p>
         </div>
       )}
