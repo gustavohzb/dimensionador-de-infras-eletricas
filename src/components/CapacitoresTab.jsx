@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Field } from "./cabos/CircuitoForm";
 import { calcularBanco } from "../lib/capacitorBank";
 import { layoutPlaca } from "../lib/plateLayout";
-import { POTENCIAS_CELULA } from "../data/capacitores";
+import { POTENCIAS_CELULA, CELULAS_SIEMENS_440V } from "../data/capacitores";
 
 const STORAGE_KEY = "capacitores.v1";
 const inputCls =
@@ -294,7 +294,16 @@ export default function CapacitoresTab({ dark }) {
                   key={i}
                   className="flex items-center justify-between rounded-xs border border-slate-200 px-2 py-1 text-[13px] dark:border-slate-700"
                 >
-                  <span className="font-mono text-slate-700 dark:text-slate-200">
+                  <span
+                    className="font-mono text-slate-700 dark:text-slate-200"
+                    title={e.celulas
+                      .map((c) => {
+                        const cel = CELULAS_SIEMENS_440V[c];
+                        return cel ? `${String(c).replace(".", ",")} kvar: ${cel.codigo} (Ø${String(cel.d).replace(".", ",")}×${cel.h}mm)` : null;
+                      })
+                      .filter(Boolean)
+                      .join("\n") || undefined}
+                  >
                     EST {String(i + 1).padStart(2, "0")} — {e.celulas.map((c) => String(c).replace(".", ",")).join(" + ")} kvar
                   </span>
                   <button
@@ -405,7 +414,7 @@ export default function CapacitoresTab({ dark }) {
             </span>
           </div>
           <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Field label="Ø célula (mm)" tip="Automático usa o Ø típico de catálogo por kvar (EPCOS/Siemens PhiCap e WEG UCWT: Ø63,5 até 6 kvar, Ø75 até 15, Ø85 até 34 — o 33,7 kvar real é Ø85×345mm — e Ø90 acima). Manual trava todas as células no mesmo Ø.">
+            <Field label="Ø célula (mm)" tip="Automático usa o Ø do catálogo Siemens BR (células B32, 440V/60Hz) por kvar: Ø53 até 2,5 kvar, Ø63 até 6, Ø79,5 até 15 e Ø89,5 acima — o 33,7 kvar (B32344-E4282-Z040) é Ø89,5×348mm. WEG UCWT fica próximo. Manual trava todas as células no mesmo Ø.">
               <div className="flex gap-1">
                 <select
                   value={st.placaDiametro === "auto" ? "auto" : "manual"}
