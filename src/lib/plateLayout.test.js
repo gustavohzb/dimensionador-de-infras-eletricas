@@ -2,7 +2,7 @@
 // pela fórmula L = 2×margem + n×Ø + (n−1)×esp, não copiadas da saída do código.
 
 import { describe, it, expect } from "vitest";
-import { layoutPlaca, reconciliarOrdem, celulasDosEstagios } from "./plateLayout";
+import { layoutPlaca, reconciliarOrdem, celulasDosEstagios, trocarNaOrdem } from "./plateLayout";
 
 const base = { diametro: 85, espacamento: 40, margem: 50, celulasPorFileira: 6 };
 // Estágio com id estável — é assim que a aba monta os estágios de verdade.
@@ -191,6 +191,28 @@ describe("buracos na grade — arrastar para slot vazio encolhe a placa", () => 
     expect([p.cols, p.rows]).toEqual([4, 2]);
     expect(p.largura).toBe(560); // 2×50 + 4×85 + 3×40
     expect(p.altura).toBe(310); // inalterada: continuam 2 fileiras
+  });
+
+  it("a grade é sempre mais larga que a placa consolidada — é a vista do arrasto", () => {
+    const ordem = [chaves[0], chaves[1], chaves[2], chaves[3], null, null, chaves[6], chaves[4], chaves[5], null, null, null];
+    const p = layoutPlaca({ ...base, estagios: sete, ordem });
+    expect(p.largura).toBe(560); // a placa encolheu para 4 colunas
+    expect(p.gradeLargura).toBe(810); // mas a grade continua com as 6
+  });
+
+  it("pré-visualização: trocarNaOrdem dá a placa que o usuário veria antes de soltar", () => {
+    const p = layoutPlaca({ ...base, estagios: sete });
+    expect(p.largura).toBe(810);
+    // arrastar a célula do slot 5 (última da fileira de cima) para o buraco 8
+    const previa = layoutPlaca({ ...base, estagios: sete, ordem: trocarNaOrdem(p.ordem, 5, 8) });
+    expect(previa.largura).toBe(685); // 2×50 + 5×85 + 4×40 — encolheu uma coluna
+    expect(previa.altura).toBe(p.altura); // continuam 2 fileiras
+  });
+
+  it("trocarNaOrdem não mexe no array original", () => {
+    const ordem = ["a:0", null, "b:0"];
+    expect(trocarNaOrdem(ordem, 0, 1)).toEqual([null, "a:0", "b:0"]);
+    expect(ordem).toEqual(["a:0", null, "b:0"]);
   });
 
   it("os buracos têm posição própria — é o alvo do arrasto", () => {
