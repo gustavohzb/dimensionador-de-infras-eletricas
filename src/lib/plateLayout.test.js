@@ -117,13 +117,18 @@ describe("reconciliarOrdem — o arranjo sobrevive a mexer na lista", () => {
     expect(reconciliarOrdem(comNovo, ["b:0", "a:1", "a:0"])).toEqual(["b:0", "a:1", "a:0", "c:0"]);
   });
 
-  it("estágio removido some do arranjo e os outros mantêm as posições relativas", () => {
+  it("estágio removido vira buraco — quem vem depois não se desloca", () => {
     // remove o "a"; as chaves do "b" continuam válidas porque o id não desloca
-    expect(reconciliarOrdem([est("b", 20)], ["b:0", "a:1", "a:0"])).toEqual(["b:0"]);
+    expect(reconciliarOrdem([est("b", 20)], ["a:0", "b:0", "a:1"])).toEqual([null, "b:0"]);
   });
 
-  it("chaves de lixo no arranjo salvo são ignoradas", () => {
-    expect(reconciliarOrdem(estagios, ["z:9", "b:0"])).toEqual(["b:0", "a:0", "a:1"]);
+  it("célula nova ocupa o primeiro buraco antes de ir para o fim", () => {
+    const comNovo = [...estagios, est("c", 30)];
+    expect(reconciliarOrdem(comNovo, ["a:0", null, "b:0", "a:1"])).toEqual(["a:0", "c:0", "b:0", "a:1"]);
+  });
+
+  it("chaves de lixo no arranjo salvo viram buraco, e não somem", () => {
+    expect(reconciliarOrdem(estagios, ["z:9", "b:0"])).toEqual(["a:0", "b:0", "a:1"]);
   });
 });
 
@@ -147,9 +152,10 @@ describe("layoutPlaca com arranjo do usuário", () => {
     expect(trocado.celulas.map((c) => c.cx)).toEqual(auto.celulas.map((c) => c.cx));
   });
 
-  it("devolve a ordem reconciliada, pronta para o próximo arrasto", () => {
+  it("devolve a ordem com a grade completa, pronta para o próximo arrasto", () => {
+    // 3 células numa fileira de 6: os 3 slots que sobram viram buraco
     const { ordem } = layoutPlaca({ ...base, estagios, ordem: ["b:0"] });
-    expect(ordem).toEqual(["b:0", "a:0", "a:1"]);
+    expect(ordem).toEqual(["b:0", "a:0", "a:1", null, null, null]);
   });
 
   it("Ø automático acompanha a célula, não o slot", () => {
@@ -157,6 +163,48 @@ describe("layoutPlaca com arranjo do usuário", () => {
     const { celulas } = layoutPlaca({ ...base, diametro: "auto", estagios: mistos, ordem: ["b:0", "a:0"] });
     // a célula grande foi para o slot 0 e levou o Ø dela junto
     expect(celulas.map((c) => c.d)).toEqual([89.5, 63]);
+  });
+});
+
+describe("buracos na grade — arrastar para slot vazio encolhe a placa", () => {
+  // 7 células de 25 kvar, 6 por fileira: o arranjo automático dá 6+1.
+  const sete = Array.from({ length: 7 }, (_, i) => est(`e${i}`, 25));
+  const chaves = sete.map((e) => `${e.id}:0`);
+
+  it("automático: 7 células viram 6+1 e a placa tem 6 colunas", () => {
+    const p = layoutPlaca({ ...base, estagios: sete });
+    expect([p.cols, p.rows]).toEqual([6, 2]);
+    expect(p.largura).toBe(810); // 2×50 + 6×85 + 5×40
+  });
+
+  it("a grade completa as fileiras: 7 células ocupadas + 5 slots vazios", () => {
+    const p = layoutPlaca({ ...base, estagios: sete });
+    expect(p.slots).toHaveLength(12); // 6 por fileira × 2 fileiras
+    expect(p.celulas).toHaveLength(7);
+    expect(p.slots.filter((s) => !s.key).map((s) => s.idx)).toEqual([7, 8, 9, 10, 11]);
+  });
+
+  it("rearranjado em 4+3, a placa encolhe de 6 para 4 colunas", () => {
+    // as duas últimas da fileira de cima descem para os buracos 7 e 8
+    const ordem = [chaves[0], chaves[1], chaves[2], chaves[3], null, null, chaves[6], chaves[4], chaves[5], null, null, null];
+    const p = layoutPlaca({ ...base, estagios: sete, ordem });
+    expect([p.cols, p.rows]).toEqual([4, 2]);
+    expect(p.largura).toBe(560); // 2×50 + 4×85 + 3×40
+    expect(p.altura).toBe(310); // inalterada: continuam 2 fileiras
+  });
+
+  it("os buracos têm posição própria — é o alvo do arrasto", () => {
+    const p = layoutPlaca({ ...base, estagios: sete });
+    const vazio = p.slots.find((s) => s.idx === 8); // fileira 1, coluna 2
+    expect(vazio).toMatchObject({ key: null, col: 2, row: 1, cx: 342.5, cy: 217.5 });
+  });
+
+  it("buraco no meio não desloca quem vem depois", () => {
+    // as 7 células presentes, mas com a coluna 1 deixada vazia pelo usuário
+    const ordem = [chaves[0], null, chaves[1], chaves[2], chaves[3], chaves[4], chaves[5], chaves[6]];
+    const { celulas } = layoutPlaca({ ...base, estagios: sete, ordem });
+    expect(celulas.find((c) => c.key === chaves[1])).toMatchObject({ col: 2, row: 0 });
+    expect(celulas.map((c) => c.idx)).toEqual([0, 2, 3, 4, 5, 6, 7]);
   });
 });
 

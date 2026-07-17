@@ -32,17 +32,28 @@ export function celulasDosEstagios(estagios) {
   );
 }
 
-// Concilia o arranjo salvo com a lista de estágios atual: descarta chaves de
-// células que não existem mais e acrescenta ao fim as que surgiram. `ordem`
-// nula (ou ausente) significa "automático" — a ordem canônica.
+// Concilia o arranjo salvo com a lista de estágios atual. A chave de uma
+// célula que não existe mais vira BURACO (null) em vez de sumir da lista —
+// assim quem está depois dela não se desloca, e o arranjo do usuário fica de
+// pé. Células novas ocupam os buracos primeiro e só então vão para o fim.
+// `ordem` nula (ou ausente) significa "automático" — a ordem canônica, sem
+// buracos.
 export function reconciliarOrdem(estagios, ordem) {
   const chaves = celulasDosEstagios(estagios).map((c) => c.key);
   if (!ordem) return chaves;
   const existe = new Set(chaves);
-  const mantidas = ordem.filter((k) => existe.has(k));
-  const jaTem = new Set(mantidas);
-  return [...mantidas, ...chaves.filter((k) => !jaTem.has(k))];
+  const slots = ordem.map((k) => (k && existe.has(k) ? k : null));
+  const jaTem = new Set(slots.filter(Boolean));
+  for (const k of chaves.filter((c) => !jaTem.has(c))) {
+    const buraco = slots.indexOf(null);
+    if (buraco === -1) slots.push(k);
+    else slots[buraco] = k;
+  }
+  while (slots.length && slots[slots.length - 1] === null) slots.pop();
+  return slots;
 }
+
+const VAZIA = { celulas: [], slots: [], ordem: [], diametro: 0, cols: 0, rows: 0, largura: 0, altura: 0 };
 
 export function layoutPlaca({ estagios, ordem, diametro, espacamento, margem, celulasPorFileira }) {
   const porFileira = Math.max(1, Math.round(celulasPorFileira));
@@ -53,33 +64,43 @@ export function layoutPlaca({ estagios, ordem, diametro, espacamento, margem, ce
   }));
   const porChave = new Map(base.map((c) => [c.key, c]));
   const ordemFinal = reconciliarOrdem(estagios, ordem);
+  const ocupados = ordemFinal.map((k, i) => (k ? i : -1)).filter((i) => i >= 0);
+  if (ocupados.length === 0) return VAZIA;
 
-  const n = base.length;
-  const maxD = n === 0 ? 0 : Math.max(...base.map((c) => c.d));
-  const cols = Math.min(n, porFileira) || 1;
-  const rows = Math.max(1, Math.ceil(n / porFileira));
+  const maxD = Math.max(...base.map((c) => c.d));
   const passo = maxD + espacamento;
-
-  const celulas = ordemFinal.map((k, i) => {
-    const c = porChave.get(k);
+  // centro do slot, em mm a partir do canto superior esquerdo da placa
+  // (célula menor fica centrada no slot da grade)
+  const posicao = (i) => {
     const col = i % porFileira;
     const row = Math.floor(i / porFileira);
-    return {
-      ...c,
-      // centro do círculo, em mm a partir do canto superior esquerdo da placa
-      // (célula menor fica centrada no slot da grade)
-      cx: margem + maxD / 2 + col * passo,
-      cy: margem + maxD / 2 + row * passo,
-    };
-  });
+    return { col, row, cx: margem + maxD / 2 + col * passo, cy: margem + maxD / 2 + row * passo };
+  };
+
+  // A placa mede até a última coluna/fileira REALMENTE ocupada — é o que faz
+  // ela encolher quando o usuário junta as células arrastando (7 células em
+  // 6+1 dão 6 colunas; rearranjadas em 4+3, dão 4).
+  const cols = Math.max(...ocupados.map((i) => i % porFileira)) + 1;
+  const rows = Math.max(...ocupados.map((i) => Math.floor(i / porFileira))) + 1;
+  const medida = (n) => 2 * margem + n * maxD + (n - 1) * espacamento;
+
+  // A grade é completada até fechar as fileiras ocupadas: os slots que sobram
+  // são os buracos onde dá pra soltar uma célula. Quem manda na quantidade de
+  // fileiras continua sendo o campo "células por fileira".
+  const ordemCompleta = Array.from(
+    { length: porFileira * rows },
+    (_, i) => ordemFinal[i] ?? null
+  );
+  const slots = ordemCompleta.map((k, i) => ({ idx: i, key: k, ...posicao(i) }));
 
   return {
-    celulas,
-    ordem: ordemFinal,
+    celulas: slots.filter((s) => s.key).map((s) => ({ ...porChave.get(s.key), ...s })),
+    slots,
+    ordem: ordemCompleta,
     diametro: maxD,
     cols,
     rows,
-    largura: n === 0 ? 0 : 2 * margem + cols * maxD + (cols - 1) * espacamento,
-    altura: n === 0 ? 0 : 2 * margem + rows * maxD + (rows - 1) * espacamento,
+    largura: medida(cols),
+    altura: medida(rows),
   };
 }
