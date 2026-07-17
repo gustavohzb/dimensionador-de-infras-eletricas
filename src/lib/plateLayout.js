@@ -53,7 +53,16 @@ export function reconciliarOrdem(estagios, ordem) {
   return slots;
 }
 
-const VAZIA = { celulas: [], slots: [], ordem: [], diametro: 0, cols: 0, rows: 0, largura: 0, altura: 0 };
+// Troca duas células de slot. É o que o arrasto commita — e também o que a
+// pré-visualização usa pra saber que tamanho a placa teria se a célula fosse
+// solta ali, sem mexer no estado.
+export function trocarNaOrdem(ordem, a, b) {
+  const nova = ordem.slice();
+  [nova[a], nova[b]] = [nova[b], nova[a]];
+  return nova;
+}
+
+const VAZIA = { celulas: [], slots: [], ordem: [], diametro: 0, cols: 0, rows: 0, largura: 0, altura: 0, gradeLargura: 0 };
 
 export function layoutPlaca({ estagios, ordem, diametro, espacamento, margem, celulasPorFileira }) {
   const porFileira = Math.max(1, Math.round(celulasPorFileira));
@@ -102,5 +111,9 @@ export function layoutPlaca({ estagios, ordem, diametro, espacamento, margem, ce
     rows,
     largura: medida(cols),
     altura: medida(rows),
+    // Extensão da grade inteira (todas as colunas, ocupadas ou não). A placa
+    // pode ser mais estreita que isso; é a vista durante o arrasto que precisa
+    // desta medida, pra os slots livres à direita não ficarem cortados.
+    gradeLargura: medida(porFileira),
   };
 }
