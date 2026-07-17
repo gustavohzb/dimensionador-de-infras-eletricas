@@ -85,9 +85,11 @@ function defaults() {
 // Arrastar uma célula troca ela de slot com a de destino (ver onTrocar) — a
 // grade continua governando a placa, então a cota segue sendo um cálculo.
 function PlacaMontagem({ placa, dark, onTrocar }) {
-  const { celulas, largura, altura } = placa;
+  const { celulas, slots, largura, altura } = placa;
   const svgRef = useRef(null);
   // { slot, dx, dy, x, y, alvo } enquanto uma célula está sendo arrastada.
+  // `slot` e `alvo` são índices na grade (placa.slots), não na lista de células
+  // — é o que permite soltar num slot vazio.
   const [drag, setDrag] = useState(null);
 
   // Pixel de tela → milímetro do desenho.
@@ -99,35 +101,48 @@ function PlacaMontagem({ placa, dark, onTrocar }) {
     return pt.matrixTransform(svg.getScreenCTM().inverse());
   };
 
+  // Percorre a grade inteira, e não só as células — soltar num slot vazio é o
+  // que deixa juntar as células e encolher a placa.
   const slotMaisProximo = (x, y) => {
     let melhor = null;
     let menor = Infinity;
-    celulas.forEach((c, i) => {
-      const d = (c.cx - x) ** 2 + (c.cy - y) ** 2;
+    slots.forEach((s) => {
+      const d = (s.cx - x) ** 2 + (s.cy - y) ** 2;
       if (d < menor) {
         menor = d;
-        melhor = i;
+        melhor = s.idx;
       }
     });
     return melhor;
   };
 
-  const iniciar = (i, c) => (e) => {
+  const iniciar = (c) => (e) => {
     if (!onTrocar) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    // Captura no <svg>, não no <g> da célula: ao começar o arrasto a célula é
+    // remontada no fim do desenho (pra ficar por cima), o nó antigo morre e
+    // levaria a captura junto — os pointermove/up cairiam em quem estivesse
+    // sob o cursor, e em cima de espaço vazio não cai em ninguém.
+    svgRef.current.setPointerCapture(e.pointerId);
     const p = paraMm(e);
     // guarda onde dentro da célula o usuário pegou, pra ela não "pular"
-    setDrag({ slot: i, dx: c.cx - p.x, dy: c.cy - p.y, x: p.x, y: p.y, alvo: i });
+    setDrag({ slot: c.idx, dx: c.cx - p.x, dy: c.cy - p.y, x: p.x, y: p.y, alvo: c.idx });
   };
   const mover = (e) => {
     if (!drag) return;
     const p = paraMm(e);
     setDrag((d) => (d ? { ...d, x: p.x, y: p.y, alvo: slotMaisProximo(p.x + d.dx, p.y + d.dy) } : d));
   };
-  const soltar = () => {
-    if (drag && drag.alvo != null && drag.alvo !== drag.slot) onTrocar(drag.slot, drag.alvo);
+  // O alvo é recalculado aqui, no ponto onde a célula foi realmente solta — o
+  // `alvo` do estado serve só pra destacar o slot durante o arrasto, e seria
+  // um alvo velho se o último pointermove não coincidisse com a solta.
+  const soltar = (e) => {
+    if (!drag) return;
+    const p = paraMm(e);
+    const alvo = slotMaisProximo(p.x + drag.dx, p.y + drag.dy);
+    if (alvo != null && alvo !== drag.slot) onTrocar(drag.slot, alvo);
     setDrag(null);
   };
+  const cancelar = () => setDrag(null);
 
   if (!celulas.length) return null;
 
@@ -142,16 +157,13 @@ function PlacaMontagem({ placa, dark, onTrocar }) {
   // escuro — no dark mode o texto claro sumia em cima do alumínio.
   const corTextoCelula = "#2b333a";
 
-  const celulaSvg = (c, i, arrastada) => {
+  const celulaSvg = (c, arrastada) => {
     const cx = arrastada ? drag.x + drag.dx : c.cx;
     const cy = arrastada ? drag.y + drag.dy : c.cy;
     return (
       <g
         key={c.key}
-        onPointerDown={iniciar(i, c)}
-        onPointerMove={mover}
-        onPointerUp={soltar}
-        onPointerCancel={soltar}
+        onPointerDown={iniciar(c)}
         style={{ cursor: onTrocar ? (arrastada ? "grabbing" : "grab") : "default" }}
         opacity={arrastada ? 0.9 : 1}
       >
@@ -174,6 +186,9 @@ function PlacaMontagem({ placa, dark, onTrocar }) {
       viewBox={`${-(cota + pad)} ${-pad} ${largura + cota + pad * 2} ${altura + cota + pad * 2}`}
       className="w-full select-none"
       style={{ touchAction: "none" }}
+      onPointerMove={mover}
+      onPointerUp={soltar}
+      onPointerCancel={cancelar}
       role="img"
       aria-label={`Placa de montagem ${Math.round(largura)} × ${Math.round(altura)} mm`}
     >
@@ -194,11 +209,29 @@ function PlacaMontagem({ placa, dark, onTrocar }) {
         stroke={dark ? "#4b565f" : "#94a3b8"}
         strokeWidth={largura / 400}
       />
+      {/* slots livres: só aparecem durante o arrasto, pra não poluir o desenho
+          — é onde dá pra soltar a célula e juntar o banco */}
+      {drag &&
+        slots
+          .filter((s) => !s.key && s.idx !== drag.alvo)
+          .map((s) => (
+            <circle
+              key={s.idx}
+              cx={s.cx}
+              cy={s.cy}
+              r={placa.diametro / 2}
+              fill="none"
+              stroke={corCota}
+              strokeWidth={fonte / 8}
+              strokeDasharray={`${fonte / 3} ${fonte / 3}`}
+              opacity="0.45"
+            />
+          ))}
       {/* slot de destino do arrasto */}
       {drag && drag.alvo != null && drag.alvo !== drag.slot && (
         <circle
-          cx={celulas[drag.alvo].cx}
-          cy={celulas[drag.alvo].cy}
+          cx={slots[drag.alvo].cx}
+          cy={slots[drag.alvo].cy}
           r={placa.diametro / 2 + fonte * 0.35}
           fill="none"
           stroke={dark ? "#d98a4b" : "#b4622a"}
@@ -208,8 +241,8 @@ function PlacaMontagem({ placa, dark, onTrocar }) {
       )}
       {/* células — a arrastada sai da ordem e é redesenhada por último, pra
           ficar por cima das demais (SVG pinta na ordem do documento) */}
-      {celulas.map((c, i) => (drag?.slot === i ? null : celulaSvg(c, i, false)))}
-      {drag && celulaSvg(celulas[drag.slot], drag.slot, true)}
+      {celulas.map((c) => (drag?.slot === c.idx ? null : celulaSvg(c, false)))}
+      {drag && celulaSvg(celulas.find((c) => c.idx === drag.slot), true)}
       {/* cota horizontal (embaixo) */}
       <g stroke={corCota} strokeWidth={largura / 600}>
         <line x1="0" y1={altura + cota * 0.72} x2={largura} y2={altura + cota * 0.72} />
@@ -565,8 +598,9 @@ export default function CapacitoresTab({ dark }) {
           </div>
           <PlacaMontagem placa={placa} dark={dark} onTrocar={trocarSlots} />
           <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-            Arraste um capacitor para trocá-lo de lugar com outro. Layout de referência — a placa
-            mínima sai do arranjo (margem + células + espaçamentos). Confira os diâmetros no
+            Arraste um capacitor para trocá-lo de lugar com outro ou movê-lo para um espaço vazio —
+            juntando as células, a placa encolhe. Layout de referência: a placa mínima vai até a
+            última posição ocupada (margem + células + espaçamentos). Confira os diâmetros no
             catálogo do fabricante antes de fabricar.
           </p>
         </div>
