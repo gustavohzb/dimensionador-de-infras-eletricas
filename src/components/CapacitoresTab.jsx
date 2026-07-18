@@ -161,7 +161,9 @@ function PlacaMontagem({ placa, dark, onTrocar, medidasApos }) {
   // estreita que ela, e sem isso os slots livres à direita ficariam cortados.
   // Depende só da grade (não do alvo), então não treme enquanto se arrasta.
   const vistaL = drag ? Math.max(placa.gradeLargura, largura) : largura;
-  const vistaA = drag ? Math.max(placa.altura, altura) : altura;
+  // gradeAltura inclui a fileira-vaga de pouso, então ela aparece assim que o
+  // usuário pega uma célula — sem isso, arrastar para baixo ficava cortado.
+  const vistaA = drag ? Math.max(placa.gradeAltura, altura) : altura;
 
   const fonte = Math.max(10, vistaL / 55);
   // A faixa das cotas e o respiro do viewBox acompanham a fonte — fixos, o
@@ -618,10 +620,10 @@ export default function CapacitoresTab({ dark }) {
           </div>
           <PlacaMontagem placa={placa} dark={dark} onTrocar={trocarSlots} medidasApos={medidasApos} />
           <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-            Arraste um capacitor para trocá-lo de lugar com outro ou movê-lo para um espaço vazio —
-            juntando as células, a placa encolhe. Layout de referência: a placa mínima vai até a
-            última posição ocupada (margem + células + espaçamentos). Confira os diâmetros no
-            catálogo do fabricante antes de fabricar.
+            Arraste um capacitor para trocá-lo de lugar com outro, movê-lo para um espaço vazio ou
+            puxá-lo para a fileira de baixo — juntando as células a placa encolhe, espalhando-as ela
+            cresce. Layout de referência: a placa mínima vai até a última posição ocupada (margem +
+            células + espaçamentos). Confira os diâmetros no catálogo do fabricante antes de fabricar.
           </p>
         </div>
       )}
