@@ -153,9 +153,10 @@ describe("layoutPlaca com arranjo do usuário", () => {
   });
 
   it("devolve a ordem com a grade completa, pronta para o próximo arrasto", () => {
-    // 3 células numa fileira de 6: os 3 slots que sobram viram buraco
+    // 3 células numa fileira de 6: os slots que sobram na fileira ocupada e a
+    // fileira-vaga de pouso viram buraco (6 slots × 2 fileiras = 12)
     const { ordem } = layoutPlaca({ ...base, estagios, ordem: ["b:0"] });
-    expect(ordem).toEqual(["b:0", "a:0", "a:1", null, null, null]);
+    expect(ordem).toEqual(["b:0", "a:0", "a:1", null, null, null, null, null, null, null, null, null]);
   });
 
   it("Ø automático acompanha a célula, não o slot", () => {
@@ -177,11 +178,12 @@ describe("buracos na grade — arrastar para slot vazio encolhe a placa", () => 
     expect(p.largura).toBe(810); // 2×50 + 6×85 + 5×40
   });
 
-  it("a grade completa as fileiras: 7 células ocupadas + 5 slots vazios", () => {
+  it("a grade completa as fileiras + a fileira-vaga de pouso: 7 ocupadas, resto vazio", () => {
     const p = layoutPlaca({ ...base, estagios: sete });
-    expect(p.slots).toHaveLength(12); // 6 por fileira × 2 fileiras
+    // 2 fileiras ocupadas + 1 de pouso = 6×3
+    expect(p.slots).toHaveLength(18);
     expect(p.celulas).toHaveLength(7);
-    expect(p.slots.filter((s) => !s.key).map((s) => s.idx)).toEqual([7, 8, 9, 10, 11]);
+    expect(p.slots.filter((s) => !s.key).map((s) => s.idx)).toEqual([7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
   });
 
   it("rearranjado em 4+3, a placa encolhe de 6 para 4 colunas", () => {
@@ -219,6 +221,34 @@ describe("buracos na grade — arrastar para slot vazio encolhe a placa", () => 
     const p = layoutPlaca({ ...base, estagios: sete });
     const vazio = p.slots.find((s) => s.idx === 8); // fileira 1, coluna 2
     expect(vazio).toMatchObject({ key: null, col: 2, row: 1, cx: 342.5, cy: 217.5 });
+  });
+
+  it("fileira-vaga de pouso: sempre há uma fileira extra de slots vazios embaixo", () => {
+    // 2 células numa fileira só: ainda assim existe a fileira 1, vazia, pra
+    // onde arrastar — sem ela só dava pra criar a 2ª fileira tendo 7 células
+    const p = layoutPlaca({ ...base, estagios: [est("a", 25, 25)] });
+    expect(p.rows).toBe(1); // a placa em si continua com 1 fileira
+    expect(p.slots).toHaveLength(12); // mas a grade expõe 2 fileiras (6×2)
+    const pouso = p.slots.filter((s) => s.row === 1);
+    expect(pouso).toHaveLength(6);
+    expect(pouso.every((s) => s.key === null)).toBe(true);
+  });
+
+  it("gradeAltura cobre a fileira de pouso — é a vista do arrasto na vertical", () => {
+    const p = layoutPlaca({ ...base, estagios: [est("a", 25, 25)] });
+    expect(p.altura).toBe(185); // 2×50 + 85 — a placa real, 1 fileira
+    expect(p.gradeAltura).toBe(310); // 2×50 + 2×85 + 40 — 2 fileiras na vista
+  });
+
+  it("arrastar para a fileira de pouso cria a 2ª fileira e a placa cresce", () => {
+    const dois = [est("a", 25, 25)];
+    const p = layoutPlaca({ ...base, estagios: dois });
+    // solta a 2ª célula (slot 1) no 1º slot da fileira de pouso (slot 6)
+    const previa = layoutPlaca({ ...base, estagios: dois, ordem: trocarNaOrdem(p.ordem, 1, 6) });
+    expect(previa.rows).toBe(2);
+    expect(previa.cols).toBe(1);
+    expect(previa.altura).toBe(310); // 2×50 + 2×85 + 40
+    expect(previa.largura).toBe(185); // 2×50 + 85
   });
 
   it("buraco no meio não desloca quem vem depois", () => {

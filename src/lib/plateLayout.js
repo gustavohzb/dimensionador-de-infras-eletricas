@@ -62,7 +62,7 @@ export function trocarNaOrdem(ordem, a, b) {
   return nova;
 }
 
-const VAZIA = { celulas: [], slots: [], ordem: [], diametro: 0, cols: 0, rows: 0, largura: 0, altura: 0, gradeLargura: 0 };
+const VAZIA = { celulas: [], slots: [], ordem: [], diametro: 0, cols: 0, rows: 0, largura: 0, altura: 0, gradeLargura: 0, gradeAltura: 0 };
 
 export function layoutPlaca({ estagios, ordem, diametro, espacamento, margem, celulasPorFileira }) {
   const porFileira = Math.max(1, Math.round(celulasPorFileira));
@@ -93,11 +93,14 @@ export function layoutPlaca({ estagios, ordem, diametro, espacamento, margem, ce
   const rows = Math.max(...ocupados.map((i) => Math.floor(i / porFileira))) + 1;
   const medida = (n) => 2 * margem + n * maxD + (n - 1) * espacamento;
 
-  // A grade é completada até fechar as fileiras ocupadas: os slots que sobram
-  // são os buracos onde dá pra soltar uma célula. Quem manda na quantidade de
-  // fileiras continua sendo o campo "células por fileira".
+  // A grade é completada até fechar as fileiras ocupadas, mais UMA fileira-vaga
+  // de pouso embaixo: é ela que deixa o usuário puxar uma célula para uma nova
+  // fileira mesmo antes de a grade transbordar sozinha (com 6 por fileira, sem
+  // a fileira de pouso só dava pra criar a 2ª fileira tendo 7+ células). Quem
+  // manda na LARGURA continua sendo o campo "células por fileira".
+  const fileirasGrade = rows + 1;
   const ordemCompleta = Array.from(
-    { length: porFileira * rows },
+    { length: porFileira * fileirasGrade },
     (_, i) => ordemFinal[i] ?? null
   );
   const slots = ordemCompleta.map((k, i) => ({ idx: i, key: k, ...posicao(i) }));
@@ -111,9 +114,11 @@ export function layoutPlaca({ estagios, ordem, diametro, espacamento, margem, ce
     rows,
     largura: medida(cols),
     altura: medida(rows),
-    // Extensão da grade inteira (todas as colunas, ocupadas ou não). A placa
-    // pode ser mais estreita que isso; é a vista durante o arrasto que precisa
-    // desta medida, pra os slots livres à direita não ficarem cortados.
+    // Extensão da grade inteira, para a vista durante o arrasto não cortar os
+    // slots livres. A placa pode ser mais estreita/baixa que isso: gradeLargura
+    // cobre todas as colunas (à direita); gradeAltura cobre a fileira de pouso
+    // (embaixo), pra ela aparecer assim que o usuário pega uma célula.
     gradeLargura: medida(porFileira),
+    gradeAltura: medida(fileirasGrade),
   };
 }
