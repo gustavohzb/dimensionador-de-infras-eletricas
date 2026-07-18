@@ -129,7 +129,9 @@ export async function exportCapacitorPDF({ svgEl, params, banco, placa }) {
   doc.setFontSize(9);
   banco.estagios.forEach((e) => {
     ensureSpace(6);
-    const disj = e.disjComercial ? `${num(e.disjCalculado)} A → ${e.disjComercial} A` : `${num(e.disjCalculado)} A → acima da escala`;
+    // "->" em ASCII, não a seta Unicode "→": a fonte padrão do jsPDF é WinAnsi
+    // e não tem U+2192 — ela saía como um glifo errado, embaralhando a coluna.
+    const disj = e.disjComercial ? `${num(e.disjCalculado)} A -> ${e.disjComercial} A` : `${num(e.disjCalculado)} A -> acima da escala`;
     const vals = [
       String(e.numero).padStart(2, "0"),
       num(e.kvarNominal),
@@ -137,7 +139,6 @@ export async function exportCapacitorPDF({ svgEl, params, banco, placa }) {
       `${num(e.corrente)} A`,
       disj,
     ];
-    doc.setTextColor(e.disjComercial ? 30 : 220, e.disjComercial ? 41 : 38, e.disjComercial ? 59 : 38);
     cols.forEach((c, i) => {
       doc.setTextColor(i === 0 ? 148 : 30, i === 0 ? 163 : 41, i === 0 ? 184 : 59);
       if (i === 4 && !e.disjComercial) doc.setTextColor(220, 38, 38);
@@ -155,8 +156,8 @@ export async function exportCapacitorPDF({ svgEl, params, banco, placa }) {
   keyValue(
     "Disjuntor geral",
     banco.disjGeralComercial
-      ? `${num(banco.disjGeralCalculado)} A → ${banco.disjGeralComercial} A`
-      : `${num(banco.disjGeralCalculado)} A → acima da escala`
+      ? `${num(banco.disjGeralCalculado)} A -> ${banco.disjGeralComercial} A`
+      : `${num(banco.disjGeralCalculado)} A -> acima da escala`
   );
 
   // Comparação com o trafo
