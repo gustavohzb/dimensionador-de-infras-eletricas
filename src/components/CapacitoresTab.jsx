@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Field } from "./cabos/CircuitoForm";
 import { calcularBanco } from "../lib/capacitorBank";
+import { exportCapacitorPDF } from "../lib/capacitorPdf";
 import { layoutPlaca, trocarNaOrdem } from "../lib/plateLayout";
 import { POTENCIAS_CELULA, CELULAS_SIEMENS_440V } from "../data/capacitores";
 
@@ -84,9 +85,8 @@ function defaults() {
 // círculos) em grade, com as dimensões mínimas da placa cotadas. SVG em mm.
 // Arrastar uma célula troca ela de slot com a de destino (ver onTrocar) — a
 // grade continua governando a placa, então a cota segue sendo um cálculo.
-function PlacaMontagem({ placa, dark, onTrocar, medidasApos }) {
+function PlacaMontagem({ placa, dark, onTrocar, medidasApos, svgRef }) {
   const { celulas, slots } = placa;
-  const svgRef = useRef(null);
   // { slot, dx, dy, x, y, alvo } enquanto uma célula está sendo arrastada.
   // `slot` e `alvo` são índices na grade (placa.slots), não na lista de células
   // — é o que permite soltar num slot vazio.
@@ -246,6 +246,19 @@ function PlacaMontagem({ placa, dark, onTrocar, medidasApos }) {
               opacity="0.45"
             />
           ))}
+      {/* origem: marca em vermelho pontilhado a casa de onde a célula saiu,
+          pra o usuário não perder de vista de onde está movendo */}
+      {drag && (
+        <circle
+          cx={slots[drag.slot].cx}
+          cy={slots[drag.slot].cy}
+          r={placa.diametro / 2}
+          fill="none"
+          stroke={dark ? "#f87171" : "#dc2626"}
+          strokeWidth={fonte / 6}
+          strokeDasharray={`${fonte / 2} ${fonte / 3}`}
+        />
+      )}
       {/* slot de destino do arrasto */}
       {drag && drag.alvo != null && drag.alvo !== drag.slot && (
         <circle
@@ -298,11 +311,15 @@ function PlacaMontagem({ placa, dark, onTrocar, medidasApos }) {
 // o motor de cálculo (capacitorBank.js) tem a planilha como fixture de teste.
 export default function CapacitoresTab({ dark }) {
   const [st, setSt] = useState(estadoInicial);
-  // Formulário de novo estágio.
+  // Formulário de novo estágio. `editando` guarda o índice do estágio em edição
+  // (null = criando um novo) — ao editar, o formulário vira "salvar".
   const [numCelulas, setNumCelulas] = useState(2);
   const [pot1, setPot1] = useState(33.7);
   const [pot2, setPot2] = useState(33.7);
   const [repetir, setRepetir] = useState(1);
+  const [editando, setEditando] = useState(null);
+  // SVG da placa, para embutir no relatório PDF.
+  const placaSvgRef = useRef(null);
 
   const set = (patch) => setSt((s) => ({ ...s, ...patch }));
 
@@ -330,17 +347,45 @@ export default function CapacitoresTab({ dark }) {
       })
     : null;
 
+  const celulasDoForm = () => (numCelulas === 2 ? [pot1, pot2] : [pot1]);
+
   const adicionarEstagios = () => {
-    const celulas = numCelulas === 2 ? [pot1, pot2] : [pot1];
+    const celulas = celulasDoForm();
     if (celulas.some((c) => !(c > 0))) return;
     const n = Math.max(1, Math.min(50, Math.round(Number(repetir) || 1)));
     set({ estagios: [...st.estagios, ...Array.from({ length: n }, () => ({ id: novoId(), celulas }))] });
     setRepetir(1);
   };
+
+  // Abre um estágio no formulário. Mantemos o id ao salvar, então o arranjo da
+  // placa sobrevive à edição (a chave da célula é id do estágio + índice).
+  const editarEstagio = (i) => {
+    const e = st.estagios[i];
+    setEditando(i);
+    setNumCelulas(e.celulas.length);
+    setPot1(e.celulas[0]);
+    setPot2(e.celulas[1] ?? e.celulas[0]);
+  };
+  const cancelarEdicao = () => setEditando(null);
+  const salvarEdicao = () => {
+    const celulas = celulasDoForm();
+    if (celulas.some((c) => !(c > 0))) return;
+    // Preserva o id: se o nº de células mudar, reconciliarOrdem trata a chave
+    // que sumiu como buraco e encaixa a nova — o resto do arranjo fica de pé.
+    set({ estagios: st.estagios.map((e, j) => (j === editando ? { ...e, celulas } : e)) });
+    setEditando(null);
+  };
+
   // O arranjo da placa sobrevive a adicionar/remover — as chaves apontam para
   // o id do estágio, e reconciliarOrdem descarta as que sumiram (ver layout).
-  const removerEstagio = (i) => set({ estagios: st.estagios.filter((_, j) => j !== i) });
-  const removerTodos = () => set({ estagios: [], placaOrdem: null });
+  const removerEstagio = (i) => {
+    if (editando === i) setEditando(null);
+    set({ estagios: st.estagios.filter((_, j) => j !== i) });
+  };
+  const removerTodos = () => {
+    setEditando(null);
+    set({ estagios: [], placaOrdem: null });
+  };
 
   const paramsPlaca = {
     estagios: st.estagios,
@@ -362,6 +407,20 @@ export default function CapacitoresTab({ dark }) {
     return { largura: p.largura, altura: p.altura };
   };
   const rearranjar = () => set({ placaOrdem: null });
+
+  const exportarPDF = () =>
+    exportCapacitorPDF({
+      svgEl: placaSvgRef.current,
+      params: {
+        vRede,
+        vCapacitor,
+        fatorDisjEstagio: Number(st.fatorDisjEstagio) || 1.63,
+        fatorDisjGeral: Number(st.fatorDisjGeral) || 1.25,
+        percentualAlvo: Number(st.percentualAlvo) || 33,
+      },
+      banco,
+      placa,
+    });
 
   // Veredito do trafo: verde dentro de ±10% relativos do alvo, âmbar fora.
   const veredito = banco?.trafo
@@ -422,6 +481,14 @@ export default function CapacitoresTab({ dark }) {
               </button>
             )}
           </div>
+          {editando != null && (
+            <div className="mb-2 flex items-center justify-between rounded-xs bg-copper-50 px-2.5 py-1 text-[12px] text-copper-800 dark:bg-copper-500/10 dark:text-copper-300">
+              <span>Editando o estágio {String(editando + 1).padStart(2, "0")}</span>
+              <button type="button" onClick={cancelarEdicao} className="font-medium underline-offset-2 hover:underline">
+                cancelar
+              </button>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <Field label="Células por estágio">
               <select value={numCelulas} onChange={(e) => setNumCelulas(Number(e.target.value))} className={inputCls}>
@@ -429,9 +496,11 @@ export default function CapacitoresTab({ dark }) {
                 <option value={2}>2 células</option>
               </select>
             </Field>
-            <Field label="Repetir">
-              <input type="number" min="1" max="50" value={repetir} onChange={(e) => setRepetir(e.target.value)} className={inputCls} />
-            </Field>
+            {editando == null && (
+              <Field label="Repetir">
+                <input type="number" min="1" max="50" value={repetir} onChange={(e) => setRepetir(e.target.value)} className={inputCls} />
+              </Field>
+            )}
             <Field label={numCelulas === 2 ? "Célula 1 (kvar)" : "Célula (kvar)"} tip="Potência de placa da célula, na tensão nominal dela. Lista consolidada dos catálogos ABB/WEG; use Outra... para valores fora dela.">
               <SeletorPotencia value={pot1} onChange={setPot1} />
             </Field>
@@ -443,10 +512,10 @@ export default function CapacitoresTab({ dark }) {
           </div>
           <button
             type="button"
-            onClick={adicionarEstagios}
+            onClick={editando != null ? salvarEdicao : adicionarEstagios}
             className="mt-2 w-full rounded-xs bg-copper-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-copper-700 dark:bg-copper-500 dark:hover:bg-copper-600"
           >
-            + estágio{Number(repetir) > 1 ? `s (${repetir}×)` : ""}
+            {editando != null ? "salvar alterações" : `+ estágio${Number(repetir) > 1 ? `s (${repetir}×)` : ""}`}
           </button>
 
           {st.estagios.length > 0 && (
@@ -454,7 +523,11 @@ export default function CapacitoresTab({ dark }) {
               {st.estagios.map((e, i) => (
                 <li
                   key={i}
-                  className="flex items-center justify-between rounded-xs border border-slate-200 px-2 py-1 text-[13px] dark:border-slate-700"
+                  className={`flex items-center justify-between rounded-xs border px-2 py-1 text-[13px] ${
+                    editando === i
+                      ? "border-copper-400 bg-copper-50 dark:border-copper-500/50 dark:bg-copper-500/10"
+                      : "border-slate-200 dark:border-slate-700"
+                  }`}
                 >
                   <span
                     className="font-mono text-slate-700 dark:text-slate-200"
@@ -468,13 +541,22 @@ export default function CapacitoresTab({ dark }) {
                   >
                     EST {String(i + 1).padStart(2, "0")} — {e.celulas.map((c) => String(c).replace(".", ",")).join(" + ")} kvar
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => removerEstagio(i)}
-                    className="text-[12px] text-slate-400 transition hover:text-red-600 dark:hover:text-red-400"
-                  >
-                    remover
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => editarEstagio(i)}
+                      className="text-[12px] text-slate-400 transition hover:text-copper-600 dark:hover:text-copper-400"
+                    >
+                      editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removerEstagio(i)}
+                      className="text-[12px] text-slate-400 transition hover:text-red-600 dark:hover:text-red-400"
+                    >
+                      remover
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -485,9 +567,20 @@ export default function CapacitoresTab({ dark }) {
       {/* ==================== Coluna de resultados ==================== */}
       <div className="space-y-3">
       <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="mb-2 font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-          Resultado
-        </h2>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+            Resultado
+          </h2>
+          {banco && banco.estagios.length > 0 && (
+            <button
+              type="button"
+              onClick={exportarPDF}
+              className="rounded-xs border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Relatório PDF
+            </button>
+          )}
+        </div>
         {!banco || banco.estagios.length === 0 ? (
           <div className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
             Adicione estágios ao lado — cada linha mostra a potência corrigida
@@ -618,7 +711,7 @@ export default function CapacitoresTab({ dark }) {
               <input type="number" min="1" max="20" value={st.placaCelulasPorFileira} onChange={(e) => set({ placaCelulasPorFileira: e.target.value })} className={inputCls} />
             </Field>
           </div>
-          <PlacaMontagem placa={placa} dark={dark} onTrocar={trocarSlots} medidasApos={medidasApos} />
+          <PlacaMontagem placa={placa} dark={dark} onTrocar={trocarSlots} medidasApos={medidasApos} svgRef={placaSvgRef} />
           <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
             Arraste um capacitor para trocá-lo de lugar com outro, movê-lo para um espaço vazio ou
             puxá-lo para a fileira de baixo — juntando as células a placa encolhe, espalhando-as ela
