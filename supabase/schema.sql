@@ -22,3 +22,22 @@ create policy "allow all with anon key" on projetos
   for all
   using (true)
   with check (true);
+
+-- Projetos da aba "Capacitores". O estado do banco tem muitos campos
+-- (tensões, fatores, estágios, parâmetros da placa), então guardamos tudo
+-- num único jsonb `dados` em vez de uma coluna por campo — assim adicionar
+-- um parâmetro novo não exige migração.
+create table if not exists projetos_capacitores (
+  id uuid primary key default gen_random_uuid(),
+  nome text not null,
+  dados jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table projetos_capacitores enable row level security;
+
+create policy "allow all with anon key" on projetos_capacitores
+  for all
+  using (true)
+  with check (true);

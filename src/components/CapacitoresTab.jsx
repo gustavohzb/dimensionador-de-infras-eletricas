@@ -4,6 +4,8 @@ import { calcularBanco } from "../lib/capacitorBank";
 import { exportCapacitorPDF } from "../lib/capacitorPdf";
 import { layoutPlaca, trocarNaOrdem } from "../lib/plateLayout";
 import { POTENCIAS_CELULA, CELULAS_SIEMENS_440V } from "../data/capacitores";
+import ProjectsPanel from "./ProjectsPanel";
+import { useCapacitorProjects } from "../hooks/useCapacitorProjects";
 
 const STORAGE_KEY = "capacitores.v1";
 const inputCls =
@@ -325,13 +327,52 @@ export default function CapacitoresTab({ dark }) {
   const [st, setSt] = useState(estadoInicial);
   // Formulário de novo estágio. `editando` guarda o índice do estágio em edição
   // (null = criando um novo) — ao editar, o formulário vira "salvar".
-  const [numCelulas, setNumCelulas] = useState(2);
+  const [numCelulas, setNumCelulas] = useState(1);
   const [pot1, setPot1] = useState(33.7);
   const [pot2, setPot2] = useState(33.7);
   const [repetir, setRepetir] = useState(1);
   const [editando, setEditando] = useState(null);
   // SVG da placa, para embutir no relatório PDF.
   const placaSvgRef = useRef(null);
+
+  // Registro de projetos (Supabase). O estado do banco inteiro é salvo/carregado
+  // como um projeto nomeado; sem projeto ativo a aba começa zerada.
+  const projectsApi = useCapacitorProjects();
+  const [activeProject, setActiveProject] = useState(null);
+  // Volta o formulário de novo estágio ao padrão (usado ao carregar/desvincular).
+  const resetForm = () => {
+    setNumCelulas(1);
+    setPot1(33.7);
+    setPot2(33.7);
+    setRepetir(1);
+    setEditando(null);
+  };
+  const handleCreateProject = async (nome, state) => {
+    const criado = await projectsApi.createProject(nome, state);
+    setActiveProject({ id: criado.id, nome: criado.nome });
+  };
+  const handleSaveChanges = async (id, state) => {
+    await projectsApi.updateProject(id, state);
+  };
+  const handleLoadProject = async (id) => {
+    const salvo = await projectsApi.loadProject(id);
+    const dados = { ...defaults(), ...(salvo.dados || {}) };
+    // Garante id em cada estágio (projetos antigos podem não ter) — é o que
+    // amarra o arranjo da placa à célula.
+    setSt({ ...dados, estagios: (dados.estagios || []).map((e) => ({ ...e, id: e.id ?? novoId() })) });
+    setActiveProject({ id: salvo.id, nome: salvo.nome });
+    resetForm();
+  };
+  const handleDeleteProject = async (id) => {
+    await projectsApi.deleteProject(id);
+    if (activeProject?.id === id) setActiveProject(null);
+  };
+  const handleUnlinkProject = () => {
+    if (!window.confirm("Desvincular e zerar a aba (parâmetros, estágios e placa)?")) return;
+    setActiveProject(null);
+    setSt(defaults());
+    resetForm();
+  };
 
   const set = (patch) => setSt((s) => ({ ...s, ...patch }));
 
@@ -444,6 +485,25 @@ export default function CapacitoresTab({ dark }) {
     <div className="grid gap-3 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
       {/* ==================== Coluna de entradas ==================== */}
       <div className="space-y-3">
+        <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="mb-2 font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+            Projetos
+          </h2>
+          <ProjectsPanel
+            projects={projectsApi.projects}
+            loading={projectsApi.loading}
+            error={projectsApi.error}
+            refresh={projectsApi.refresh}
+            activeProject={activeProject}
+            onCreate={handleCreateProject}
+            onSaveChanges={handleSaveChanges}
+            onLoad={handleLoadProject}
+            onDelete={handleDeleteProject}
+            onUnlink={handleUnlinkProject}
+            currentState={st}
+          />
+        </div>
+
         <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <h2 className="mb-2 font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
             Parâmetros
