@@ -10,6 +10,13 @@ const inputCls =
   "w-full rounded-xs border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-copper-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100";
 const fmt = (n, d = 1) => (n == null ? "—" : n.toFixed(d).replace(".", ","));
 
+// Escala fixa do desenho da placa: cada milímetro real vira ESCALA_PX px na
+// tela. É o que torna a vista proporcional e comparável entre bancos — sem
+// isso o SVG preenchia a largura do container e uma placa estreita e alta
+// (célula empilhada) esticava a altura pra manter a proporção, ficando enorme.
+// 0,6 px/mm ≈ 1:6 na tela; max-width:100% ainda encolhe junto em telas estreitas.
+const ESCALA_PX = 0.6;
+
 // Dropdown de potência de célula: catálogo + "Outra..." abrindo campo livre.
 function SeletorPotencia({ value, onChange }) {
   const custom = !POTENCIAS_CELULA.includes(value);
@@ -176,6 +183,11 @@ function PlacaMontagem({ placa, dark, onTrocar, medidasApos, svgRef }) {
   // escuro — no dark mode o texto claro sumia em cima do alumínio.
   const corTextoCelula = "#2b333a";
 
+  // viewBox em mm; a largura na tela sai de mm × escala fixa, então o desenho
+  // cresce com a placa em vez de esticar pra preencher o container.
+  const vbW = vistaL + cota + pad * 2;
+  const vbH = vistaA + cota + pad * 2;
+
   const celulaSvg = (c, arrastada) => {
     const cx = arrastada ? drag.x : c.cx;
     const cy = arrastada ? drag.y : c.cy;
@@ -202,9 +214,9 @@ function PlacaMontagem({ placa, dark, onTrocar, medidasApos, svgRef }) {
   return (
     <svg
       ref={svgRef}
-      viewBox={`${-(cota + pad)} ${-pad} ${vistaL + cota + pad * 2} ${vistaA + cota + pad * 2}`}
-      className="w-full select-none"
-      style={{ touchAction: "none" }}
+      viewBox={`${-(cota + pad)} ${-pad} ${vbW} ${vbH}`}
+      className="block mx-auto select-none"
+      style={{ touchAction: "none", width: `${vbW * ESCALA_PX}px`, maxWidth: "100%", height: "auto" }}
       onPointerMove={mover}
       onPointerUp={soltar}
       onPointerCancel={cancelar}

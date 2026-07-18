@@ -2,21 +2,33 @@
 // totais, comparação com o trafo e a vista superior da placa de montagem —
 // pronto para anexar ao memorial ou mandar ao cliente.
 
-// Converte o SVG da placa num PNG (dataURL) para embutir no PDF.
-function svgToPng(svgEl) {
+// Converte o SVG da placa num PNG (dataURL) para embutir no PDF. Rasteriza a
+// partir do viewBox (mm) numa resolução própria (pxPorMm), não do tamanho do
+// SVG na tela — assim o relatório fica nítido independentemente da escala de
+// exibição da placa.
+function svgToPng(svgEl, pxPorMm = 3) {
+  const vb = svgEl.viewBox.baseVal;
+  const w = Math.max(1, Math.round(vb.width * pxPorMm));
+  const h = Math.max(1, Math.round(vb.height * pxPorMm));
+  // Clona e fixa largura/altura em px: o SVG da tela usa style width/height,
+  // que sobreporia os atributos e faria a imagem rasterizar pequena.
+  const clone = svgEl.cloneNode(true);
+  clone.setAttribute("width", w);
+  clone.setAttribute("height", h);
+  clone.style.width = "";
+  clone.style.height = "";
+  const source = new XMLSerializer().serializeToString(clone);
   return new Promise((resolve, reject) => {
-    const source = new XMLSerializer().serializeToString(svgEl);
     const img = new Image();
     img.onload = () => {
-      const scale = 2;
       const canvas = document.createElement("canvas");
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
+      canvas.width = w;
+      canvas.height = h;
       const ctx = canvas.getContext("2d");
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve({ dataUrl: canvas.toDataURL("image/png"), w: img.width, h: img.height });
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve({ dataUrl: canvas.toDataURL("image/png"), w, h });
     };
     img.onerror = reject;
     img.src = "data:image/svg+xml;base64," + window.btoa(unescape(encodeURIComponent(source)));
