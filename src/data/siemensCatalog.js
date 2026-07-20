@@ -251,3 +251,28 @@ export const MODULOS_TRI_SIEMENS = [
 export function siemensTri(tensao, kvar) {
   return CAPACITORES_TRI_SIEMENS.find((c) => c.tensao === tensao && c.kvar === kvar) ?? null;
 }
+
+// Lista de equipamentos por estágio, no modelo do configurador: cada célula
+// trifásica é chaveada pelo seu contator 3MT7 e protegida pelo disjuntor (ou
+// fusível) do catálogo. Células de mesmo kvar viram um item só com qtd.
+// Onde o configurador manda "TROCAR POR FUSÍVEL", disjuntor sai null — a
+// proteção correta é o fusível. kvar fora do catálogo: { encontrado: false }.
+export function equipamentosSiemens(estagios, vCapacitor) {
+  return estagios.map((e, i) => {
+    const porKvar = new Map();
+    for (const kvar of e.celulas) porKvar.set(kvar, (porKvar.get(kvar) ?? 0) + 1);
+    const itens = [...porKvar].map(([kvar, qtd]) => {
+      const cel = siemensTri(vCapacitor, kvar);
+      if (!cel) return { kvar, qtd, encontrado: false };
+      return {
+        kvar, qtd, encontrado: true,
+        codigo: cel.codigo, codigoPedido: cel.codigoPedido,
+        contator: cel.contator,
+        disjuntor: cel.disjuntor === "TROCAR POR FUSÍVEL" ? null : cel.disjuntor ?? null,
+        fusivel: cel.fusivel ?? null, fusivelIn: cel.fusivelIn ?? null,
+        baseFusivel: cel.baseFusivel ?? null,
+      };
+    });
+    return { numero: i + 1, itens };
+  });
+}

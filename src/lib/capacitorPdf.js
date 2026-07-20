@@ -54,7 +54,7 @@ export function svgToPng(svgEl, pxPorMm = 3) {
 
 const num = (n, d = 1) => (n == null ? "—" : n.toFixed(d).replace(".", ","));
 
-export async function exportCapacitorPDF({ svgEl, params, banco, placa, projectName }) {
+export async function exportCapacitorPDF({ svgEl, params, banco, placa, projectName, equipamentos }) {
   const { vRede, vCapacitor, fatorDisjEstagio, fatorDisjGeral, fatorContator, percentualAlvo } = params;
   // Import dinâmico: o jspdf é pesado (~400 kB) e só é necessário na hora de
   // gerar o relatório — assim não entra no bundle inicial do app.
@@ -124,6 +124,7 @@ export async function exportCapacitorPDF({ svgEl, params, banco, placa, projectN
   keyValue("Fator disj. estágio", num(fatorDisjEstagio, 2));
   keyValue("Fator disj. geral", num(fatorDisjGeral, 2));
   keyValue("Fator contator", num(fatorContator, 2));
+  if (equipamentos) keyValue("Marca", "Siemens");
   y += 2;
 
   // Tabela de estágios
@@ -169,6 +170,63 @@ export async function exportCapacitorPDF({ svgEl, params, banco, placa, projectN
     y += 5.5;
   });
   y += 2;
+
+  // Equipamentos Siemens — presente só com a marca Siemens selecionada.
+  // Contator e proteção POR CÉLULA, no modelo do configurador oficial.
+  if (equipamentos) {
+    sectionTitle("Equipamentos Siemens (configurador)");
+    const eCols = [
+      { t: "#", x: margin, w: 8, a: "left" },
+      { t: "Célula", x: margin + 10, w: 24, a: "left" },
+      { t: "Capacitor", x: margin + 36, w: 40, a: "left" },
+      { t: "Contator", x: margin + 78, w: 38, a: "left" },
+      { t: "Disjuntor", x: margin + 118, w: 38, a: "left" },
+      { t: "Fusível", x: margin + 152, w: contentW - 152, a: "left" },
+    ];
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    eCols.forEach((c) => doc.text(c.t, c.x, y));
+    y += 1.5;
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margin, y, pageW - margin, y);
+    y += 4;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    for (const e of equipamentos) {
+      for (let j = 0; j < e.itens.length; j++) {
+        const it = e.itens[j];
+        ensureSpace(6);
+        doc.setTextColor(148, 163, 184);
+        if (j === 0) doc.text(String(e.numero).padStart(2, "0"), eCols[0].x, y);
+        if (it.encontrado) {
+          doc.setTextColor(30, 41, 59);
+          doc.text(`${it.qtd}x ${num(it.kvar)} kvar`, eCols[1].x, y);
+          doc.text(it.codigo, eCols[2].x, y);
+          doc.text(it.contator, eCols[3].x, y);
+          doc.text(it.disjuntor ?? "usar fusível", eCols[4].x, y);
+          doc.text(`${it.fusivel} ${it.fusivelIn}A`, eCols[5].x, y);
+        } else {
+          doc.setTextColor(180, 120, 10);
+          doc.text(`${it.qtd}x ${num(it.kvar)} kvar — fora do catálogo Siemens em ${vCapacitor}V`, eCols[1].x, y);
+        }
+        y += 4.5;
+      }
+    }
+    y += 1;
+    ensureSpace(8);
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139);
+    doc.text(
+      doc.splitTextToSize(
+        "Contator (bobina 240V 50-60Hz) e proteção por célula, conforme o configurador Siemens. Base porta-fusível: 3NP1123-1CA20 (3NH3 230-0RC acima de 690V). Onde consta \"usar fusível\", o configurador não indica disjuntor para a célula.",
+        contentW
+      ),
+      margin,
+      y
+    );
+    y += 8;
+  }
 
   // Totais
   sectionTitle("Totais do banco");
