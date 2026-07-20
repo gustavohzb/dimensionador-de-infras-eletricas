@@ -54,7 +54,7 @@ export function svgToPng(svgEl, pxPorMm = 3) {
 
 const num = (n, d = 1) => (n == null ? "—" : n.toFixed(d).replace(".", ","));
 
-export async function exportCapacitorPDF({ svgEl, params, banco, placa, projectName, equipamentos }) {
+export async function exportCapacitorPDF({ svgEl, params, banco, placa, projectName, equipamentos, protecao = "disjuntor" }) {
   const { vRede, vCapacitor, fatorDisjEstagio, fatorDisjGeral, fatorContator, percentualAlvo } = params;
   // Import dinâmico: o jspdf é pesado (~400 kB) e só é necessário na hora de
   // gerar o relatório — assim não entra no bundle inicial do app.
@@ -124,7 +124,10 @@ export async function exportCapacitorPDF({ svgEl, params, banco, placa, projectN
   keyValue("Fator disj. estágio", num(fatorDisjEstagio, 2));
   keyValue("Fator disj. geral", num(fatorDisjGeral, 2));
   keyValue("Fator contator", num(fatorContator, 2));
-  if (equipamentos) keyValue("Marca", "Siemens");
+  if (equipamentos) {
+    keyValue("Marca", "Siemens");
+    keyValue("Proteção da célula", protecao === "fusivel" ? "Seccionadora porta-fusíveis" : "Disjuntor");
+  }
   y += 2;
 
   // Tabela de estágios
@@ -172,16 +175,19 @@ export async function exportCapacitorPDF({ svgEl, params, banco, placa, projectN
   y += 2;
 
   // Equipamentos Siemens — presente só com a marca Siemens selecionada.
-  // Contator e proteção POR CÉLULA, no modelo do configurador oficial.
+  // Contator POR CÉLULA e a proteção escolhida no app: disjuntor OU
+  // fusível NH com a seccionadora porta-fusíveis, no modelo do configurador.
   if (equipamentos) {
     sectionTitle("Equipamentos Siemens (configurador)");
+    const porDisj = protecao !== "fusivel";
     const eCols = [
-      { t: "#", x: margin, w: 8, a: "left" },
-      { t: "Célula", x: margin + 10, w: 24, a: "left" },
-      { t: "Capacitor", x: margin + 36, w: 40, a: "left" },
-      { t: "Contator", x: margin + 78, w: 38, a: "left" },
-      { t: "Disjuntor", x: margin + 118, w: 38, a: "left" },
-      { t: "Fusível", x: margin + 152, w: contentW - 152, a: "left" },
+      { t: "#", x: margin },
+      { t: "Célula", x: margin + 10 },
+      { t: "Capacitor", x: margin + 36 },
+      { t: "Contator", x: margin + 78 },
+      ...(porDisj
+        ? [{ t: "Disjuntor", x: margin + 120 }]
+        : [{ t: "Fusível", x: margin + 120 }, { t: "Seccionadora", x: margin + 146 }]),
     ];
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
@@ -204,8 +210,16 @@ export async function exportCapacitorPDF({ svgEl, params, banco, placa, projectN
           doc.text(`${it.qtd}x ${num(it.kvar)} kvar`, eCols[1].x, y);
           doc.text(it.codigo, eCols[2].x, y);
           doc.text(it.contator, eCols[3].x, y);
-          doc.text(it.disjuntor ?? "usar fusível", eCols[4].x, y);
-          doc.text(`${it.fusivel} ${it.fusivelIn}A`, eCols[5].x, y);
+          if (porDisj) {
+            if (it.disjuntor) doc.text(it.disjuntor, eCols[4].x, y);
+            else {
+              doc.setTextColor(180, 120, 10);
+              doc.text("sem disjuntor — usar fusível", eCols[4].x, y);
+            }
+          } else {
+            doc.text(`${it.fusivel} ${it.fusivelIn}A`, eCols[4].x, y);
+            doc.text(it.baseFusivel, eCols[5].x, y);
+          }
         } else {
           doc.setTextColor(180, 120, 10);
           doc.text(`${it.qtd}x ${num(it.kvar)} kvar — fora do catálogo Siemens em ${vCapacitor}V`, eCols[1].x, y);
@@ -219,7 +233,9 @@ export async function exportCapacitorPDF({ svgEl, params, banco, placa, projectN
     doc.setTextColor(100, 116, 139);
     doc.text(
       doc.splitTextToSize(
-        "Contator (bobina 240V 50-60Hz) e proteção por célula, conforme o configurador Siemens. Base porta-fusível: 3NP1123-1CA20 (3NH3 230-0RC acima de 690V). Onde consta \"usar fusível\", o configurador não indica disjuntor para a célula.",
+        porDisj
+          ? 'Contator (bobina 240V 50-60Hz) e disjuntor por célula, conforme o configurador Siemens. Onde consta "sem disjuntor", o configurador só indica proteção por fusível NH.'
+          : "Contator (bobina 240V 50-60Hz), fusível NH e seccionadora porta-fusíveis por célula, conforme o configurador Siemens.",
         contentW
       ),
       margin,
