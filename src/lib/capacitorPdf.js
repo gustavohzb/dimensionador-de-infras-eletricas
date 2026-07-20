@@ -182,7 +182,7 @@ export async function exportCapacitorPDF({ svgEl, params, banco, placa, projectN
     const porDisj = protecao !== "fusivel";
     const eCols = [
       { t: "#", x: margin },
-      { t: "Célula", x: margin + 10 },
+      { t: "Células", x: margin + 10 },
       { t: "Capacitor", x: margin + 36 },
       { t: "Contator", x: margin + 78 },
       ...(porDisj
@@ -199,33 +199,49 @@ export async function exportCapacitorPDF({ svgEl, params, banco, placa, projectN
     y += 4;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
+    const avisoFora = "fora do catálogo";
     for (const e of equipamentos) {
-      for (let j = 0; j < e.itens.length; j++) {
-        const it = e.itens[j];
-        ensureSpace(6);
-        doc.setTextColor(148, 163, 184);
-        if (j === 0) doc.text(String(e.numero).padStart(2, "0"), eCols[0].x, y);
-        if (it.encontrado) {
+      // Uma linha por estágio; estágio com 2 tipos de célula ocupa 2 linhas
+      // na coluna Capacitor, com contator/proteção (do estágio) na primeira.
+      const nLinhas = Math.max(1, e.celulas.length);
+      ensureSpace(4.5 * nLinhas + 2);
+      doc.setTextColor(148, 163, 184);
+      doc.text(String(e.numero).padStart(2, "0"), eCols[0].x, y);
+      doc.setTextColor(30, 41, 59);
+      doc.text(`${e.celulas.map((c) => `${c.qtd}x ${num(c.kvar)}`).join(" + ")} kvar`, eCols[1].x, y);
+      e.celulas.forEach((c, j) => {
+        if (c.encontrado) {
           doc.setTextColor(30, 41, 59);
-          doc.text(`${it.qtd}x ${num(it.kvar)} kvar`, eCols[1].x, y);
-          doc.text(it.codigo, eCols[2].x, y);
-          doc.text(it.contator, eCols[3].x, y);
-          if (porDisj) {
-            if (it.disjuntor) doc.text(it.disjuntor, eCols[4].x, y);
-            else {
-              doc.setTextColor(180, 120, 10);
-              doc.text("sem disjuntor — usar fusível", eCols[4].x, y);
-            }
-          } else {
-            doc.text(`${it.fusivel} ${it.fusivelIn}A`, eCols[4].x, y);
-            doc.text(it.baseFusivel, eCols[5].x, y);
-          }
+          doc.text(c.codigo, eCols[2].x, y + j * 4.5);
         } else {
           doc.setTextColor(180, 120, 10);
-          doc.text(`${it.qtd}x ${num(it.kvar)} kvar — fora do catálogo Siemens em ${vCapacitor}V`, eCols[1].x, y);
+          doc.text(`${num(c.kvar)} kvar não existe em ${vCapacitor}V`, eCols[2].x, y + j * 4.5);
         }
-        y += 4.5;
+      });
+      if (e.contator) {
+        doc.setTextColor(30, 41, 59);
+        doc.text(e.contator, eCols[3].x, y);
+      } else {
+        doc.setTextColor(180, 120, 10);
+        doc.text(avisoFora, eCols[3].x, y);
       }
+      if (porDisj) {
+        if (e.protecao?.disjuntor) {
+          doc.setTextColor(30, 41, 59);
+          doc.text(e.protecao.disjuntor, eCols[4].x, y);
+        } else {
+          doc.setTextColor(180, 120, 10);
+          doc.text(e.protecao ? "sem disjuntor — usar fusível" : avisoFora, eCols[4].x, y);
+        }
+      } else if (e.protecao) {
+        doc.setTextColor(30, 41, 59);
+        doc.text(`${e.protecao.fusivel} ${e.protecao.fusivelIn}A`, eCols[4].x, y);
+        doc.text(e.protecao.baseFusivel ?? "", eCols[5].x, y);
+      } else {
+        doc.setTextColor(180, 120, 10);
+        doc.text(avisoFora, eCols[4].x, y);
+      }
+      y += 4.5 * nLinhas;
     }
     y += 1;
     ensureSpace(8);
@@ -233,15 +249,16 @@ export async function exportCapacitorPDF({ svgEl, params, banco, placa, projectN
     doc.setTextColor(100, 116, 139);
     doc.text(
       doc.splitTextToSize(
-        porDisj
-          ? 'Contator (bobina 240V 50-60Hz) e disjuntor por célula, conforme o configurador Siemens. Onde consta "sem disjuntor", o configurador só indica proteção por fusível NH.'
-          : "Contator (bobina 240V 50-60Hz), fusível NH e seccionadora porta-fusíveis por célula, conforme o configurador Siemens.",
+        (porDisj
+          ? 'Contator (bobina 240V 50-60Hz) e disjuntor POR ESTÁGIO, dimensionados pelo kvar total — o estágio chaveia inteiro (mesma régua dos módulos MT do configurador). Onde consta "sem disjuntor", o configurador só indica proteção por fusível NH.'
+          : "Contator (bobina 240V 50-60Hz), fusível NH e seccionadora porta-fusíveis POR ESTÁGIO, dimensionados pelo kvar total — o estágio chaveia inteiro (mesma régua dos módulos MT do configurador).") +
+          ' "Fora do catálogo": nenhum item Siemens cobre o kvar total do estágio — dimensionar pela corrente da tabela de estágios.',
         contentW
       ),
       margin,
       y
     );
-    y += 8;
+    y += 10;
   }
 
   // Totais

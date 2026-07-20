@@ -252,27 +252,49 @@ export function siemensTri(tensao, kvar) {
   return CAPACITORES_TRI_SIEMENS.find((c) => c.tensao === tensao && c.kvar === kvar) ?? null;
 }
 
-// Lista de equipamentos por estágio, no modelo do configurador: cada célula
-// trifásica é chaveada pelo seu contator 3MT7 e protegida pelo disjuntor (ou
-// fusível) do catálogo. Células de mesmo kvar viram um item só com qtd.
-// Onde o configurador manda "TROCAR POR FUSÍVEL", disjuntor sai null — a
-// proteção correta é o fusível. kvar fora do catálogo: { encontrado: false }.
+// Teto de kvar de cada contator 3MT7, derivado do próprio configurador: o
+// maior kvar (célula OU módulo MT inteiro) a que ele atribui cada código.
+// Os módulos MT provam que a régua do configurador é o kvar TOTAL chaveado —
+// MT300-440 (30 kvar em 9 células) usa o mesmo 3MT70033 da célula única de 30.
+const CONTATORES_3MT7 = (() => {
+  const teto = new Map();
+  for (const c of [...CAPACITORES_MONO_SIEMENS, ...CAPACITORES_TRI_SIEMENS, ...MODULOS_TRI_SIEMENS]) {
+    teto.set(c.contator, Math.max(teto.get(c.contator) ?? 0, c.kvar));
+  }
+  return [...teto].map(([codigo, maxKvar]) => ({ codigo, maxKvar })).sort((a, b) => a.maxKvar - b.maxKvar);
+})();
+
+// Lista de equipamentos por estágio. As células trazem seus códigos B32;
+// contator e proteção são do ESTÁGIO — dimensionados pelo kvar total, porque
+// o estágio chaveia inteiro (é a régua dos módulos MT do configurador):
+//  - contator: menor 3MT7 cujo teto de kvar no catálogo cobre o total.
+//  - protecao: a linha de célula da mesma tensão com kvar >= total (kvarRef
+//    diz qual linha foi usada). "TROCAR POR FUSÍVEL" vira disjuntor null.
+// Total acima do catálogo: contator/protecao null — dimensionar por corrente.
 export function equipamentosSiemens(estagios, vCapacitor) {
+  const linhasTensao = CAPACITORES_TRI_SIEMENS
+    .filter((c) => c.tensao === vCapacitor)
+    .sort((a, b) => a.kvar - b.kvar);
   return estagios.map((e, i) => {
     const porKvar = new Map();
     for (const kvar of e.celulas) porKvar.set(kvar, (porKvar.get(kvar) ?? 0) + 1);
-    const itens = [...porKvar].map(([kvar, qtd]) => {
+    const celulas = [...porKvar].map(([kvar, qtd]) => {
       const cel = siemensTri(vCapacitor, kvar);
       if (!cel) return { kvar, qtd, encontrado: false };
-      return {
-        kvar, qtd, encontrado: true,
-        codigo: cel.codigo, codigoPedido: cel.codigoPedido,
-        contator: cel.contator,
-        disjuntor: cel.disjuntor === "TROCAR POR FUSÍVEL" ? null : cel.disjuntor ?? null,
-        fusivel: cel.fusivel ?? null, fusivelIn: cel.fusivelIn ?? null,
-        baseFusivel: cel.baseFusivel ?? null,
-      };
+      return { kvar, qtd, encontrado: true, codigo: cel.codigo, codigoPedido: cel.codigoPedido };
     });
-    return { numero: i + 1, itens };
+    const kvarTotal = e.celulas.reduce((a, c) => a + c, 0);
+    const ref = linhasTensao.find((c) => c.kvar >= kvarTotal) ?? null;
+    const protecao = ref
+      ? {
+          kvarRef: ref.kvar,
+          disjuntor: ref.disjuntor === "TROCAR POR FUSÍVEL" ? null : ref.disjuntor ?? null,
+          fusivel: ref.fusivel ?? null,
+          fusivelIn: ref.fusivelIn ?? null,
+          baseFusivel: ref.baseFusivel ?? null,
+        }
+      : null;
+    const contator = CONTATORES_3MT7.find((c) => c.maxKvar >= kvarTotal)?.codigo ?? null;
+    return { numero: i + 1, kvarTotal, celulas, contator, protecao };
   });
 }

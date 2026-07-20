@@ -62,33 +62,60 @@ describe("catálogo Siemens (configurador)", () => {
     expect(siemensTri(440, 99)).toBeNull();
   });
 
-  it("equipamentos por estágio: agrupa células iguais e traz os códigos", () => {
-    const eq = equipamentosSiemens([{ celulas: [33.7, 33.7] }, { celulas: [30] }], 440);
-    expect(eq).toHaveLength(2);
+  it("estágio de 1 célula: capacitor, contator e proteção da linha do catálogo", () => {
+    const eq = equipamentosSiemens([{ celulas: [30] }], 440);
     expect(eq[0].numero).toBe(1);
-    expect(eq[0].itens).toEqual([
-      {
-        kvar: 33.7, qtd: 2, encontrado: true,
-        codigo: "B32344E4282Z040", codigoPedido: "A7B10001207401",
-        contator: "3MT70040JA126AP2", disjuntor: "3VM1180-5ED32-0AA0",
-        fusivel: "3NA3824", fusivelIn: 80, baseFusivel: "3NP1123-1CA20",
-      },
+    expect(eq[0].kvarTotal).toBe(30);
+    expect(eq[0].celulas).toEqual([
+      { kvar: 30, qtd: 1, encontrado: true, codigo: "B32344E4252Z040", codigoPedido: "A7B10001207361" },
     ]);
-    expect(eq[1].itens[0]).toMatchObject({ kvar: 30, qtd: 1, contator: "3MT70033JA126AP2" });
+    expect(eq[0].contator).toBe("3MT70033JA126AP2");
+    expect(eq[0].protecao).toMatchObject({
+      kvarRef: 30, disjuntor: "3VM1180-5ED32-0AA0",
+      fusivel: "3NA3824", fusivelIn: 80, baseFusivel: "3NP1123-1CA20",
+    });
+  });
+
+  it("2 células acopladas: contator e proteção pelo kvar TOTAL do estágio", () => {
+    // 2×15 = 30 kvar: mesmo contator e proteção de uma célula única de 30 —
+    // o estágio chaveia inteiro (mesma régua dos módulos MT do configurador,
+    // ex.: MT300-440 de 30 kvar usa 3MT70033).
+    const eq = equipamentosSiemens([{ celulas: [15, 15] }], 440);
+    expect(eq[0].kvarTotal).toBe(30);
+    expect(eq[0].celulas).toEqual([
+      { kvar: 15, qtd: 2, encontrado: true, codigo: "B32344E4151Z040", codigoPedido: "A7B10001207348" },
+    ]);
+    expect(eq[0].contator).toBe("3MT70033JA126AP2");
+    expect(eq[0].protecao.disjuntor).toBe("3VM1180-5ED32-0AA0");
+  });
+
+  it("total sem linha exata no catálogo sobe para a próxima: 12,5+15 = 27,5 → linha de 30", () => {
+    const eq = equipamentosSiemens([{ celulas: [12.5, 15] }], 440);
+    expect(eq[0].kvarTotal).toBe(27.5);
+    expect(eq[0].celulas.map((c) => c.codigo)).toEqual(["B32344E4121Z540", "B32344E4151Z040"]);
+    expect(eq[0].protecao).toMatchObject({ kvarRef: 30, disjuntor: "3VM1180-5ED32-0AA0" });
+    expect(eq[0].contator).toBe("3MT70033JA126AP2"); // 27,5 ≤ 30 (teto do 0033 no catálogo)
+  });
+
+  it("2×33,7 = 67,4 kvar estoura o catálogo: contator e proteção nulos, sem inventar", () => {
+    const eq = equipamentosSiemens([{ celulas: [33.7, 33.7] }], 440);
+    expect(eq[0].kvarTotal).toBeCloseTo(67.4, 10);
+    expect(eq[0].celulas[0]).toMatchObject({ qtd: 2, codigo: "B32344E4282Z040" });
+    expect(eq[0].contator).toBeNull(); // maior 3MT7 do configurador cobre 60 kvar
+    expect(eq[0].protecao).toBeNull(); // maior célula 440V é 33,7 kvar
   });
 
   it("célula fora do catálogo vem marcada, sem inventar código", () => {
-    const eq = equipamentosSiemens([{ celulas: [33.7, 99] }], 440);
-    expect(eq[0].itens).toHaveLength(2);
-    const fora = eq[0].itens.find((i) => i.kvar === 99);
-    expect(fora).toEqual({ kvar: 99, qtd: 1, encontrado: false });
+    const eq = equipamentosSiemens([{ celulas: [99] }], 440);
+    expect(eq[0].celulas).toEqual([{ kvar: 99, qtd: 1, encontrado: false }]);
+    expect(eq[0].protecao).toBeNull();
   });
 
   it('"TROCAR POR FUSÍVEL" do configurador vira disjuntor null', () => {
-    // 440V 0,8kvar monofásico tem isso; em trifásico 480V 3kvar também.
+    // 480V 3 kvar: sem disjuntor adequado; a proteção é o fusível.
     const eq = equipamentosSiemens([{ celulas: [3] }], 480);
-    expect(eq[0].itens[0].disjuntor).toBeNull();
-    expect(eq[0].itens[0].fusivel).toBe("3NA3803");
+    expect(eq[0].protecao.disjuntor).toBeNull();
+    expect(eq[0].protecao.fusivel).toBe("3NA3803");
   });
 
   it("módulos trazem fusível, cabo e composição de células", () => {

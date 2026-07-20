@@ -766,57 +766,75 @@ export default function CapacitoresTab({ dark }) {
                     <thead>
                       <tr className="border-b border-slate-200 text-left font-display text-[10px] uppercase tracking-[0.06em] text-slate-400 dark:border-slate-700 dark:text-slate-500">
                         <th className="py-1 pr-2">#</th>
-                        <th className="py-1 pr-2">Célula</th>
+                        <th className="py-1 pr-2">Células</th>
                         <th className="py-1 pr-2">Capacitor</th>
-                        <th className="py-1 pr-2" title="Contator de chaveamento de cada célula (bobina 240V 50-60Hz)">Contator</th>
+                        <th className="py-1 pr-2" title="Contator do ESTÁGIO (bobina 240V 50-60Hz), pelo kvar total — o estágio chaveia inteiro, mesma régua dos módulos MT do configurador">Contator</th>
                         {protecao === "disjuntor" ? (
-                          <th className="py-1" title="Disjuntor da célula pelo configurador — onde não há disjuntor adequado, ele manda proteger por fusível">Disjuntor</th>
+                          <th className="py-1" title="Disjuntor do ESTÁGIO, pela linha do catálogo com kvar ≥ total do estágio">Disjuntor</th>
                         ) : (
                           <>
-                            <th className="py-1 pr-2" title="Fusível NH da célula pelo configurador">Fusível</th>
+                            <th className="py-1 pr-2" title="Fusível NH do ESTÁGIO, pela linha do catálogo com kvar ≥ total do estágio">Fusível</th>
                             <th className="py-1" title="Seccionadora porta-fusíveis correspondente">Seccionadora</th>
                           </>
                         )}
                       </tr>
                     </thead>
                     <tbody className="font-mono text-slate-700 dark:text-slate-200">
-                      {equipamentos.flatMap((e) =>
-                        e.itens.map((it, j) => (
-                          <tr key={`${e.numero}:${it.kvar}`} className="border-b border-slate-100 dark:border-slate-800">
-                            <td className="py-1 pr-2 text-slate-400 dark:text-slate-500">{j === 0 ? String(e.numero).padStart(2, "0") : ""}</td>
-                            <td className="py-1 pr-2 whitespace-nowrap">{it.qtd}× {String(it.kvar).replace(".", ",")} kvar</td>
-                            {it.encontrado ? (
-                              <>
-                                <td className="py-1 pr-2" title={`Código de pedido: ${it.codigoPedido}`}>{it.codigo}</td>
-                                <td className="py-1 pr-2">{it.contator}</td>
-                                {protecao === "disjuntor" ? (
-                                  <td className="py-1 whitespace-nowrap">
-                                    {it.disjuntor ?? (
-                                      <span className="text-amber-600 dark:text-amber-400" title="O configurador não indica disjuntor para esta célula — usar fusível NH com seccionadora">
-                                        sem disjuntor — usar fusível
-                                      </span>
-                                    )}
-                                  </td>
-                                ) : (
-                                  <>
-                                    <td className="py-1 pr-2 whitespace-nowrap">{it.fusivel} {it.fusivelIn}A</td>
-                                    <td className="py-1 whitespace-nowrap">{it.baseFusivel}</td>
-                                  </>
-                                )}
-                              </>
-                            ) : (
-                              <td colSpan={protecao === "disjuntor" ? 3 : 4} className="py-1 text-amber-600 dark:text-amber-400">
-                                {String(it.kvar).replace(".", ",")} kvar não existe em {vCapacitor}V no configurador Siemens
+                      {equipamentos.map((e) => {
+                        const foraTotal = (
+                          <span className="text-amber-600 dark:text-amber-400" title={`Nenhum item do configurador cobre ${fmt(e.kvarTotal)} kvar em ${vCapacitor}V — dimensionar pela corrente (tabela acima)`}>
+                            fora do catálogo
+                          </span>
+                        );
+                        const refTip = e.protecao && e.protecao.kvarRef !== e.kvarTotal
+                          ? `Linha de ${String(e.protecao.kvarRef).replace(".", ",")} kvar do catálogo (menor que cobre os ${fmt(e.kvarTotal)} kvar do estágio)`
+                          : undefined;
+                        return (
+                          <tr key={e.numero} className="border-b border-slate-100 dark:border-slate-800">
+                            <td className="py-1 pr-2 text-slate-400 dark:text-slate-500">{String(e.numero).padStart(2, "0")}</td>
+                            <td className="py-1 pr-2 whitespace-nowrap" title={`${fmt(e.kvarTotal)} kvar no estágio`}>
+                              {e.celulas.map((c) => `${c.qtd}× ${String(c.kvar).replace(".", ",")}`).join(" + ")} kvar
+                            </td>
+                            <td className="py-1 pr-2">
+                              {e.celulas.map((c, j) => (
+                                <div key={j} className="whitespace-nowrap">
+                                  {c.encontrado ? (
+                                    <span title={`Código de pedido: ${c.codigoPedido}`}>{c.codigo}</span>
+                                  ) : (
+                                    <span className="text-amber-600 dark:text-amber-400">
+                                      {String(c.kvar).replace(".", ",")} kvar não existe em {vCapacitor}V
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </td>
+                            <td className="py-1 pr-2 whitespace-nowrap">{e.contator ?? foraTotal}</td>
+                            {protecao === "disjuntor" ? (
+                              <td className="py-1 whitespace-nowrap" title={refTip}>
+                                {e.protecao ? (
+                                  e.protecao.disjuntor ?? (
+                                    <span className="text-amber-600 dark:text-amber-400" title="O configurador não indica disjuntor para esta faixa — usar fusível NH com seccionadora">
+                                      sem disjuntor — usar fusível
+                                    </span>
+                                  )
+                                ) : foraTotal}
                               </td>
+                            ) : (
+                              <>
+                                <td className="py-1 pr-2 whitespace-nowrap" title={refTip}>
+                                  {e.protecao ? `${e.protecao.fusivel} ${e.protecao.fusivelIn}A` : foraTotal}
+                                </td>
+                                <td className="py-1 whitespace-nowrap">{e.protecao?.baseFusivel ?? ""}</td>
+                              </>
                             )}
                           </tr>
-                        ))
-                      )}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
                 <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-                  Contator (bobina 240V 50-60Hz) e proteção por célula, conforme o configurador Siemens.
+                  Contator (bobina 240V 50-60Hz) e proteção por estágio, dimensionados pelo kvar total — o estágio chaveia inteiro. Códigos do configurador Siemens.
                 </p>
               </div>
             )}
