@@ -2,11 +2,21 @@
 // totais, comparação com o trafo e a vista superior da placa de montagem —
 // pronto para anexar ao memorial ou mandar ao cliente.
 
+// Cores do tema escuro da PlacaMontagem → equivalente claro. O relatório é
+// papel: mesmo com o app em dark mode, a placa sai clara no PDF. O mapa
+// acompanha as cores hardcoded do componente (CapacitoresTab.jsx).
+const CORES_DARK_PARA_CLARO = {
+  "#232a30": "#e8ebee", // fundo da placa
+  "#4b565f": "#94a3b8", // contorno da placa
+  "#8f9aa5": "#64748b", // cotas (linhas e texto)
+  "#39424a": "#5c6670", // terminal central da caneca
+};
+
 // Converte o SVG da placa num PNG (dataURL) para embutir no PDF. Rasteriza a
 // partir do viewBox (mm) numa resolução própria (pxPorMm), não do tamanho do
 // SVG na tela — assim o relatório fica nítido independentemente da escala de
-// exibição da placa.
-function svgToPng(svgEl, pxPorMm = 3) {
+// exibição da placa. Exportada para permitir verificação de ponta a ponta.
+export function svgToPng(svgEl, pxPorMm = 3) {
   const vb = svgEl.viewBox.baseVal;
   const w = Math.max(1, Math.round(vb.width * pxPorMm));
   const h = Math.max(1, Math.round(vb.height * pxPorMm));
@@ -17,6 +27,13 @@ function svgToPng(svgEl, pxPorMm = 3) {
   clone.setAttribute("height", h);
   clone.style.width = "";
   clone.style.height = "";
+  // Dark mode → claro, elemento a elemento (fill e stroke).
+  for (const el of clone.querySelectorAll("*")) {
+    for (const attr of ["fill", "stroke"]) {
+      const clara = CORES_DARK_PARA_CLARO[el.getAttribute(attr)?.toLowerCase()];
+      if (clara) el.setAttribute(attr, clara);
+    }
+  }
   const source = new XMLSerializer().serializeToString(clone);
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -37,8 +54,8 @@ function svgToPng(svgEl, pxPorMm = 3) {
 
 const num = (n, d = 1) => (n == null ? "—" : n.toFixed(d).replace(".", ","));
 
-export async function exportCapacitorPDF({ svgEl, params, banco, placa }) {
-  const { vRede, vCapacitor, fatorDisjEstagio, fatorDisjGeral, percentualAlvo } = params;
+export async function exportCapacitorPDF({ svgEl, params, banco, placa, projectName }) {
+  const { vRede, vCapacitor, fatorDisjEstagio, fatorDisjGeral, fatorContator, percentualAlvo } = params;
   // Import dinâmico: o jspdf é pesado (~400 kB) e só é necessário na hora de
   // gerar o relatório — assim não entra no bundle inicial do app.
   const { jsPDF } = await import("jspdf");
@@ -100,21 +117,24 @@ export async function exportCapacitorPDF({ svgEl, params, banco, placa }) {
 
   // Parâmetros
   sectionTitle("Parâmetros");
+  if (projectName) keyValue("Projeto", projectName);
   keyValue("Tensão da rede", `${vRede} V`);
   keyValue("Tensão do capacitor", `${vCapacitor} V`);
   keyValue("Fator de correção", `(${vRede}/${vCapacitor})² = ${num(banco.fatorTensao, 3)}`);
   keyValue("Fator disj. estágio", num(fatorDisjEstagio, 2));
   keyValue("Fator disj. geral", num(fatorDisjGeral, 2));
+  keyValue("Fator contator", num(fatorContator, 2));
   y += 2;
 
   // Tabela de estágios
   sectionTitle(`Estágios (${banco.estagios.length})`);
   const cols = [
-    { t: "#", x: margin, w: 12, a: "left" },
-    { t: `kvar @${vCapacitor}V`, x: margin + 14, w: 30, a: "right" },
-    { t: `kvar @${vRede}V`, x: margin + 46, w: 30, a: "right" },
-    { t: "Corrente", x: margin + 78, w: 30, a: "right" },
-    { t: "Disjuntor", x: margin + 110, w: contentW - 110, a: "left" },
+    { t: "#", x: margin, w: 8, a: "left" },
+    { t: `kvar @${vCapacitor}V`, x: margin + 10, w: 26, a: "right" },
+    { t: `kvar @${vRede}V`, x: margin + 38, w: 26, a: "right" },
+    { t: "Corrente", x: margin + 66, w: 24, a: "right" },
+    { t: "Contator", x: margin + 92, w: 28, a: "right" },
+    { t: "Disjuntor", x: margin + 126, w: contentW - 126, a: "left" },
   ];
   const cellX = (c) => (c.a === "right" ? c.x + c.w : c.x);
   doc.setFont("helvetica", "bold");
@@ -137,11 +157,13 @@ export async function exportCapacitorPDF({ svgEl, params, banco, placa }) {
       num(e.kvarNominal),
       num(e.kvarReal),
       `${num(e.corrente)} A`,
+      // ">=" em ASCII pelo mesmo motivo do "->": WinAnsi não tem U+2265.
+      `>= ${num(e.contatorMin)} A`,
       disj,
     ];
     cols.forEach((c, i) => {
       doc.setTextColor(i === 0 ? 148 : 30, i === 0 ? 163 : 41, i === 0 ? 184 : 59);
-      if (i === 4 && !e.disjComercial) doc.setTextColor(220, 38, 38);
+      if (i === 5 && !e.disjComercial) doc.setTextColor(220, 38, 38);
       doc.text(vals[i], cellX(c), y, { align: c.a });
     });
     y += 5.5;
@@ -197,5 +219,8 @@ export async function exportCapacitorPDF({ svgEl, params, banco, placa }) {
     );
   }
 
-  doc.save("banco-de-capacitores.pdf");
+  // Com projeto ativo, o arquivo leva o nome dele (mesma sanitização do
+  // relatório da Infraestrutura).
+  const nome = (projectName || "banco-de-capacitores").replace(/[^\w\dÀ-ÿ -]+/g, "").trim() || "banco-de-capacitores";
+  doc.save(`${nome}.pdf`);
 }

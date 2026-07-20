@@ -75,6 +75,7 @@ function defaults() {
     vCapacitor: 440,
     fatorDisjEstagio: 1.63,
     fatorDisjGeral: 1.25,
+    fatorContator: 1.43,
     trafoKva: "",
     percentualAlvo: 33,
     estagios: [],
@@ -392,6 +393,7 @@ export default function CapacitoresTab({ dark }) {
         vCapacitor,
         fatorDisjEstagio: Number(st.fatorDisjEstagio) || 1.63,
         fatorDisjGeral: Number(st.fatorDisjGeral) || 1.25,
+        fatorContator: Number(st.fatorContator) || 1.43,
         estagios: st.estagios,
         trafo:
           Number(st.trafoKva) > 0
@@ -464,11 +466,13 @@ export default function CapacitoresTab({ dark }) {
   const exportarPDF = () =>
     exportCapacitorPDF({
       svgEl: placaSvgRef.current,
+      projectName: activeProject?.nome,
       params: {
         vRede,
         vCapacitor,
         fatorDisjEstagio: Number(st.fatorDisjEstagio) || 1.63,
         fatorDisjGeral: Number(st.fatorDisjGeral) || 1.25,
+        fatorContator: Number(st.fatorContator) || 1.43,
         percentualAlvo: Number(st.percentualAlvo) || 33,
       },
       banco,
@@ -520,6 +524,9 @@ export default function CapacitoresTab({ dark }) {
             </Field>
             <Field label="Fator disj. geral" tip="Sobredimensionamento do disjuntor geral do banco (1,25 usual — os estágios não chaveiam todos juntos).">
               <input type="number" min="1" step="0.01" value={st.fatorDisjGeral} onChange={(e) => set({ fatorDisjGeral: e.target.value })} className={inputCls} />
+            </Field>
+            <Field label="Fator contator" tip="Corrente mínima do contator de cada estágio = In × este fator. 1,43 = 1,3 (harmônicas, IEC 60831) × 1,1 (tolerância de capacitância). É um piso de especificação — contator dedicado a capacitor (ex.: WEG CWMC) é escolhido por kvar no catálogo.">
+              <input type="number" min="1" step="0.01" value={st.fatorContator} onChange={(e) => set({ fatorContator: e.target.value })} className={inputCls} />
             </Field>
           </div>
           {entradasOk && (
@@ -668,6 +675,7 @@ export default function CapacitoresTab({ dark }) {
                     <th className="py-1.5 pr-2">kvar @{vCapacitor}V</th>
                     <th className="py-1.5 pr-2">kvar @{vRede}V</th>
                     <th className="py-1.5 pr-2">Corrente</th>
+                    <th className="py-1.5 pr-2" title="Corrente mínima do contator do estágio (In × fator contator)">Contator</th>
                     <th className="py-1.5">Disjuntor</th>
                   </tr>
                 </thead>
@@ -678,6 +686,7 @@ export default function CapacitoresTab({ dark }) {
                       <td className="py-1 pr-2">{fmt(e.kvarNominal)}</td>
                       <td className="py-1 pr-2">{fmt(e.kvarReal)}</td>
                       <td className="py-1 pr-2">{fmt(e.corrente)} A</td>
+                      <td className="py-1 pr-2">≥ {fmt(e.contatorMin)} A</td>
                       <td className="py-1">
                         {fmt(e.disjCalculado)} A →{" "}
                         {e.disjComercial ? (

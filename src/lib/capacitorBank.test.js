@@ -79,6 +79,22 @@ describe("casos de borda", () => {
     expect(b.disjGeralComercial).toBeNull();
   });
 
+  it("contator do estágio: corrente mínima = In × 1,43 por padrão", () => {
+    // 1,43 = 1,3 (harmônicas, IEC 60831 exige suportar em regime) × 1,1
+    // (tolerância de +10% na capacitância). Sobre a corrente da linha 3 da
+    // planilha (76,3796... A) — o valor esperado vem da fixture, não do código.
+    const e = bancoPlanilha().estagios[0];
+    expect(e.contatorMin).toBeCloseTo(76.3796234219251 * 1.43, 10);
+  });
+
+  it("fator do contator é configurável", () => {
+    const b = calcularBanco({
+      vRede: 380, vCapacitor: 380, fatorContator: 1.5,
+      estagios: [{ celulas: [100] }],
+    });
+    expect(b.estagios[0].contatorMin).toBeCloseTo(b.estagios[0].corrente * 1.5, 10);
+  });
+
   it("lista vazia: totais zerados, sem NaN", () => {
     const b = calcularBanco({ vRede: 380, vCapacitor: 440, estagios: [] });
     expect(b.kvarNominalTotal).toBe(0);
