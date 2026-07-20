@@ -17,6 +17,11 @@ export function calcularBanco({
   vCapacitor,
   fatorDisjEstagio = 1.63,
   fatorDisjGeral = 1.25,
+  // Contator do estágio: corrente mínima = In × 1,43 — o 1,3 que a IEC 60831
+  // manda suportar em regime (harmônicas) vezes 1,1 de tolerância de
+  // capacitância. É um piso de especificação; contator dedicado a capacitor
+  // (ex.: WEG CWMC) é selecionado por kvar no catálogo do fabricante.
+  fatorContator = 1.43,
   estagios,
   trafo = null,
 }) {
@@ -33,6 +38,7 @@ export function calcularBanco({
       kvarNominal,
       kvarReal,
       corrente,
+      contatorMin: corrente * fatorContator,
       disjCalculado,
       disjComercial: disjuntorComercial(disjCalculado),
     };
