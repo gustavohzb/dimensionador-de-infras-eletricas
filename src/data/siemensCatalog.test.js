@@ -7,6 +7,7 @@ import {
   CAPACITORES_TRI_SIEMENS,
   MODULOS_TRI_SIEMENS,
   siemensTri,
+  equipamentosSiemens,
 } from "./siemensCatalog";
 
 const TODOS = [...CAPACITORES_MONO_SIEMENS, ...CAPACITORES_TRI_SIEMENS, ...MODULOS_TRI_SIEMENS];
@@ -59,6 +60,35 @@ describe("catálogo Siemens (configurador)", () => {
 
   it("siemensTri devolve null fora do catálogo", () => {
     expect(siemensTri(440, 99)).toBeNull();
+  });
+
+  it("equipamentos por estágio: agrupa células iguais e traz os códigos", () => {
+    const eq = equipamentosSiemens([{ celulas: [33.7, 33.7] }, { celulas: [30] }], 440);
+    expect(eq).toHaveLength(2);
+    expect(eq[0].numero).toBe(1);
+    expect(eq[0].itens).toEqual([
+      {
+        kvar: 33.7, qtd: 2, encontrado: true,
+        codigo: "B32344E4282Z040", codigoPedido: "A7B10001207401",
+        contator: "3MT70040JA126AP2", disjuntor: "3VM1180-5ED32-0AA0",
+        fusivel: "3NA3824", fusivelIn: 80, baseFusivel: "3NP1123-1CA20",
+      },
+    ]);
+    expect(eq[1].itens[0]).toMatchObject({ kvar: 30, qtd: 1, contator: "3MT70033JA126AP2" });
+  });
+
+  it("célula fora do catálogo vem marcada, sem inventar código", () => {
+    const eq = equipamentosSiemens([{ celulas: [33.7, 99] }], 440);
+    expect(eq[0].itens).toHaveLength(2);
+    const fora = eq[0].itens.find((i) => i.kvar === 99);
+    expect(fora).toEqual({ kvar: 99, qtd: 1, encontrado: false });
+  });
+
+  it('"TROCAR POR FUSÍVEL" do configurador vira disjuntor null', () => {
+    // 440V 0,8kvar monofásico tem isso; em trifásico 480V 3kvar também.
+    const eq = equipamentosSiemens([{ celulas: [3] }], 480);
+    expect(eq[0].itens[0].disjuntor).toBeNull();
+    expect(eq[0].itens[0].fusivel).toBe("3NA3803");
   });
 
   it("módulos trazem fusível, cabo e composição de células", () => {

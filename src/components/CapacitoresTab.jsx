@@ -4,6 +4,7 @@ import { calcularBanco } from "../lib/capacitorBank";
 import { exportCapacitorPDF } from "../lib/capacitorPdf";
 import { layoutPlaca, trocarNaOrdem } from "../lib/plateLayout";
 import { POTENCIAS_CELULA, CELULAS_SIEMENS_440V } from "../data/capacitores";
+import { equipamentosSiemens } from "../data/siemensCatalog";
 import ProjectsPanel from "./ProjectsPanel";
 import { useCapacitorProjects } from "../hooks/useCapacitorProjects";
 
@@ -76,6 +77,9 @@ function defaults() {
     fatorDisjEstagio: 1.63,
     fatorDisjGeral: 1.25,
     fatorContator: 1.43,
+    // "generica" dimensiona por corrente (disjuntor comercial); "siemens"
+    // acrescenta os códigos do configurador (capacitor, contator, proteção).
+    marca: "generica",
     trafoKva: "",
     percentualAlvo: 33,
     estagios: [],
@@ -402,6 +406,13 @@ export default function CapacitoresTab({ dark }) {
       })
     : null;
 
+  // Com a marca Siemens, cada célula tem contator e proteção próprios no
+  // modelo do configurador — os códigos saem na tela e no relatório.
+  const equipamentos =
+    st.marca === "siemens" && banco && st.estagios.length > 0
+      ? equipamentosSiemens(st.estagios, vCapacitor)
+      : null;
+
   const celulasDoForm = () => (numCelulas === 2 ? [pot1, pot2] : [pot1]);
 
   const adicionarEstagios = () => {
@@ -477,6 +488,7 @@ export default function CapacitoresTab({ dark }) {
       },
       banco,
       placa,
+      equipamentos,
     });
 
   // Veredito do trafo: verde dentro de ±10% relativos do alvo, âmbar fora.
@@ -527,6 +539,12 @@ export default function CapacitoresTab({ dark }) {
             </Field>
             <Field label="Fator contator" tip="Corrente mínima do contator de cada estágio = In × este fator. 1,43 = 1,3 (harmônicas, IEC 60831) × 1,1 (tolerância de capacitância). É um piso de especificação — contator dedicado a capacitor (ex.: WEG CWMC) é escolhido por kvar no catálogo.">
               <input type="number" min="1" step="0.01" value={st.fatorContator} onChange={(e) => set({ fatorContator: e.target.value })} className={inputCls} />
+            </Field>
+            <Field label="Marca" tip="Genérica dimensiona por corrente (disjuntor comercial mais próximo). Siemens acrescenta, na tela e no relatório, os códigos do configurador oficial: capacitor B32, contator 3MT7 e disjuntor/fusível de cada célula.">
+              <select value={st.marca ?? "generica"} onChange={(e) => set({ marca: e.target.value })} className={inputCls}>
+                <option value="generica">Genérica</option>
+                <option value="siemens">Siemens</option>
+              </select>
             </Field>
           </div>
           {entradasOk && (
@@ -722,6 +740,54 @@ export default function CapacitoresTab({ dark }) {
                 </div>
               </div>
             </div>
+
+            {equipamentos && (
+              <div className="mt-3">
+                <h3 className="mb-1 font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+                  Equipamentos Siemens (configurador)
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[12px]">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-left font-display text-[10px] uppercase tracking-[0.06em] text-slate-400 dark:border-slate-700 dark:text-slate-500">
+                        <th className="py-1 pr-2">#</th>
+                        <th className="py-1 pr-2">Célula</th>
+                        <th className="py-1 pr-2">Capacitor</th>
+                        <th className="py-1 pr-2" title="Contator de chaveamento de cada célula (bobina 240V 50-60Hz)">Contator</th>
+                        <th className="py-1" title="Proteção da célula pelo configurador — onde não há disjuntor adequado, a proteção é o fusível NH">Disjuntor / Fusível</th>
+                      </tr>
+                    </thead>
+                    <tbody className="font-mono text-slate-700 dark:text-slate-200">
+                      {equipamentos.flatMap((e) =>
+                        e.itens.map((it, j) => (
+                          <tr key={`${e.numero}:${it.kvar}`} className="border-b border-slate-100 dark:border-slate-800">
+                            <td className="py-1 pr-2 text-slate-400 dark:text-slate-500">{j === 0 ? String(e.numero).padStart(2, "0") : ""}</td>
+                            <td className="py-1 pr-2 whitespace-nowrap">{it.qtd}× {String(it.kvar).replace(".", ",")} kvar</td>
+                            {it.encontrado ? (
+                              <>
+                                <td className="py-1 pr-2" title={`Código de pedido: ${it.codigoPedido}`}>{it.codigo}</td>
+                                <td className="py-1 pr-2">{it.contator}</td>
+                                <td className="py-1 whitespace-nowrap">
+                                  {it.disjuntor ?? <span title="O configurador não indica disjuntor para esta célula — proteger por fusível">fusível</span>}{" "}
+                                  <span className="text-slate-400 dark:text-slate-500">/ {it.fusivel} {it.fusivelIn}A</span>
+                                </td>
+                              </>
+                            ) : (
+                              <td colSpan={3} className="py-1 text-amber-600 dark:text-amber-400">
+                                {String(it.kvar).replace(".", ",")} kvar não existe em {vCapacitor}V no configurador Siemens
+                              </td>
+                            )}
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                  Contator e proteção por célula, conforme o configurador Siemens. Base porta-fusível: 3NP1123-1CA20 (3NH3 230-0RC acima de 690V).
+                </p>
+              </div>
+            )}
 
             {banco.trafo && (
               <div
