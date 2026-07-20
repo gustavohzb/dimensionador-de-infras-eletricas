@@ -64,35 +64,35 @@ describe("layoutPlaca", () => {
   });
 });
 
-describe("Ø automático por kvar (catálogo Siemens BR B32, 440V/60Hz)", () => {
-  it("faixas: 2,5→53, 5→63, 10→79,5, 25/33,7/40→89,5", () => {
+describe("Ø automático por kvar (configurador Siemens, 440V/60Hz)", () => {
+  it("faixas: 2,5→53, 5→63,5, 10→75, 25/33,7/40→85", () => {
     const { celulas } = layoutPlaca({
       ...base,
       diametro: "auto",
       estagios: [{ celulas: [2.5, 5] }, { celulas: [10, 25] }, { celulas: [33.7, 40] }],
     });
-    expect(celulas.map((c) => c.d)).toEqual([53, 63, 79.5, 89.5, 89.5, 89.5]);
+    expect(celulas.map((c) => c.d)).toEqual([53, 63.5, 75, 85, 85, 85]);
   });
 
-  it("banco da planilha (33,7 e 30) sai todo em Ø89,5 — B32344-E4282/E4252", () => {
+  it("banco da planilha (33,7 e 30) sai todo em Ø85 — B32344E4282/E4252", () => {
     const { celulas, diametro } = layoutPlaca({
       ...base,
       diametro: "auto",
       estagios: [{ celulas: [33.7, 33.7] }, { celulas: [30] }],
     });
-    expect(celulas.every((c) => c.d === 89.5)).toBe(true);
-    expect(diametro).toBe(89.5);
+    expect(celulas.every((c) => c.d === 85)).toBe(true);
+    expect(diametro).toBe(85);
   });
 
   it("grade mista: passo e placa governados pela maior célula", () => {
-    // 1 célula de 40 (Ø89,5) + 1 de 5 (Ø63), lado a lado
+    // 1 célula de 40 (Ø85) + 1 de 5 (Ø63,5), lado a lado
     const p = layoutPlaca({ ...base, diametro: "auto", estagios: [{ celulas: [40, 5] }] });
-    // largura: 2×50 + 2×89,5 + 40 = 319; altura: 2×50 + 89,5 = 189,5
-    expect(p.largura).toBe(319);
-    expect(p.altura).toBe(189.5);
-    // ambas centradas nos slots de 89,5: cx 94,75 e 224,25
-    expect(p.celulas[0]).toMatchObject({ d: 89.5, cx: 94.75, cy: 94.75 });
-    expect(p.celulas[1]).toMatchObject({ d: 63, cx: 224.25, cy: 94.75 });
+    // largura: 2×50 + 2×85 + 40 = 310; altura: 2×50 + 85 = 185
+    expect(p.largura).toBe(310);
+    expect(p.altura).toBe(185);
+    // ambas centradas nos slots de 85: cx 92,5 e 217,5
+    expect(p.celulas[0]).toMatchObject({ d: 85, cx: 92.5, cy: 92.5 });
+    expect(p.celulas[1]).toMatchObject({ d: 63.5, cx: 217.5, cy: 92.5 });
   });
 
   it("Ø manual numérico segue valendo para todas", () => {
@@ -163,7 +163,7 @@ describe("layoutPlaca com arranjo do usuário", () => {
     const mistos = [est("a", 5), est("b", 33.7)];
     const { celulas } = layoutPlaca({ ...base, diametro: "auto", estagios: mistos, ordem: ["b:0", "a:0"] });
     // a célula grande foi para o slot 0 e levou o Ø dela junto
-    expect(celulas.map((c) => c.d)).toEqual([89.5, 63]);
+    expect(celulas.map((c) => c.d)).toEqual([85, 63.5]);
   });
 });
 

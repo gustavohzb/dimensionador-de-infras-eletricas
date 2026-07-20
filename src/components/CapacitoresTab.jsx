@@ -761,7 +761,7 @@ export default function CapacitoresTab({ dark }) {
             </div>
           </div>
           <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Field label="Ø célula (mm)" tip="Automático usa o Ø do catálogo Siemens BR (células B32, 440V/60Hz) por kvar: Ø53 até 2,5 kvar, Ø63 até 6, Ø79,5 até 15 e Ø89,5 acima — o 33,7 kvar (B32344-E4282-Z040) é Ø89,5×348mm. WEG UCWT fica próximo. Manual trava todas as células no mesmo Ø.">
+            <Field label="Ø célula (mm)" tip="Automático usa o Ø do configurador Siemens (células B32, 440V/60Hz) por kvar: Ø53 até 2,5 kvar, Ø63,5 até 6, Ø75 até 12 e Ø85 acima — o 33,7 kvar (B32344E4282Z040) é Ø85×348mm. WEG UCWT fica próximo. Manual trava todas as células no mesmo Ø.">
               <div className="flex gap-1">
                 <select
                   value={st.placaDiametro === "auto" ? "auto" : "manual"}

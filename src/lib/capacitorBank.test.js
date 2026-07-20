@@ -126,7 +126,18 @@ describe("dados de mercado", () => {
     }
   });
 
-  it("a célula da planilha (33,7 kvar) é a B32344-E4282-Z040, Ø89,5×348mm", () => {
-    expect(CELULAS_SIEMENS_440V[33.7]).toEqual({ codigo: "B32344-E4282-Z040", d: 89.5, h: 348 });
+  it("a célula da planilha (33,7 kvar) é a B32344E4282Z040, Ø85×348mm", () => {
+    // Valores do configurador Siemens (fonte oficial desde 2026-07).
+    expect(CELULAS_SIEMENS_440V[33.7]).toEqual({ codigo: "B32344E4282Z040", d: 85, h: 348 });
+  });
+
+  it("as 18 células 440V do configurador entram no tooltip, sem a 1,2 kvar do PDF", () => {
+    const kvars = Object.keys(CELULAS_SIEMENS_440V).map(Number).sort((a, b) => a - b);
+    expect(kvars).toHaveLength(18);
+    expect(kvars[0]).toBe(1);
+    expect(kvars.at(-1)).toBe(33.7);
+    expect(kvars).not.toContain(1.2);
+    // Toda célula do tooltip é oferecida no seletor de potências.
+    for (const k of kvars) expect(POTENCIAS_CELULA).toContain(k);
   });
 });
