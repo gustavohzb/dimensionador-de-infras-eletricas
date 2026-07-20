@@ -80,6 +80,10 @@ function defaults() {
     // "generica" dimensiona por corrente (disjuntor comercial); "siemens"
     // acrescenta os códigos do configurador (capacitor, contator, proteção).
     marca: "generica",
+    // Com Siemens: proteger cada célula por "disjuntor" ou por "fusivel"
+    // (fusível NH + seccionadora porta-fusíveis). Decide quais colunas de
+    // proteção aparecem na tela e no relatório.
+    protecaoSiemens: "disjuntor",
     trafoKva: "",
     percentualAlvo: 33,
     estagios: [],
@@ -407,11 +411,13 @@ export default function CapacitoresTab({ dark }) {
     : null;
 
   // Com a marca Siemens, cada célula tem contator e proteção próprios no
-  // modelo do configurador — os códigos saem na tela e no relatório.
+  // modelo do configurador — os códigos saem na tela e no relatório. A
+  // proteção exibida é a escolhida: disjuntor ou fusível + seccionadora.
   const equipamentos =
     st.marca === "siemens" && banco && st.estagios.length > 0
       ? equipamentosSiemens(st.estagios, vCapacitor)
       : null;
+  const protecao = st.protecaoSiemens === "fusivel" ? "fusivel" : "disjuntor";
 
   const celulasDoForm = () => (numCelulas === 2 ? [pot1, pot2] : [pot1]);
 
@@ -489,6 +495,7 @@ export default function CapacitoresTab({ dark }) {
       banco,
       placa,
       equipamentos,
+      protecao,
     });
 
   // Veredito do trafo: verde dentro de ±10% relativos do alvo, âmbar fora.
@@ -540,12 +547,20 @@ export default function CapacitoresTab({ dark }) {
             <Field label="Fator contator" tip="Corrente mínima do contator de cada estágio = In × este fator. 1,43 = 1,3 (harmônicas, IEC 60831) × 1,1 (tolerância de capacitância). É um piso de especificação — contator dedicado a capacitor (ex.: WEG CWMC) é escolhido por kvar no catálogo.">
               <input type="number" min="1" step="0.01" value={st.fatorContator} onChange={(e) => set({ fatorContator: e.target.value })} className={inputCls} />
             </Field>
-            <Field label="Marca" tip="Genérica dimensiona por corrente (disjuntor comercial mais próximo). Siemens acrescenta, na tela e no relatório, os códigos do configurador oficial: capacitor B32, contator 3MT7 e disjuntor/fusível de cada célula.">
+            <Field label="Marca" tip="Genérica dimensiona por corrente (disjuntor comercial mais próximo). Siemens acrescenta, na tela e no relatório, os códigos do configurador oficial: capacitor B32, contator 3MT7 e a proteção de cada célula.">
               <select value={st.marca ?? "generica"} onChange={(e) => set({ marca: e.target.value })} className={inputCls}>
                 <option value="generica">Genérica</option>
                 <option value="siemens">Siemens</option>
               </select>
             </Field>
+            {st.marca === "siemens" && (
+              <Field label="Proteção da célula" tip="Disjuntor usa os códigos 5SY/3VJ/3VM/3VA do configurador. Seccionadora porta-fusíveis usa o fusível NH (3NA/3NE) com a seccionadora 3NP/3NH correspondente.">
+                <select value={st.protecaoSiemens ?? "disjuntor"} onChange={(e) => set({ protecaoSiemens: e.target.value })} className={inputCls}>
+                  <option value="disjuntor">Disjuntor</option>
+                  <option value="fusivel">Seccionadora porta-fusíveis</option>
+                </select>
+              </Field>
+            )}
           </div>
           {entradasOk && (
             <div className="mt-2 rounded-xs border border-copper-200 bg-copper-50 px-2.5 py-1.5 text-[13px] text-copper-800 dark:border-copper-500/30 dark:bg-copper-500/10 dark:text-copper-300">
@@ -754,7 +769,14 @@ export default function CapacitoresTab({ dark }) {
                         <th className="py-1 pr-2">Célula</th>
                         <th className="py-1 pr-2">Capacitor</th>
                         <th className="py-1 pr-2" title="Contator de chaveamento de cada célula (bobina 240V 50-60Hz)">Contator</th>
-                        <th className="py-1" title="Proteção da célula pelo configurador — onde não há disjuntor adequado, a proteção é o fusível NH">Disjuntor / Fusível</th>
+                        {protecao === "disjuntor" ? (
+                          <th className="py-1" title="Disjuntor da célula pelo configurador — onde não há disjuntor adequado, ele manda proteger por fusível">Disjuntor</th>
+                        ) : (
+                          <>
+                            <th className="py-1 pr-2" title="Fusível NH da célula pelo configurador">Fusível</th>
+                            <th className="py-1" title="Seccionadora porta-fusíveis correspondente">Seccionadora</th>
+                          </>
+                        )}
                       </tr>
                     </thead>
                     <tbody className="font-mono text-slate-700 dark:text-slate-200">
@@ -767,13 +789,23 @@ export default function CapacitoresTab({ dark }) {
                               <>
                                 <td className="py-1 pr-2" title={`Código de pedido: ${it.codigoPedido}`}>{it.codigo}</td>
                                 <td className="py-1 pr-2">{it.contator}</td>
-                                <td className="py-1 whitespace-nowrap">
-                                  {it.disjuntor ?? <span title="O configurador não indica disjuntor para esta célula — proteger por fusível">fusível</span>}{" "}
-                                  <span className="text-slate-400 dark:text-slate-500">/ {it.fusivel} {it.fusivelIn}A</span>
-                                </td>
+                                {protecao === "disjuntor" ? (
+                                  <td className="py-1 whitespace-nowrap">
+                                    {it.disjuntor ?? (
+                                      <span className="text-amber-600 dark:text-amber-400" title="O configurador não indica disjuntor para esta célula — usar fusível NH com seccionadora">
+                                        sem disjuntor — usar fusível
+                                      </span>
+                                    )}
+                                  </td>
+                                ) : (
+                                  <>
+                                    <td className="py-1 pr-2 whitespace-nowrap">{it.fusivel} {it.fusivelIn}A</td>
+                                    <td className="py-1 whitespace-nowrap">{it.baseFusivel}</td>
+                                  </>
+                                )}
                               </>
                             ) : (
-                              <td colSpan={3} className="py-1 text-amber-600 dark:text-amber-400">
+                              <td colSpan={protecao === "disjuntor" ? 3 : 4} className="py-1 text-amber-600 dark:text-amber-400">
                                 {String(it.kvar).replace(".", ",")} kvar não existe em {vCapacitor}V no configurador Siemens
                               </td>
                             )}
@@ -784,7 +816,7 @@ export default function CapacitoresTab({ dark }) {
                   </table>
                 </div>
                 <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-                  Contator e proteção por célula, conforme o configurador Siemens. Base porta-fusível: 3NP1123-1CA20 (3NH3 230-0RC acima de 690V).
+                  Contator (bobina 240V 50-60Hz) e proteção por célula, conforme o configurador Siemens.
                 </p>
               </div>
             )}
