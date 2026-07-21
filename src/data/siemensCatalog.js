@@ -256,27 +256,51 @@ export function siemensTri(tensao, kvar) {
 // maior kvar (célula OU módulo MT inteiro) a que ele atribui cada código.
 // Os módulos MT provam que a régua do configurador é o kvar TOTAL chaveado —
 // MT300-440 (30 kvar em 9 células) usa o mesmo 3MT70033 da célula única de 30.
+// Contatores 3MT7 acima do que o configurador usa. O configurador para em
+// 60 kvar porque monta 1 célula por estágio e nunca junta duas; mas a série
+// 3MT7 do catálogo oficial ("3MT7 Capacitor Duty Contactors") vai a 100 kvar.
+// Necessários para estágios grandes — ex.: 2×33,7 = 67,4 kvar usa o 3MT70075
+// (75 kvar, 98,4A @400V, bobina 240V AC "P2", com resistores de pré-carga).
+const CONTATORES_3MT7_EXTRA = [
+  { codigo: "3MT70075JA126AP2", maxKvar: 75 },
+  { codigo: "3MT70080JA126AP2", maxKvar: 80 },
+  { codigo: "3MT70100JA126AP2", maxKvar: 100 },
+];
+
 const CONTATORES_3MT7 = (() => {
   const teto = new Map();
   for (const c of [...CAPACITORES_MONO_SIEMENS, ...CAPACITORES_TRI_SIEMENS, ...MODULOS_TRI_SIEMENS]) {
     teto.set(c.contator, Math.max(teto.get(c.contator) ?? 0, c.kvar));
   }
+  for (const e of CONTATORES_3MT7_EXTRA) teto.set(e.codigo, Math.max(teto.get(e.codigo) ?? 0, e.maxKvar));
   return [...teto].map(([codigo, maxKvar]) => ({ codigo, maxKvar })).sort((a, b) => a.maxKvar - b.maxKvar);
 })();
 
-// Maior contator 3MT7 do configurador e seu teto de kvar — o limite acima do
-// qual um estágio não tem contator Siemens (ex.: 2×33,7 = 67,4 kvar). Serve
-// para a mensagem de "fora do catálogo" dizer quanto o estágio passou.
+// Maior contator 3MT7 (catálogo oficial) e seu teto de kvar — o limite acima
+// do qual um estágio não tem contator Siemens. Serve para a mensagem de
+// "fora do catálogo" dizer quanto o estágio passou.
 export const CONTATOR_TETO = CONTATORES_3MT7[CONTATORES_3MT7.length - 1];
+
+// Disjuntores Siemens que a Eletromindy padroniza para estágios ACIMA da faixa
+// do configurador (que não lista disjuntor acima da maior célula única, 33,7
+// kvar em 440V). Mapa por corrente comercial (A) do estágio — a mesma que o
+// dimensionamento genérico calcula. 3VJ1112-7DA32-0AA0 = 125A (ajustável
+// 100–125A), o padrão para o estágio de 2×33,7 (124,5A). Cresce conforme
+// novos códigos forem confirmados.
+export const DISJUNTORES_3VJ_ESTAGIO = {
+  125: "3VJ1112-7DA32-0AA0",
+};
 
 // Lista de equipamentos por estágio. As células trazem seus códigos B32;
 // contator e proteção são do ESTÁGIO — dimensionados pelo kvar total, porque
 // o estágio chaveia inteiro (é a régua dos módulos MT do configurador):
-//  - contator: menor 3MT7 cujo teto de kvar no catálogo cobre o total.
+//  - contator: menor 3MT7 cujo teto de kvar cobre o total (até 100 kvar).
 //  - protecao: a linha de célula da mesma tensão com kvar >= total (kvarRef
 //    diz qual linha foi usada). "TROCAR POR FUSÍVEL" vira disjuntor null.
-// Total acima do catálogo: contator/protecao null — dimensionar por corrente.
-export function equipamentosSiemens(estagios, vCapacitor) {
+//    Para estágios acima da maior célula única, usa o disjuntor 3VJ mapeado
+//    pela corrente comercial do estágio (disjComerciais[i], vinda da aba).
+// Total sem contator nem disjuntor no catálogo: null — dimensionar por corrente.
+export function equipamentosSiemens(estagios, vCapacitor, disjComerciais = []) {
   const linhasTensao = CAPACITORES_TRI_SIEMENS
     .filter((c) => c.tensao === vCapacitor)
     .sort((a, b) => a.kvar - b.kvar);
@@ -290,7 +314,7 @@ export function equipamentosSiemens(estagios, vCapacitor) {
     });
     const kvarTotal = e.celulas.reduce((a, c) => a + c, 0);
     const ref = linhasTensao.find((c) => c.kvar >= kvarTotal) ?? null;
-    const protecao = ref
+    let protecao = ref
       ? {
           kvarRef: ref.kvar,
           disjuntor: ref.disjuntor === "TROCAR POR FUSÍVEL" ? null : ref.disjuntor ?? null,
@@ -299,6 +323,14 @@ export function equipamentosSiemens(estagios, vCapacitor) {
           baseFusivel: ref.baseFusivel ?? null,
         }
       : null;
+    // Estágio acima da maior célula única: o disjuntor vem da corrente
+    // comercial do estágio (mesma do dimensionamento genérico) mapeada ao
+    // código Siemens padrão. Sem fusível — a Eletromindy protege por disjuntor.
+    if (!protecao) {
+      const amp = disjComerciais[i];
+      const cod = amp != null ? DISJUNTORES_3VJ_ESTAGIO[amp] : null;
+      if (cod) protecao = { kvarRef: null, viaAmpere: amp, disjuntor: cod, fusivel: null, fusivelIn: null, baseFusivel: null };
+    }
     const contator = CONTATORES_3MT7.find((c) => c.maxKvar >= kvarTotal)?.codigo ?? null;
     return { numero: i + 1, kvarTotal, celulas, contator, protecao };
   });
