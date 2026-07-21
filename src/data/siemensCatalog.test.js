@@ -8,6 +8,7 @@ import {
   MODULOS_TRI_SIEMENS,
   siemensTri,
   equipamentosSiemens,
+  CONTATOR_TETO,
 } from "./siemensCatalog";
 
 const TODOS = [...CAPACITORES_MONO_SIEMENS, ...CAPACITORES_TRI_SIEMENS, ...MODULOS_TRI_SIEMENS];
@@ -103,6 +104,12 @@ describe("catálogo Siemens (configurador)", () => {
     expect(eq[0].celulas[0]).toMatchObject({ qtd: 2, codigo: "B32344E4282Z040" });
     expect(eq[0].contator).toBeNull(); // maior 3MT7 do configurador cobre 60 kvar
     expect(eq[0].protecao).toBeNull(); // maior célula 440V é 33,7 kvar
+  });
+
+  it("CONTATOR_TETO é o maior 3MT7 do configurador (3MT70060, 60 kvar)", () => {
+    // O limite que a mensagem de 'fora do catálogo' cita ao explicar por que
+    // um estágio (ex.: 2×33,7 = 67,4) não tem contator Siemens.
+    expect(CONTATOR_TETO).toEqual({ codigo: "3MT70060JA126AP2", maxKvar: 60 });
   });
 
   it("célula fora do catálogo vem marcada, sem inventar código", () => {

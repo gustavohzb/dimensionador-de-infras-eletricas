@@ -2,6 +2,8 @@
 // totais, comparação com o trafo e a vista superior da placa de montagem —
 // pronto para anexar ao memorial ou mandar ao cliente.
 
+import { CONTATOR_TETO } from "../data/siemensCatalog";
+
 // Cores do tema escuro da PlacaMontagem → equivalente claro. O relatório é
 // papel: mesmo com o app em dark mode, a placa sai clara no PDF. O mapa
 // acompanha as cores hardcoded do componente (CapacitoresTab.jsx).
@@ -252,7 +254,7 @@ export async function exportCapacitorPDF({ svgEl, params, banco, placa, projectN
         (porDisj
           ? 'Contator (bobina 240V 50-60Hz) e disjuntor POR ESTÁGIO, dimensionados pelo kvar total — o estágio chaveia inteiro (mesma régua dos módulos MT do configurador). Onde consta "sem disjuntor", o configurador só indica proteção por fusível NH.'
           : "Contator (bobina 240V 50-60Hz), fusível NH e seccionadora porta-fusíveis POR ESTÁGIO, dimensionados pelo kvar total — o estágio chaveia inteiro (mesma régua dos módulos MT do configurador).") +
-          ' "Fora do catálogo": nenhum item Siemens cobre o kvar total do estágio — dimensionar pela corrente da tabela de estágios.',
+          ` "Fora do catálogo": o kvar total do estágio passa do maior contator Siemens (${CONTATOR_TETO.codigo}, ${CONTATOR_TETO.maxKvar} kvar). Dividir o estágio em células únicas (1 célula por estágio, como o configurador faz) ou dimensionar pela corrente da tabela de estágios.`,
         contentW
       ),
       margin,
