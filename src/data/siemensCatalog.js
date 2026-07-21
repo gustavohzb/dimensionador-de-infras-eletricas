@@ -264,6 +264,11 @@ const CONTATORES_3MT7 = (() => {
   return [...teto].map(([codigo, maxKvar]) => ({ codigo, maxKvar })).sort((a, b) => a.maxKvar - b.maxKvar);
 })();
 
+// Maior contator 3MT7 do configurador e seu teto de kvar — o limite acima do
+// qual um estágio não tem contator Siemens (ex.: 2×33,7 = 67,4 kvar). Serve
+// para a mensagem de "fora do catálogo" dizer quanto o estágio passou.
+export const CONTATOR_TETO = CONTATORES_3MT7[CONTATORES_3MT7.length - 1];
+
 // Lista de equipamentos por estágio. As células trazem seus códigos B32;
 // contator e proteção são do ESTÁGIO — dimensionados pelo kvar total, porque
 // o estágio chaveia inteiro (é a régua dos módulos MT do configurador):

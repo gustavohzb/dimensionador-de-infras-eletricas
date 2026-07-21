@@ -4,7 +4,7 @@ import { calcularBanco } from "../lib/capacitorBank";
 import { exportCapacitorPDF } from "../lib/capacitorPdf";
 import { layoutPlaca, trocarNaOrdem } from "../lib/plateLayout";
 import { POTENCIAS_CELULA, CELULAS_SIEMENS_440V } from "../data/capacitores";
-import { equipamentosSiemens } from "../data/siemensCatalog";
+import { equipamentosSiemens, CONTATOR_TETO } from "../data/siemensCatalog";
 import ProjectsPanel from "./ProjectsPanel";
 import { useCapacitorProjects } from "../hooks/useCapacitorProjects";
 
@@ -781,8 +781,16 @@ export default function CapacitoresTab({ dark }) {
                     </thead>
                     <tbody className="font-mono text-slate-700 dark:text-slate-200">
                       {equipamentos.map((e) => {
+                        // Divisão sugerida em estágios de célula única — é como o
+                        // próprio configurador Siemens monta bancos grandes.
+                        const divisao = e.celulas
+                          .map((c) => `${c.qtd} estágio${c.qtd > 1 ? "s" : ""} de ${String(c.kvar).replace(".", ",")} kvar`)
+                          .join(" + ");
                         const foraTotal = (
-                          <span className="text-amber-600 dark:text-amber-400" title={`Nenhum item do configurador cobre ${fmt(e.kvarTotal)} kvar em ${vCapacitor}V — dimensionar pela corrente (tabela acima)`}>
+                          <span
+                            className="text-amber-600 dark:text-amber-400"
+                            title={`${fmt(e.kvarTotal)} kvar passa do maior contator Siemens (${CONTATOR_TETO.codigo}, ${CONTATOR_TETO.maxKvar} kvar). Divida em ${divisao} (1 célula por estágio, como o configurador faz), ou dimensione pela corrente da tabela de estágios acima.`}
+                          >
                             fora do catálogo
                           </span>
                         );
