@@ -98,18 +98,38 @@ describe("catálogo Siemens (configurador)", () => {
     expect(eq[0].contator).toBe("3MT70033JA126AP2"); // 27,5 ≤ 30 (teto do 0033 no catálogo)
   });
 
-  it("2×33,7 = 67,4 kvar estoura o catálogo: contator e proteção nulos, sem inventar", () => {
-    const eq = equipamentosSiemens([{ celulas: [33.7, 33.7] }], 440);
+  it("2×33,7 = 67,4 kvar: contator 3MT70075 e disjuntor 3VJ1112 (prática Eletromindy)", () => {
+    // O configurador parava em 60 kvar (1 célula/estágio), mas a série 3MT7 do
+    // catálogo oficial vai a 100 kvar — 67,4 usa o 3MT70075. O disjuntor vem
+    // da corrente comercial do estágio (125A, calculada pela aba) mapeada ao
+    // 3VJ1112-7DA32-0AA0 (125A) que a Eletromindy padroniza.
+    const eq = equipamentosSiemens([{ celulas: [33.7, 33.7] }], 440, [125]);
     expect(eq[0].kvarTotal).toBeCloseTo(67.4, 10);
     expect(eq[0].celulas[0]).toMatchObject({ qtd: 2, codigo: "B32344E4282Z040" });
-    expect(eq[0].contator).toBeNull(); // maior 3MT7 do configurador cobre 60 kvar
-    expect(eq[0].protecao).toBeNull(); // maior célula 440V é 33,7 kvar
+    expect(eq[0].contator).toBe("3MT70075JA126AP2");
+    expect(eq[0].protecao).toMatchObject({
+      viaAmpere: 125, disjuntor: "3VJ1112-7DA32-0AA0", fusivel: null, baseFusivel: null,
+    });
   });
 
-  it("CONTATOR_TETO é o maior 3MT7 do configurador (3MT70060, 60 kvar)", () => {
-    // O limite que a mensagem de 'fora do catálogo' cita ao explicar por que
-    // um estágio (ex.: 2×33,7 = 67,4) não tem contator Siemens.
-    expect(CONTATOR_TETO).toEqual({ codigo: "3MT70060JA126AP2", maxKvar: 60 });
+  it("estágio grande sem 3VJ mapeado para a corrente: contator sai, disjuntor não", () => {
+    // Mesmo 2×33,7 mas com disjComercial 160A (fora do mapa de 3VJ) — o
+    // contator (por kvar) ainda sai; o disjuntor Siemens fica null.
+    const eq = equipamentosSiemens([{ celulas: [33.7, 33.7] }], 440, [160]);
+    expect(eq[0].contator).toBe("3MT70075JA126AP2");
+    expect(eq[0].protecao).toBeNull();
+  });
+
+  it("acima de 100 kvar total não há contator Siemens", () => {
+    const eq = equipamentosSiemens([{ celulas: [33.7, 33.7, 33.7] }], 440, [200]);
+    expect(eq[0].kvarTotal).toBeCloseTo(101.1, 10);
+    expect(eq[0].contator).toBeNull(); // maior 3MT7 é o de 100 kvar
+  });
+
+  it("CONTATOR_TETO é o maior 3MT7 do catálogo oficial (3MT70100, 100 kvar)", () => {
+    // O configurador parava em 60; o catálogo 3MT7 vai a 100. É o limite que a
+    // mensagem de 'fora do catálogo' cita para estágios acima disso.
+    expect(CONTATOR_TETO).toEqual({ codigo: "3MT70100JA126AP2", maxKvar: 100 });
   });
 
   it("célula fora do catálogo vem marcada, sem inventar código", () => {

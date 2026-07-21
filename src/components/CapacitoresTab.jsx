@@ -415,7 +415,7 @@ export default function CapacitoresTab({ dark }) {
   // proteção exibida é a escolhida: disjuntor ou fusível + seccionadora.
   const equipamentos =
     st.marca === "siemens" && banco && st.estagios.length > 0
-      ? equipamentosSiemens(st.estagios, vCapacitor)
+      ? equipamentosSiemens(st.estagios, vCapacitor, banco.estagios.map((e) => e.disjComercial))
       : null;
   const protecao = st.protecaoSiemens === "fusivel" ? "fusivel" : "disjuntor";
 
@@ -794,7 +794,9 @@ export default function CapacitoresTab({ dark }) {
                             fora do catálogo
                           </span>
                         );
-                        const refTip = e.protecao && e.protecao.kvarRef !== e.kvarTotal
+                        const refTip = e.protecao?.viaAmpere != null
+                          ? `Disjuntor de ${e.protecao.viaAmpere} A — corrente comercial do estágio (In × fator disj.), acima da faixa do configurador`
+                          : e.protecao && e.protecao.kvarRef !== e.kvarTotal
                           ? `Linha de ${String(e.protecao.kvarRef).replace(".", ",")} kvar do catálogo (menor que cobre os ${fmt(e.kvarTotal)} kvar do estágio)`
                           : undefined;
                         return (
@@ -830,7 +832,7 @@ export default function CapacitoresTab({ dark }) {
                             ) : (
                               <>
                                 <td className="py-1 pr-2 whitespace-nowrap" title={refTip}>
-                                  {e.protecao ? `${e.protecao.fusivel} ${e.protecao.fusivelIn}A` : foraTotal}
+                                  {e.protecao?.fusivel ? `${e.protecao.fusivel} ${e.protecao.fusivelIn}A` : foraTotal}
                                 </td>
                                 <td className="py-1 whitespace-nowrap">{e.protecao?.baseFusivel ?? ""}</td>
                               </>

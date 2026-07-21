@@ -235,7 +235,7 @@ export async function exportCapacitorPDF({ svgEl, params, banco, placa, projectN
           doc.setTextColor(180, 120, 10);
           doc.text(e.protecao ? "sem disjuntor — usar fusível" : avisoFora, eCols[4].x, y);
         }
-      } else if (e.protecao) {
+      } else if (e.protecao?.fusivel) {
         doc.setTextColor(30, 41, 59);
         doc.text(`${e.protecao.fusivel} ${e.protecao.fusivelIn}A`, eCols[4].x, y);
         doc.text(e.protecao.baseFusivel ?? "", eCols[5].x, y);
