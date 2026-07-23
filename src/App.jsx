@@ -101,7 +101,7 @@ export default function App() {
         </div>
 
         <div className={activeTab === "iluminacao" ? "" : "hidden"}>
-          <IluminacaoTab />
+          <IluminacaoTab dark={dark} ativo={activeTab === "iluminacao"} />
         </div>
 
         <div className={activeTab === "capacitores" ? "" : "hidden"}>
