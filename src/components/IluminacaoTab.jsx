@@ -16,6 +16,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { Field } from "./cabos/CircuitoForm";
 import { calcularIluminacaoArvore, SECAO_MIN_ILUMINACAO } from "../lib/lightingTree";
+import { exportIluminacaoPDF, resumoCircuito } from "../lib/iluminacaoPdf";
 import { METODOS_INSTALACAO } from "../data/nbr5410Ampacidade";
 
 const STORAGE_KEY = "iluminacao.v3";
@@ -224,27 +225,42 @@ export default function IluminacaoTab({ dark, ativo = true }) {
   const setEdges = (u) => updateCirc((c) => ({ edges: typeof u === "function" ? u(c.edges) : u }));
 
   const cc = st.sistema === "cc";
-  const tensao = Number(st.tensao) || 0;
-  const entradasOk = tensao > 0 && Number(st.potencia) > 0 && Number(st.quedaMaxPct) > 0;
 
-  const resultado = entradasOk
-    ? calcularIluminacaoArvore({
-        sistema: cc ? "cc" : "ca",
-        tensao,
-        fp: Number(st.fp) || 1,
-        potencia: Number(st.potencia),
-        quedaMaxPct: Number(st.quedaMaxPct),
-        metodo: st.metodo,
-        nos: nodes.map((n) => ({ id: n.id, tipo: n.type, qtd: Number(n.data.qtd) || 1 })),
-        ligacoes: edges.map((e) => ({
-          id: e.id,
-          de: e.source,
-          para: e.target,
-          distancia: Number(e.data?.distancia) || 0,
-          metodo: e.data?.metodo || undefined,
-        })),
-      })
-    : null;
+  // Calcula um circuito qualquer (o ativo alimenta o diagrama/resultado; os
+  // demais entram no quadro de cargas e no PDF).
+  const calcularCircuito = (c) => {
+    const p = c.params;
+    const v = Number(p.tensao) || 0;
+    if (!(v > 0 && Number(p.potencia) > 0 && Number(p.quedaMaxPct) > 0)) return null;
+    return calcularIluminacaoArvore({
+      sistema: p.sistema === "cc" ? "cc" : "ca",
+      tensao: v,
+      fp: Number(p.fp) || 1,
+      potencia: Number(p.potencia),
+      quedaMaxPct: Number(p.quedaMaxPct),
+      metodo: p.metodo,
+      nos: c.nodes.map((n) => ({ id: n.id, tipo: n.type, qtd: Number(n.data.qtd) || 1 })),
+      ligacoes: c.edges.map((e) => ({
+        id: e.id,
+        de: e.source,
+        para: e.target,
+        distancia: Number(e.data?.distancia) || 0,
+        metodo: e.data?.metodo || undefined,
+      })),
+    });
+  };
+
+  const resultados = new Map(store.circuitos.map((c) => [c.id, calcularCircuito(c)]));
+  const resultado = resultados.get(circ.id) ?? null;
+
+  const gerarPDF = () =>
+    exportIluminacaoPDF({
+      circuitos: store.circuitos.map((c) => ({
+        circuito: c,
+        resultado: resultados.get(c.id) ?? null,
+        rotulos: new Map(c.nodes.map((n) => [n.id, n.type === "quadro" ? "Quadro" : n.data.label])),
+      })),
+    });
 
   /* ---------- circuitos ---------- */
 
@@ -557,6 +573,81 @@ export default function IluminacaoTab({ dark, ativo = true }) {
             )}
           </>
         )}
+      </div>
+
+      {/* ==================== Quadro de cargas (todos os circuitos) ==================== */}
+      <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+            Quadro de cargas — {store.circuitos.length} circuito{store.circuitos.length > 1 ? "s" : ""}
+          </h2>
+          <button
+            type="button"
+            onClick={gerarPDF}
+            className="rounded-xs bg-copper-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-copper-700 dark:bg-copper-500 dark:hover:bg-copper-600"
+          >
+            Gerar PDF
+          </button>
+        </div>
+        {(() => {
+          const resumos = store.circuitos.map((c) => ({ id: c.id, r: resumoCircuito(c, resultados.get(c.id) ?? null) }));
+          const totLum = resumos.reduce((a, { r }) => a + (r.luminarias ?? 0), 0);
+          const totW = resumos.reduce((a, { r }) => a + (r.potenciaW ?? 0), 0);
+          return (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left font-display text-[11px] uppercase tracking-[0.06em] text-slate-400 dark:border-slate-700 dark:text-slate-500">
+                    <th className="py-1.5 pr-2">Circuito</th>
+                    <th className="py-1.5 pr-2">Sistema</th>
+                    <th className="py-1.5 pr-2">Tensão</th>
+                    <th className="py-1.5 pr-2">Lum.</th>
+                    <th className="py-1.5 pr-2">Potência</th>
+                    <th className="py-1.5 pr-2">Corrente</th>
+                    <th className="py-1.5 pr-2">Seções (mm²)</th>
+                    <th className="py-1.5">Pior queda</th>
+                  </tr>
+                </thead>
+                <tbody className="font-mono">
+                  {resumos.map(({ id, r }) => (
+                    <tr
+                      key={id}
+                      onClick={() => setStore((s) => ({ ...s, ativoId: id }))}
+                      title="Clique para abrir este circuito"
+                      className={`cursor-pointer border-b border-slate-100 text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800/60 ${
+                        id === store.ativoId ? "bg-copper-50/60 dark:bg-copper-500/5" : ""
+                      }`}
+                    >
+                      <td className="py-1 pr-2 font-sans font-medium">{r.nome}</td>
+                      <td className="py-1 pr-2">{r.sistema}</td>
+                      <td className="py-1 pr-2">{r.tensao} V</td>
+                      <td className="py-1 pr-2">{r.luminarias ?? "—"}</td>
+                      <td className="py-1 pr-2">{r.potenciaW == null ? "—" : `${fmt(r.potenciaW, 0)} W`}</td>
+                      <td className="py-1 pr-2">{r.corrente == null ? "—" : `${fmt(r.corrente)} A`}</td>
+                      <td className={`py-1 pr-2 ${r.secoes.includes(null) ? "text-red-600 dark:text-red-400" : "text-copper-700 dark:text-copper-400"}`}>
+                        {r.secoes.length ? r.secoes.map((s) => (s == null ? "?" : String(s).replace(".", ","))).join(" / ") : "—"}
+                      </td>
+                      <td className={`py-1 font-bold ${r.piorQuedaPct == null ? "" : r.ok ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                        {r.piorQuedaPct == null ? (r.temErro ? "erro no diagrama" : "—") : `${fmt(r.piorQuedaPct)}%`}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="text-slate-800 dark:text-slate-100">
+                    <td className="py-1.5 pr-2 font-sans font-bold">Total</td>
+                    <td colSpan={2} />
+                    <td className="py-1.5 pr-2 font-bold">{totLum}</td>
+                    <td className="py-1.5 pr-2 font-bold">{fmt(totW, 0)} W</td>
+                    <td colSpan={3} />
+                  </tr>
+                </tbody>
+              </table>
+              <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                O PDF traz este quadro e o detalhamento de trechos de cada circuito.
+                Correntes não são somadas — cada circuito tem sua tensão/sistema.
+              </p>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
