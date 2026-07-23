@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -18,14 +18,16 @@ import { Field } from "./cabos/CircuitoForm";
 import { calcularIluminacaoArvore, SECAO_MIN_ILUMINACAO } from "../lib/lightingTree";
 import { METODOS_INSTALACAO } from "../data/nbr5410Ampacidade";
 
-const STORAGE_KEY = "iluminacao.v2";
-const STORAGE_KEY_V1 = "iluminacao.v1"; // só parâmetros são migrados
+const STORAGE_KEY = "iluminacao.v3";
+const STORAGE_KEY_V2 = "iluminacao.v2"; // 1 circuito único
+const STORAGE_KEY_V1 = "iluminacao.v1"; // só parâmetros
 const QUADRO_ID = "quadro";
 
 const inputCls =
   "w-full rounded-xs border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-copper-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100";
 const fmt = (n, d = 2) => (n == null ? "—" : n.toFixed(d).replace(".", ","));
 const fmtSecao = (s) => (s == null ? "—" : `${String(s).replace(".", ",")} mm²`);
+const uid = (prefixo) => `${prefixo}${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
 
 // Métodos com tabela PVC de 2 carregados (F/G são de cabos espaçados).
 const METODOS = METODOS_INSTALACAO.filter((m) => ["B1", "B2", "C", "D", "E"].includes(m.id));
@@ -107,6 +109,22 @@ function TrechoEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, ta
             />
             m
           </label>
+          {/* Método de instalação do trecho: vazio = usa o padrão da aba. */}
+          <select
+            value={data.metodo ?? ""}
+            onChange={(e) => data.onMetodo(id, e.target.value)}
+            title="Método de instalação deste trecho (Tab. 36). Vazio = método padrão dos parâmetros."
+            className={`mt-0.5 w-full rounded-xs border bg-white px-0.5 py-0 font-mono text-[10px] dark:bg-slate-800 ${
+              data.metodo
+                ? "border-copper-400 text-copper-700 dark:border-copper-500/60 dark:text-copper-400"
+                : "border-slate-200 text-slate-400 dark:border-slate-700 dark:text-slate-500"
+            }`}
+          >
+            <option value="">padrão</option>
+            {METODOS.map((m) => (
+              <option key={m.id} value={m.id}>{m.id}</option>
+            ))}
+          </select>
           {info && (
             <div className={`mt-0.5 font-mono text-[10px] font-bold ${info.secao == null ? "text-red-600 dark:text-red-400" : "text-copper-700 dark:text-copper-400"}`}>
               {info.secao == null ? "não atende" : `${fmtSecao(info.secao)} · ${fmt(info.corrente, 1)}A`}
@@ -146,39 +164,64 @@ function defaults() {
   };
 }
 
+function novoCircuito(nome, params) {
+  return { id: uid("c"), nome, params: { ...defaults(), ...params }, ...diagramaInicial() };
+}
+
 function carregarEstado() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const s = JSON.parse(raw);
-      return {
-        params: { ...defaults(), ...s.params },
+      if (Array.isArray(s.circuitos) && s.circuitos.length) {
+        const ativoId = s.circuitos.some((c) => c.id === s.ativoId) ? s.ativoId : s.circuitos[0].id;
+        return { circuitos: s.circuitos, ativoId };
+      }
+    }
+    // Migrações: v2 vira o primeiro circuito; da v1 só aproveitamos parâmetros.
+    const v2 = localStorage.getItem(STORAGE_KEY_V2);
+    if (v2) {
+      const s = JSON.parse(v2);
+      const c = {
+        ...novoCircuito("Circuito 1", s.params),
         nodes: Array.isArray(s.nodes) && s.nodes.length ? s.nodes : diagramaInicial().nodes,
         edges: Array.isArray(s.edges) ? s.edges : diagramaInicial().edges,
       };
+      return { circuitos: [c], ativoId: c.id };
     }
-    // Migração da v1 (lista de trechos): aproveita só os parâmetros.
     const v1 = localStorage.getItem(STORAGE_KEY_V1);
     if (v1) {
       const { sistema, tensao, fp, potencia, quedaMaxPct, metodo } = JSON.parse(v1);
-      return { params: { ...defaults(), sistema, tensao, fp, potencia, quedaMaxPct, metodo }, ...diagramaInicial() };
+      const c = novoCircuito("Circuito 1", { sistema, tensao, fp, potencia, quedaMaxPct, metodo });
+      return { circuitos: [c], ativoId: c.id };
     }
   } catch { /* estado inicial */ }
-  return { params: defaults(), ...diagramaInicial() };
+  const c = novoCircuito("Circuito 1");
+  return { circuitos: [c], ativoId: c.id };
 }
 
 /* ==================== Aba ==================== */
 
 export default function IluminacaoTab({ dark, ativo = true }) {
-  const inicial = useMemo(carregarEstado, []);
-  const [st, setSt] = useState(inicial.params);
-  const [nodes, setNodes] = useState(inicial.nodes);
-  const [edges, setEdges] = useState(inicial.edges);
-  const set = (patch) => setSt((s) => ({ ...s, ...patch }));
+  const [store, setStore] = useState(carregarEstado);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ params: st, nodes, edges }));
-  }, [st, nodes, edges]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+  }, [store]);
+
+  const circ = store.circuitos.find((c) => c.id === store.ativoId) ?? store.circuitos[0];
+  const st = circ.params;
+  const { nodes, edges } = circ;
+
+  // Todos os setters operam sobre o circuito ativo.
+  const updateCirc = (fn) =>
+    setStore((s) => ({
+      ...s,
+      circuitos: s.circuitos.map((c) => (c.id === s.ativoId ? { ...c, ...fn(c) } : c)),
+    }));
+  const set = (patch) => updateCirc((c) => ({ params: { ...c.params, ...patch } }));
+  const setNodes = (u) => updateCirc((c) => ({ nodes: typeof u === "function" ? u(c.nodes) : u }));
+  const setEdges = (u) => updateCirc((c) => ({ edges: typeof u === "function" ? u(c.edges) : u }));
 
   const cc = st.sistema === "cc";
   const tensao = Number(st.tensao) || 0;
@@ -193,38 +236,55 @@ export default function IluminacaoTab({ dark, ativo = true }) {
         quedaMaxPct: Number(st.quedaMaxPct),
         metodo: st.metodo,
         nos: nodes.map((n) => ({ id: n.id, tipo: n.type, qtd: Number(n.data.qtd) || 1 })),
-        ligacoes: edges.map((e) => ({ id: e.id, de: e.source, para: e.target, distancia: Number(e.data?.distancia) || 0 })),
+        ligacoes: edges.map((e) => ({
+          id: e.id,
+          de: e.source,
+          para: e.target,
+          distancia: Number(e.data?.distancia) || 0,
+          metodo: e.data?.metodo || undefined,
+        })),
       })
     : null;
 
+  /* ---------- circuitos ---------- */
+
+  const addCircuito = () => {
+    // Novo circuito herda os parâmetros do ativo (mesma rede, outra sala).
+    const c = novoCircuito(`Circuito ${store.circuitos.length + 1}`, circ.params);
+    setStore((s) => ({ circuitos: [...s.circuitos, c], ativoId: c.id }));
+  };
+  const removeCircuito = () => {
+    if (store.circuitos.length <= 1) return;
+    if (!window.confirm(`Excluir "${circ.nome}" e seu diagrama?`)) return;
+    setStore((s) => {
+      const restantes = s.circuitos.filter((c) => c.id !== s.ativoId);
+      return { circuitos: restantes, ativoId: restantes[0].id };
+    });
+  };
+  const renameCircuito = (nome) => updateCirc(() => ({ nome }));
+
   /* ---------- edição do diagrama ---------- */
 
-  const onNodesChange = useCallback(
-    (changes) => setNodes((ns) => applyNodeChanges(changes.filter((c) => !(c.type === "remove" && c.id === QUADRO_ID)), ns)),
-    []
-  );
-  const onEdgesChange = useCallback((changes) => setEdges((es) => applyEdgeChanges(changes, es)), []);
-  const onConnect = useCallback(
-    (conn) => setEdges((es) => addEdge({ ...conn, id: `e${Date.now()}`, type: "trecho", data: { distancia: 10 } }, es)),
-    []
-  );
+  const onNodesChange = (changes) =>
+    setNodes((ns) => applyNodeChanges(changes.filter((c) => !(c.type === "remove" && c.id === QUADRO_ID)), ns));
+  const onEdgesChange = (changes) => setEdges((es) => applyEdgeChanges(changes, es));
+  const onConnect = (conn) =>
+    setEdges((es) => addEdge({ ...conn, id: uid("e"), type: "trecho", data: { distancia: 10 } }, es));
   // Árvore: nada entra no quadro e cada nó tem um único trecho de chegada.
-  const isValidConnection = useCallback(
-    (c) => c.target !== QUADRO_ID && c.source !== c.target && !edges.some((e) => e.target === c.target),
-    [edges]
-  );
+  const isValidConnection = (c) =>
+    c.target !== QUADRO_ID && c.source !== c.target && !edges.some((e) => e.target === c.target);
 
-  const onQtd = useCallback((id, qtd) => {
+  const onQtd = (id, qtd) =>
     setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, qtd } } : n)));
-  }, []);
-  const onDist = useCallback((id, distancia) => {
+  const onDist = (id, distancia) =>
     setEdges((es) => es.map((e) => (e.id === id ? { ...e, data: { ...e.data, distancia } } : e)));
-  }, []);
+  const onMetodo = (id, metodo) =>
+    setEdges((es) => es.map((e) => (e.id === id ? { ...e, data: { ...e.data, metodo: metodo || undefined } } : e)));
 
   const addNo = (tipo) => {
     const selecionado = nodes.find((n) => n.selected) ?? nodes[nodes.length - 1];
     const seq = nodes.filter((n) => n.type === tipo).length + 1;
-    const id = `n${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+    const id = uid("n");
     const label = tipo === "luminaria" ? `L${seq}` : `CX${seq}`;
     const position = { x: selecionado.position.x + 220, y: selecionado.position.y + (seq % 2 ? 40 : -40) };
     setNodes((ns) => [
@@ -243,16 +303,8 @@ export default function IluminacaoTab({ dark, ativo = true }) {
 
   /* ---------- injeção de callbacks e resultados no diagrama ---------- */
 
-  const infoPorLigacao = useMemo(() => {
-    const m = new Map();
-    for (const l of resultado?.ligacoes ?? []) m.set(l.id, l);
-    return m;
-  }, [resultado]);
-  const quedaPorNo = useMemo(() => {
-    const m = new Map();
-    for (const n of resultado?.nos ?? []) m.set(n.id, n.quedaAcumPct);
-    return m;
-  }, [resultado]);
+  const infoPorLigacao = new Map((resultado?.ligacoes ?? []).map((l) => [l.id, l]));
+  const quedaPorNo = new Map((resultado?.nos ?? []).map((n) => [n.id, n.quedaAcumPct]));
 
   const nodesRender = nodes.map((n) =>
     n.type === "luminaria"
@@ -262,24 +314,69 @@ export default function IluminacaoTab({ dark, ativo = true }) {
   const edgesRender = edges.map((e) => ({
     ...e,
     markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: "#94a3b8" },
-    data: { ...e.data, onDist, info: infoPorLigacao.get(e.id) ?? null },
+    data: { ...e.data, onDist, onMetodo, info: infoPorLigacao.get(e.id) ?? null },
   }));
 
-  const rotulo = useMemo(() => {
-    const m = new Map(nodes.map((n) => [n.id, n.type === "quadro" ? "Quadro" : n.data.label]));
-    return (id) => m.get(id) ?? id;
-  }, [nodes]);
-
+  const rotuloPorId = new Map(nodes.map((n) => [n.id, n.type === "quadro" ? "Quadro" : n.data.label]));
+  const rotulo = (id) => rotuloPorId.get(id) ?? id;
   const pior = resultado?.piorCaminho ?? null;
 
   return (
     <div className="space-y-3">
+      {/* ==================== Circuitos ==================== */}
+      <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="mr-1 font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+            Circuitos
+          </h2>
+          {store.circuitos.map((c) =>
+            c.id === store.ativoId ? (
+              <input
+                key={c.id}
+                value={c.nome}
+                onChange={(e) => renameCircuito(e.target.value)}
+                title="Circuito ativo — edite o nome aqui"
+                className="w-32 rounded-xs border border-copper-500 bg-copper-50 px-2 py-1 text-xs font-bold text-copper-800 focus:outline-none focus:ring-2 focus:ring-copper-500 dark:border-copper-500/60 dark:bg-copper-500/10 dark:text-copper-300"
+              />
+            ) : (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setStore((s) => ({ ...s, ativoId: c.id }))}
+                className="rounded-xs border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                {c.nome}
+              </button>
+            )
+          )}
+          <button
+            type="button"
+            onClick={addCircuito}
+            className="rounded-xs border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            + circuito
+          </button>
+          {store.circuitos.length > 1 && (
+            <button
+              type="button"
+              onClick={removeCircuito}
+              title="Excluir o circuito ativo"
+              className="rounded-xs border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-400 transition hover:text-red-600 dark:border-slate-700 dark:text-slate-500 dark:hover:text-red-400"
+            >
+              excluir
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* ==================== Parâmetros ==================== */}
       <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <h2 className="mb-2 font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-          Parâmetros
+          Parâmetros — {circ.nome}
         </h2>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        {/* items-end alinha os inputs na mesma base mesmo quando um rótulo
+            quebra em duas linhas. */}
+        <div className="grid grid-cols-2 items-end gap-2 sm:grid-cols-3 lg:grid-cols-6">
           <Field label="Sistema" tip="F-N e F-F são circuitos CA de 2 condutores (a fórmula de queda é a mesma; muda a tensão que você informa). CC é corrente contínua (ex.: iluminação em 12/24/48V), sem fator de potência.">
             <select value={st.sistema} onChange={(e) => set({ sistema: e.target.value })} className={inputCls}>
               <option value="ca-fn">CA — fase-neutro</option>
@@ -295,13 +392,13 @@ export default function IluminacaoTab({ dark, ativo = true }) {
               <input type="number" min="0.1" max="1" step="0.01" value={st.fp} onChange={(e) => set({ fp: e.target.value })} className={inputCls} />
             </Field>
           )}
-          <Field label="Potência por luminária (W)" tip="Potência de cada ponto. A corrente de cada trecho vem das luminárias que ele alimenta à jusante no diagrama.">
+          <Field label="Potência (W)" tip="Potência de cada luminária. A corrente de cada trecho vem das luminárias que ele alimenta à jusante no diagrama.">
             <input type="number" min="0.1" step="0.1" value={st.potencia} onChange={(e) => set({ potencia: e.target.value })} className={inputCls} />
           </Field>
           <Field label="Queda máx. (%)" tip="NBR 5410 6.2.7: 5% da origem em rede pública, 7% com transformador próprio; a prática usual é 4% no conjunto e 2% no circuito terminal. Vale para o caminho quadro→luminária mais desfavorável.">
             <input type="number" min="0.5" max="10" step="0.5" value={st.quedaMaxPct} onChange={(e) => set({ quedaMaxPct: e.target.value })} className={inputCls} />
           </Field>
-          <Field label="Método de instalação" tip="Para a checagem de capacidade de condução (NBR 5410 Tabela 36, PVC 70°C, cobre, 2 condutores carregados).">
+          <Field label="Método padrão" tip="Método de instalação para a capacidade de condução (NBR 5410 Tabela 36, PVC 70°C, cobre, 2 condutores carregados). Trechos podem sobrepor no seletor do próprio trecho.">
             <select value={st.metodo} onChange={(e) => set({ metodo: e.target.value })} className={inputCls}>
               {METODOS.map((m) => (
                 <option key={m.id} value={m.id}>{m.label}</option>
@@ -315,7 +412,7 @@ export default function IluminacaoTab({ dark, ativo = true }) {
       <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-            Diagrama do circuito
+            Diagrama — {circ.nome}
           </h2>
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => addNo("luminaria")} className="rounded-xs border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 transition hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20">
@@ -331,9 +428,11 @@ export default function IluminacaoTab({ dark, ativo = true }) {
         </div>
         <div className="h-[420px] overflow-hidden rounded-sm border border-slate-200 dark:border-slate-700">
           {/* Montado só com a aba visível: escondido (display:none) o React
-              Flow mede dimensão zero e o fitView enquadra errado. */}
+              Flow mede dimensão zero e o fitView enquadra errado. A key por
+              circuito refaz o enquadramento ao trocar de circuito. */}
           {ativo && (
           <ReactFlow
+            key={circ.id}
             nodes={nodesRender}
             edges={edgesRender}
             nodeTypes={nodeTypes}
@@ -355,15 +454,16 @@ export default function IluminacaoTab({ dark, ativo = true }) {
         </div>
         <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
           Novos nós já saem ligados ao nó selecionado — ou arraste do ponto direito de
-          um nó até o esquerdo de outro para religar. Edite a distância em cada trecho;
-          a seção calculada aparece no próprio trecho. Delete remove o nó/trecho selecionado.
+          um nó até o esquerdo de outro para religar. Em cada trecho: distância, método
+          de instalação (vazio = padrão) e a seção calculada. Delete remove o nó/trecho
+          selecionado.
         </p>
       </div>
 
       {/* ==================== Resultado ==================== */}
       <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <h2 className="mb-2 font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-          Resultado
+          Resultado — {circ.nome}
         </h2>
         {!resultado ? (
           <div className="rounded-sm border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
@@ -420,6 +520,7 @@ export default function IluminacaoTab({ dark, ativo = true }) {
                       <tr className="border-b border-slate-200 text-left font-display text-[11px] uppercase tracking-[0.06em] text-slate-400 dark:border-slate-700 dark:text-slate-500">
                         <th className="py-1.5 pr-2">Trecho</th>
                         <th className="py-1.5 pr-2">Distância</th>
+                        <th className="py-1.5 pr-2">Método</th>
                         <th className="py-1.5 pr-2">Pontos</th>
                         <th className="py-1.5 pr-2">Corrente</th>
                         <th className="py-1.5 pr-2">Seção</th>
@@ -432,6 +533,7 @@ export default function IluminacaoTab({ dark, ativo = true }) {
                         <tr key={l.id} className="border-b border-slate-100 text-slate-700 dark:border-slate-800 dark:text-slate-200">
                           <td className="py-1 pr-2">{rotulo(l.de)} → {rotulo(l.para)}</td>
                           <td className="py-1 pr-2">{fmt(l.distancia, 1)} m</td>
+                          <td className="py-1 pr-2">{l.metodo}</td>
                           <td className="py-1 pr-2">{l.pontos}</td>
                           <td className="py-1 pr-2">{fmt(l.corrente)} A</td>
                           <td className={`py-1 pr-2 font-bold ${l.secao == null ? "text-red-600 dark:text-red-400" : "text-copper-700 dark:text-copper-400"}`}>
@@ -447,8 +549,8 @@ export default function IluminacaoTab({ dark, ativo = true }) {
                 <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
                   Seção por trecho: menor seção comercial que mantém a queda acumulada
                   ≤ {fmt(Number(st.quedaMaxPct), 1)}% em todo caminho quadro→luminária, atende a
-                  ampacidade (Tab. 36, método {st.metodo}, 2 carregados) e o mínimo de 1,5 mm²
-                  (Tab. 47). ρ do cobre = 1/56 Ω·mm²/m, 2 condutores
+                  ampacidade (Tab. 36, método do trecho ou padrão {st.metodo}, 2 carregados) e o
+                  mínimo de 1,5 mm² (Tab. 47). ρ do cobre = 1/56 Ω·mm²/m, 2 condutores
                   ({cc ? "CC" : "CA, reatância desprezada"}).
                 </p>
               </>

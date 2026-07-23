@@ -30,9 +30,9 @@ export function calcularIluminacaoArvore({
   fp = 1,
   potencia, // W por luminária
   quedaMaxPct,
-  metodo = "B1",
+  metodo = "B1", // método de instalação padrão; cada ligação pode sobrepor
   nos, // [{ id, tipo: "quadro"|"luminaria"|"caixa", qtd? }]
-  ligacoes, // [{ id, de, para, distancia (m) }]
+  ligacoes, // [{ id, de, para, distancia (m), metodo? }]
   resistividade = RESISTIVIDADE_COBRE,
 }) {
   const quadro = (nos ?? []).find((n) => n.tipo === "quadro");
@@ -115,8 +115,9 @@ export function calcularIluminacaoArvore({
     maiorCaminho.set(l.id, Math.max(proprio, dosFilhos));
   }
 
-  const tabela = PVC_CU[metodo] ?? PVC_CU.B1;
-  const secoes = Object.keys(tabela).map(Number).sort((a, b) => a - b);
+  // Seções comerciais (iguais em todas as tabelas de método) e ampacidade
+  // por trecho — cada ligação pode ter seu próprio método de instalação.
+  const secoes = Object.keys(PVC_CU[metodo] ?? PVC_CU.B1).map(Number).sort((a, b) => a - b);
   const comercial = (minimo) => secoes.find((s) => s >= minimo) ?? null;
 
   const info = new Map(); // id da ligação → resultado mutável
@@ -125,13 +126,15 @@ export function calcularIluminacaoArvore({
     const pontos = pontosDe.get(l.para);
     const corrente = (pontos * potencia) / (tensao * cosfi);
     if (pontos === 0) semCarga = true;
+    const metodoTrecho = l.metodo && PVC_CU[l.metodo] ? l.metodo : metodo;
+    const tabela = PVC_CU[metodoTrecho] ?? PVC_CU.B1;
     // Gradiente constante: S ≥ 2·ρ·cosφ·I·(maior caminho por e)/ΔVmax.
     // (O L do trecho cancela: queda alocada = ΔVmax·L/maiorCaminho.)
     const sQueda = pontos > 0 ? (2 * resistividade * cosfi * corrente * maiorCaminho.get(l.id)) / dvMax : 0;
     const secaoPorAmpacidade = secoes.find((s) => tabela[s][0] >= corrente) ?? null;
     const secao =
       secaoPorAmpacidade == null ? null : comercial(Math.max(sQueda, secaoPorAmpacidade, SECAO_MIN_ILUMINACAO));
-    info.set(l.id, { ligacao: l, pontos, corrente, secaoPorAmpacidade, secao });
+    info.set(l.id, { ligacao: l, pontos, corrente, metodo: metodoTrecho, secaoPorAmpacidade, secao });
   }
 
   if (semCarga) {
@@ -188,6 +191,7 @@ export function calcularIluminacaoArvore({
       distancia: l.distancia,
       pontos: e.pontos,
       corrente: e.corrente,
+      metodo: e.metodo,
       secao: e.pontos === 0 ? SECAO_MIN_ILUMINACAO : e.secao,
       secaoPorAmpacidade: e.secaoPorAmpacidade,
       quedaVolts: dv,
