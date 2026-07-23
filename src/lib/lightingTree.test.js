@@ -118,6 +118,25 @@ describe("ampacidade e limites", () => {
     expect(e.secao).toBe(10);
   });
 
+  it("método por trecho sobrepõe o global: 39,4A passa em 6mm² B1 (41A), mas B2 (38A) pede 10mm²", () => {
+    // 25×200W em 127V fp 1 → 39,37A; trecho curto (2m) p/ queda não mandar.
+    const base = {
+      sistema: "ca", tensao: 127, fp: 1, potencia: 200, quedaMaxPct: 4, metodo: "B1",
+      nos: [quadro, { id: "l", tipo: "luminaria", qtd: 25 }],
+    };
+    const semOverride = calcularIluminacaoArvore({
+      ...base, ligacoes: [{ id: "e1", de: "q", para: "l", distancia: 2 }],
+    });
+    expect(lig(semOverride).get("e1").metodo).toBe("B1");
+    expect(lig(semOverride).get("e1").secao).toBe(6);
+    const comOverride = calcularIluminacaoArvore({
+      ...base, ligacoes: [{ id: "e1", de: "q", para: "l", distancia: 2, metodo: "B2" }],
+    });
+    expect(lig(comOverride).get("e1").metodo).toBe("B2");
+    expect(lig(comOverride).get("e1").secaoPorAmpacidade).toBe(10);
+    expect(lig(comOverride).get("e1").secao).toBe(10);
+  });
+
   it("caso impossível (12V, 2kW, 100m): trecho sem seção e dimensionado=false", () => {
     const r = calcularIluminacaoArvore({
       sistema: "cc", tensao: 12, potencia: 100, quedaMaxPct: 4, metodo: "B1",
