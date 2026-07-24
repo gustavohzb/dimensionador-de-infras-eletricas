@@ -20,9 +20,14 @@
 // para o quadro) tenta reduzir cada trecho enquanto todos os caminhos
 // continuarem dentro do limite — é isso que faz tronco grosso e ramal fino.
 import { PVC_CU } from "../data/nbr5410AmpacidadePvc";
-import { RESISTIVIDADE_COBRE, SECAO_MIN_ILUMINACAO } from "./lightingDrop";
 
-export { RESISTIVIDADE_COBRE, SECAO_MIN_ILUMINACAO };
+// ρ do cobre = 1/56 Ω·mm²/m — o valor consagrado nas planilhas de projeto
+// (σ = 56 m/Ω·mm²). Para condutor operando a 70°C o real é ~15% maior; o
+// limite de queda usual (4%) absorve essa margem.
+export const RESISTIVIDADE_COBRE = 1 / 56;
+
+// Seção mínima para circuitos de iluminação — NBR 5410, Tabela 47.
+export const SECAO_MIN_ILUMINACAO = 1.5;
 
 export function calcularIluminacaoArvore({
   sistema, // "ca" (F-N ou F-F) | "cc"
