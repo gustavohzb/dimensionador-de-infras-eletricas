@@ -1,6 +1,7 @@
 import emblema from "../assets/emblema.png";
-
-const APP_VERSION = "1.0";
+// A versão sai do histórico de atualizações (última entrada), para não haver
+// dois lugares dizendo em que versão o app está.
+import { APP_VERSION } from "../data/changelog";
 
 function Card({ children }) {
   return (
