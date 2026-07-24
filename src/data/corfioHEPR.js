@@ -51,7 +51,7 @@ export const ELETRODUTO_NORMAS = [
   { id: "nbr5597", label: "NBR 5597" },
   { id: "nbr5598", label: "NBR 5598" },
   { id: "nbr15715", label: "PEAD NBR 15715" },
-  { id: "tigreflex", label: "Corrugado Tigreflex" },
+  { id: "tigreflex", label: "Corrugado PVC" },
   { id: "inoxSch10", label: "Inox A312 Sch 10" },
   { id: "inoxSch40", label: "Inox A312 Sch 40" },
 ];
