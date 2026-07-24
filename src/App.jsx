@@ -5,6 +5,7 @@ import InfraTab from "./components/InfraTab";
 import QuadroCargasTab from "./components/QuadroCargasTab";
 import CapacitoresTab from "./components/CapacitoresTab";
 import IluminacaoTab from "./components/IluminacaoTab";
+import AtualizacoesTab from "./components/AtualizacoesTab";
 import SobreTab from "./components/SobreTab";
 
 function ThemeToggle({ dark, onToggle }) {
@@ -69,6 +70,7 @@ export default function App() {
             { id: "quadroCargas", label: "Cabos Elétricos" },
             { id: "iluminacao", label: "Iluminação" },
             { id: "capacitores", label: "Capacitores" },
+            { id: "atualizacoes", label: "Atualizações" },
             { id: "sobre", label: "Sobre" },
           ].map((tab) => (
             <button
@@ -107,6 +109,11 @@ export default function App() {
         <div className={activeTab === "capacitores" ? "" : "hidden"}>
           <CapacitoresTab dark={dark} />
         </div>
+
+        {/* Só monta quando aberta: são mais de cem cartões e a aba não guarda
+            nada que precise sobreviver à troca (as outras ficam montadas
+            porque carregam o trecho/circuito em edição). */}
+        {activeTab === "atualizacoes" && <AtualizacoesTab />}
 
         <div className={activeTab === "sobre" ? "" : "hidden"}>
           <SobreTab />
