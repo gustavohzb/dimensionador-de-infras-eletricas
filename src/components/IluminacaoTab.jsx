@@ -17,6 +17,7 @@ import "@xyflow/react/dist/style.css";
 import { Field } from "./cabos/CircuitoForm";
 import { calcularIluminacaoArvore, SECAO_MIN_ILUMINACAO } from "../lib/lightingTree";
 import { exportIluminacaoPDF, resumoCircuito } from "../lib/iluminacaoPdf";
+import { proximoNumero } from "../lib/sequencialRotulos";
 import { METODOS_INSTALACAO } from "../data/nbr5410Ampacidade";
 
 const STORAGE_KEY = "iluminacao.v3";
@@ -265,9 +266,15 @@ export default function IluminacaoTab({ dark, ativo = true }) {
   /* ---------- circuitos ---------- */
 
   const addCircuito = () => {
-    // Novo circuito herda os parâmetros do ativo (mesma rede, outra sala).
-    const c = novoCircuito(`Circuito ${store.circuitos.length + 1}`, circ.params);
-    setStore((s) => ({ circuitos: [...s.circuitos, c], ativoId: c.id }));
+    // Tudo derivado DENTRO do updater: dois cliques no mesmo lote de render
+    // liam o mesmo `store` e geravam dois "Circuito 2".
+    setStore((s) => {
+      const base = s.circuitos.find((c) => c.id === s.ativoId) ?? s.circuitos[0];
+      const n = proximoNumero(s.circuitos.map((c) => c.nome), /^Circuito (\d+)$/);
+      // Novo circuito herda os parâmetros do ativo (mesma rede, outra sala).
+      const c = novoCircuito(`Circuito ${n}`, base.params);
+      return { circuitos: [...s.circuitos, c], ativoId: c.id };
+    });
   };
   const removeCircuito = () => {
     if (store.circuitos.length <= 1) return;
@@ -298,17 +305,32 @@ export default function IluminacaoTab({ dark, ativo = true }) {
     setEdges((es) => es.map((e) => (e.id === id ? { ...e, data: { ...e.data, metodo: metodo || undefined } } : e)));
 
   const addNo = (tipo) => {
-    const selecionado = nodes.find((n) => n.selected) ?? nodes[nodes.length - 1];
-    const seq = nodes.filter((n) => n.type === tipo).length + 1;
     const id = uid("n");
-    const label = tipo === "luminaria" ? `L${seq}` : `CX${seq}`;
-    const position = { x: selecionado.position.x + 220, y: selecionado.position.y + (seq % 2 ? 40 : -40) };
-    setNodes((ns) => [
-      ...ns.map((n) => ({ ...n, selected: false })),
-      { id, type: tipo, position, selected: true, data: tipo === "luminaria" ? { label, qtd: 1 } : { label } },
-    ]);
-    // Já sai ligado ao nó selecionado (ou ao último), com 10 m para ajustar.
-    setEdges((es) => [...es, { id: `e-${id}`, source: selecionado.id, target: id, type: "trecho", data: { distancia: 10 } }]);
+    // Nó e ligação num único update, com tudo (pai, rótulo, posição) derivado
+    // do estado FRESCO: lendo do closure, dois cliques no mesmo lote de render
+    // criavam dois nós com o mesmo rótulo e na mesma posição — um escondido
+    // sob o outro, inflando a corrente do circuito sem aparecer no diagrama.
+    updateCirc((c) => {
+      const selecionado = c.nodes.find((n) => n.selected) ?? c.nodes[c.nodes.length - 1];
+      const prefixo = tipo === "luminaria" ? "L" : "CX";
+      const seq = proximoNumero(
+        c.nodes.filter((n) => n.type === tipo).map((n) => n.data.label),
+        new RegExp(`^${prefixo}(\\d+)$`)
+      );
+      const label = `${prefixo}${seq}`;
+      const position = {
+        x: selecionado.position.x + 220,
+        y: selecionado.position.y + (seq % 2 ? 40 : -40),
+      };
+      return {
+        nodes: [
+          ...c.nodes.map((n) => ({ ...n, selected: false })),
+          { id, type: tipo, position, selected: true, data: tipo === "luminaria" ? { label, qtd: 1 } : { label } },
+        ],
+        // Já sai ligado ao nó selecionado (ou ao último), com 10 m para ajustar.
+        edges: [...c.edges, { id: `e-${id}`, source: selecionado.id, target: id, type: "trecho", data: { distancia: 10 } }],
+      };
+    });
   };
 
   const limparDiagrama = () => {

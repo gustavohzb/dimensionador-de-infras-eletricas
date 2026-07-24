@@ -192,8 +192,8 @@ export function layoutCablesSplit(cables, trayWidth, trayHeight, septum = SEPTUM
   const fits =
     width1 > 0 &&
     width2 > 0 &&
-    rectFits(forcaItems, width1, trayHeight) &&
-    rectFits(comandoItemsLocal, width2, trayHeight);
+    rectFits(forcaItems, width1) &&
+    rectFits(comandoItemsLocal, width2);
   return { items: [...forcaItems, ...comandoItems], w1: width1, w2: width2, septum, fits };
 }
 
@@ -342,7 +342,10 @@ export function layoutCablesCircular(cables, R) {
 // contorno físico da infraestrutura).
 export const FIT_EPS = 0.05;
 
-export function rectFits(items, trayWidth, trayHeight) {
+// O fundo não precisa de checagem: a deposição por gravidade nunca coloca um
+// cabo abaixo de cy = trayHeight - r. O que pode vazar é o topo (pilha alta
+// demais) e as laterais — por isso a altura não entra aqui.
+export function rectFits(items, trayWidth) {
   return items.every(
     (i) => i.cy - i.r >= -FIT_EPS && i.cx - i.r >= -FIT_EPS && i.cx + i.r <= trayWidth + FIT_EPS
   );

@@ -104,7 +104,7 @@ export function findBestFits(cables, options = {}) {
         const occ = computeOccupancy(cables, trayArea, false);
         if (!occ.dentroLimite) continue; // já falha na área % — nem tenta empacotar
         const items = layoutCables(cables, w, h);
-        if (!rectFits(items, w, h)) continue; // falhou fisicamente apesar da área % ok
+        if (!rectFits(items, w)) continue; // falhou fisicamente apesar da área % ok
         const camadas = countLayers(items, groundedRect(h));
         if (maxLayers && camadas > maxLayers) continue;
         results.push({

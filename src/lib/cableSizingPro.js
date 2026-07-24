@@ -41,16 +41,11 @@ export function correnteDeProjeto({ modo, corrente, potencia, unidade, tensao, f
   const rend = Number(rendimento) || 1;
   if (!(p > 0) || !(v > 0)) return { error: "Informe potência e tensão." };
   const kV = esquema.kQueda === 2 ? v : Math.sqrt(3) * v;
-  let watts;
-  if (unidade === "CV") watts = p * 736;
-  else if (unidade === "kW") watts = p * 1000;
-  else if (unidade === "kVA") watts = p * 1000 * cosf; // S → P aparente já com fp na divisão
-  else watts = p;
-  // kVA: I = S/ (k·V); demais: I = P / (k·V·fp·η)
-  const i =
-    unidade === "kVA"
-      ? (p * 1000) / kV
-      : watts / (kV * cosf * rend);
+  // kVA já é potência aparente: I = S/(k·V), sem fp nem rendimento. As demais
+  // unidades são potência ativa (de eixo, no caso de CV): I = P/(k·V·fp·η).
+  if (unidade === "kVA") return { corrente: ((p * 1000) / kV) * (Number(fatorServico) || 1) };
+  const watts = unidade === "CV" ? p * 736 : unidade === "kW" ? p * 1000 : p;
+  const i = watts / (kV * cosf * rend);
   return { corrente: i * (Number(fatorServico) || 1) };
 }
 

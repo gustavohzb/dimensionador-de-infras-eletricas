@@ -9,6 +9,7 @@ import { ESQUEMAS } from "../data/cabosNBR5410";
 import { designacaoCabos } from "../lib/cableSizingPro";
 import { circuitosParaLinhas } from "../lib/quadroToMemorial";
 import { exportCircuitoPDF, exportMemorialPDF } from "../lib/memorialPdf";
+import { proximoNumero } from "../lib/sequencialRotulos";
 
 const STORAGE_KEY = "quadroCargas.v2";
 const STORAGE_KEY_V1 = "quadroCargas.v1";
@@ -64,9 +65,10 @@ function carregarEstado() {
 // (material, temperatura, quedas, seções) vale para todos os circuitos; os
 // projetos ficam no Supabase (tabela projetos_cabos).
 export default function QuadroCargasTab({ onEnviarParaInfra }) {
-  const inicial = carregarEstado();
-  const [circuitos, setCircuitos] = useState(inicial.circuitos);
-  const [preset, setPreset] = useState(inicial.preset);
+  // Lazy: sem a função, carregarEstado() rodava (lendo e parseando o
+  // localStorage inteiro) a cada render — inclusive a cada tecla digitada.
+  const [circuitos, setCircuitos] = useState(() => carregarEstado().circuitos);
+  const [preset, setPreset] = useState(() => carregarEstado().preset);
   const [selecionado, setSelecionado] = useState(0);
   // Índices marcados para envio à aba Infraestrutura (checkbox por linha).
   const [selecionadosEnvio, setSelecionadosEnvio] = useState(() => new Set());
@@ -90,7 +92,11 @@ export default function QuadroCargasTab({ onEnviarParaInfra }) {
   };
 
   const adicionar = () => {
-    setCircuitos([...circuitos, novoCircuito(circuitos.length + 1)]);
+    // Updater funcional: espalhar o `circuitos` do closure fazia dois cliques
+    // no mesmo lote de render perderem um dos circuitos (o 2º sobrescrevia o
+    // 1º) e repetirem a tag. A tag vem do maior AL-NN já usado, não da
+    // contagem — senão remover um do meio repete uma tag existente.
+    setCircuitos((cs) => [...cs, novoCircuito(proximoNumero(cs.map((c) => c.tag), /^AL-(\d+)/))]);
     setSelecionado(circuitos.length);
   };
   const editar = (i) => {
