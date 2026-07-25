@@ -10,9 +10,14 @@ const FILTROS = [
   { id: "interno", label: "Interno" },
 ];
 
-function formatarData(iso) {
+const MESES = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+
+function formatarDia(iso) {
   const [ano, mes, dia] = iso.split("-");
-  return `${dia}/${mes}/${ano}`;
+  return `${Number(dia)} de ${MESES[Number(mes) - 1]} de ${ano}`;
 }
 
 function Etiqueta({ tipo }) {
@@ -24,7 +29,7 @@ function Etiqueta({ tipo }) {
   );
 }
 
-function Entrada({ update, atual }) {
+function Entrada({ release, atual }) {
   return (
     <li className="relative pl-8">
       {/* Marcador na linha do tempo — o da versão atual vem preenchido. */}
@@ -38,21 +43,18 @@ function Entrada({ update, atual }) {
       <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-mono text-sm font-bold text-copper-700 dark:text-copper-400">
-            v{update.versao}
+            v{release.versao}
           </span>
-          <Etiqueta tipo={update.tipo} />
+          <Etiqueta tipo={release.tipo} />
           {atual && (
             <span className="rounded-xs border border-copper-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-copper-700 dark:border-copper-400 dark:text-copper-400">
               Versão atual
             </span>
           )}
-          <span className="ml-auto font-mono text-[11px] text-slate-400 dark:text-slate-500">
-            {formatarData(update.data)}
-          </span>
         </div>
-        <h3 className="mt-1.5 text-sm font-semibold text-slate-800 dark:text-slate-100">{update.titulo}</h3>
+        <h3 className="mt-1.5 text-sm font-semibold text-slate-800 dark:text-slate-100">{release.titulo}</h3>
         <ul className="mt-1.5 space-y-1 text-sm text-slate-600 dark:text-slate-300">
-          {update.itens.map((item, i) => (
+          {release.itens.map((item, i) => (
             <li key={i} className="flex gap-2">
               <span className="text-copper-600 dark:text-copper-400">•</span>
               <span>{item}</span>
@@ -66,19 +68,39 @@ function Entrada({ update, atual }) {
 
 export default function AtualizacoesTab() {
   const [filtro, setFiltro] = useState("todos");
+  // As entradas internas (testes, limpeza) não interessam a quem só quer
+  // saber o que mudou no app — ficam escondidas até alguém pedir. Filtrar
+  // por "Interno" mostra assim mesmo: aí o pedido é explícito.
+  const [mostrarInternos, setMostrarInternos] = useState(false);
 
   // Mais recente primeiro — é o que interessa ao abrir a aba.
   const recentesPrimeiro = useMemo(() => [...CHANGELOG].reverse(), []);
+
   const visiveis = useMemo(
-    () => (filtro === "todos" ? recentesPrimeiro : recentesPrimeiro.filter((u) => u.tipo === filtro)),
-    [filtro, recentesPrimeiro]
+    () =>
+      recentesPrimeiro.filter((r) =>
+        filtro === "todos" ? mostrarInternos || r.tipo !== "interno" : r.tipo === filtro
+      ),
+    [filtro, mostrarInternos, recentesPrimeiro]
   );
+
+  // Um cabeçalho por dia, na ordem em que os releases aparecem.
+  const porDia = useMemo(() => {
+    const dias = [];
+    for (const r of visiveis) {
+      if (dias.at(-1)?.data !== r.data) dias.push({ data: r.data, releases: [] });
+      dias.at(-1).releases.push(r);
+    }
+    return dias;
+  }, [visiveis]);
 
   const contagem = useMemo(() => {
     const c = {};
-    for (const u of CHANGELOG) c[u.tipo] = (c[u.tipo] ?? 0) + 1;
+    for (const r of CHANGELOG) c[r.tipo] = (c[r.tipo] ?? 0) + 1;
     return c;
   }, []);
+
+  const internos = contagem.interno ?? 0;
 
   return (
     <div className="mx-auto max-w-3xl space-y-3">
@@ -92,14 +114,15 @@ export default function AtualizacoesTab() {
           </span>
         </div>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Tudo o que mudou no app desde a primeira versão. A contagem começa na{" "}
-          <b className="font-mono font-semibold text-slate-600 dark:text-slate-300">0.00</b> e cada
-          atualização soma 0,01 — são {CHANGELOG.length} até agora.
+          Tudo o que mudou no app desde a primeira versão, em {CHANGELOG.length} releases. A versão
+          segue o formato <b className="font-mono font-semibold text-slate-600 dark:text-slate-300">maior.menor.correção</b>:
+          a primeira casa muda quando muda a cara ou a estrutura do app, a segunda quando entra
+          funcionalidade nova e a terceira em consertos e ajustes finos.
         </p>
 
         <div className="mt-3 flex flex-wrap gap-1.5">
           {FILTROS.map((f) => {
-            const n = f.id === "todos" ? CHANGELOG.length : (contagem[f.id] ?? 0);
+            const n = f.id === "todos" ? visiveis.length : (contagem[f.id] ?? 0);
             const ativo = filtro === f.id;
             return (
               <button
@@ -117,14 +140,39 @@ export default function AtualizacoesTab() {
             );
           })}
         </div>
+
+        {filtro === "todos" && internos > 0 && (
+          <button
+            type="button"
+            onClick={() => setMostrarInternos((v) => !v)}
+            className="mt-2 text-xs text-slate-500 underline decoration-dotted underline-offset-2 transition hover:text-copper-700 dark:text-slate-400 dark:hover:text-copper-400"
+          >
+            {internos === 1
+              ? mostrarInternos
+                ? "Ocultar a atualização interna"
+                : "Mostrar também a atualização interna (testes e limpeza de código)"
+              : mostrarInternos
+                ? `Ocultar as ${internos} atualizações internas`
+                : `Mostrar também as ${internos} atualizações internas (testes e limpeza de código)`}
+          </button>
+        )}
       </div>
 
       {/* Linha do tempo: um traço vertical atrás dos marcadores. */}
-      <ol className="relative space-y-2.5 border-l border-slate-200 pb-2 dark:border-slate-800">
-        {visiveis.map((u) => (
-          <Entrada key={u.versao} update={u} atual={u.versao === APP_VERSION} />
+      <div className="relative space-y-4 border-l border-slate-200 pb-2 dark:border-slate-800">
+        {porDia.map((dia) => (
+          <section key={dia.data}>
+            <h2 className="mb-2 pl-8 font-display text-xs font-bold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+              {formatarDia(dia.data)}
+            </h2>
+            <ol className="space-y-2.5">
+              {dia.releases.map((r) => (
+                <Entrada key={r.versao} release={r} atual={r.versao === APP_VERSION} />
+              ))}
+            </ol>
+          </section>
         ))}
-      </ol>
+      </div>
     </div>
   );
 }
