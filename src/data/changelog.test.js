@@ -1,25 +1,45 @@
 import { describe, it, expect } from "vitest";
-import { CHANGELOG, APP_VERSION, TIPOS, versaoDoIndice } from "./changelog";
+import { CHANGELOG, APP_VERSION, TIPOS, compararVersao } from "./changelog";
 
 describe("changelog", () => {
-  it("começa na 0.00 e soma 0,01 por atualização, sem pular nem repetir", () => {
-    expect(CHANGELOG[0].versao).toBe("0.00");
-    CHANGELOG.forEach((u, i) => expect(u.versao).toBe(versaoDoIndice(i)));
+  it("a versão só anda para frente", () => {
+    for (let i = 1; i < CHANGELOG.length; i++) {
+      const anterior = CHANGELOG[i - 1].versao;
+      const atual = CHANGELOG[i].versao;
+      expect(
+        compararVersao(atual, anterior),
+        `${atual} não vem depois de ${anterior}`
+      ).toBeGreaterThan(0);
+    }
     expect(new Set(CHANGELOG.map((u) => u.versao)).size).toBe(CHANGELOG.length);
   });
 
-  it("passa de 0.99 para 1.00 (a centena vira, não fica 0.100)", () => {
-    expect(versaoDoIndice(99)).toBe("0.99");
-    expect(versaoDoIndice(100)).toBe("1.00");
-    expect(versaoDoIndice(101)).toBe("1.01");
+  it("a casa que sobe zera as menores", () => {
+    for (let i = 1; i < CHANGELOG.length; i++) {
+      const [maiorAnt, menorAnt] = CHANGELOG[i - 1].versao.split(".").map(Number);
+      const [maior, menor, correcao] = CHANGELOG[i].versao.split(".").map(Number);
+      const onde = `${CHANGELOG[i - 1].versao} -> ${CHANGELOG[i].versao}`;
+      if (maior > maiorAnt) {
+        expect([menor, correcao], `${onde}: subiu a maior, menor e correção deviam zerar`).toEqual([0, 0]);
+      } else if (menor > menorAnt) {
+        expect(correcao, `${onde}: subiu a menor, correção devia zerar`).toBe(0);
+      }
+    }
+  });
+
+  it("compararVersao ordena por número, não por texto", () => {
+    expect(compararVersao("1.9.0", "1.10.0")).toBeLessThan(0);
+    expect(compararVersao("1.0.0", "0.14.5")).toBeGreaterThan(0);
+    expect(compararVersao("1.2.3", "1.2.3")).toBe(0);
   });
 
   it("APP_VERSION é a da última atualização", () => {
     expect(APP_VERSION).toBe(CHANGELOG[CHANGELOG.length - 1].versao);
   });
 
-  it("toda entrada tem data, título, tipo conhecido e ao menos um item", () => {
+  it("toda entrada tem versão, data, título, tipo conhecido e ao menos um item", () => {
     for (const u of CHANGELOG) {
+      expect(u.versao, `versão fora do formato maior.menor.correção: ${u.versao}`).toMatch(/^\d+\.\d+\.\d+$/);
       expect(u.data).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(u.titulo.length).toBeGreaterThan(0);
       expect(TIPOS[u.tipo], `tipo desconhecido em v${u.versao}: ${u.tipo}`).toBeDefined();

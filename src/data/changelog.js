@@ -1,10 +1,15 @@
-// Histórico de atualizações do app.
+// Histórico de releases do app.
 //
-// Cada entrada é UM update. A versão não é escrita à mão: sai da posição na
-// lista (a primeira é 0.00 e cada update seguinte soma 0.01), então nunca há
-// como duas entradas terem a mesma versão nem como um número ficar para trás.
-// Para lançar um update novo, acrescente no FIM da lista — a versão atual do
-// app (APP_VERSION, exibida na aba Sobre) acompanha sozinha.
+// Uma entrada é um RELEASE, não um commit: mudanças do mesmo assunto entram
+// como itens de uma entrada só.
+//
+// A versão é escrita à mão, no formato MAIOR.MENOR.CORREÇÃO:
+//   - MAIOR    muda a cara ou a estrutura do app (1.0.0 é o redesign
+//              cobre/aço, que trocou a identidade visual inteira)
+//   - MENOR    funcionalidade nova
+//   - CORREÇÃO conserto, ajuste fino ou trabalho interno
+// A casa que sobe zera as menores: 1.9.2 -> 1.10.0 -> 2.0.0. Os testes em
+// changelog.test.js travam isso e a ordem cronológica.
 //
 // tipo: "novo" (funcionalidade nova) | "melhoria" | "correcao" |
 //       "dados" (catálogo ou tabela normativa) | "interno" (qualidade/testes)
@@ -17,8 +22,10 @@ export const TIPOS = {
   interno: { label: "Interno", classe: "bg-slate-100 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300" },
 };
 
-const UPDATES = [
+// Do mais antigo para o mais novo. Acrescente o release novo no FIM.
+export const CHANGELOG = [
   {
+    versao: "0.1.0",
     data: "2026-07-08",
     titulo: "Primeira versão do Dimensionador",
     tipo: "novo",
@@ -29,6 +36,7 @@ const UPDATES = [
     ],
   },
   {
+    versao: "0.2.0",
     data: "2026-07-08",
     titulo: "Projetos salvos na nuvem",
     tipo: "novo",
@@ -38,59 +46,41 @@ const UPDATES = [
     ],
   },
   {
+    versao: "0.2.1",
     data: "2026-07-08",
-    titulo: "Título da aba do navegador corrigido",
+    titulo: "Projeto ativo, desvincular e título da aba",
     tipo: "correcao",
-    itens: ["A aba do navegador mostrava o título padrão do gerador de projeto."],
-  },
-  {
-    data: "2026-07-08",
-    titulo: "Ciclo de vida do projeto: criar antes, salvar durante",
-    tipo: "melhoria",
     itens: [
-      "Antes, cada \"Salvar\" criava uma linha nova no banco e gerava duplicatas.",
-      "Agora existe projeto ativo: dá para criar o projeto vazio e ir salvando o progresso nele enquanto trabalha.",
-      "Opção de desvincular e salvar como cópia.",
+      "Antes, cada \"Salvar\" criava uma linha nova no banco e gerava duplicatas; agora existe projeto ativo e dá para ir salvando o progresso nele.",
+      "\"Desvincular\" só parava de rastrear o projeto e deixava os cabos na tela — agora zera tudo, com confirmação antes por ser destrutivo.",
+      "A aba do navegador mostrava o título padrão do gerador de projeto.",
     ],
   },
   {
-    data: "2026-07-08",
-    titulo: "Desvincular passa a zerar tudo",
-    tipo: "correcao",
-    itens: [
-      "Antes, \"Desvincular\" só parava de rastrear o projeto e deixava os cabos na tela.",
-      "Agora zera infraestrutura, dimensões e cabos, com confirmação antes por ser destrutivo.",
-    ],
-  },
-  {
+    versao: "0.3.0",
     data: "2026-07-09",
     titulo: "Busca reversa: a melhor infraestrutura para um conjunto de cabos",
     tipo: "novo",
     itens: [
-      "Nova aba \"Buscar Infraestrutura\": você monta a lista de cabos e o app testa todas as infraestruturas e normas cadastradas.",
+      "Você monta a lista de cabos e o app testa todas as infraestruturas e normas cadastradas.",
       "A confirmação é física, pelo mesmo motor de empacotamento por gravidade da visualização — não só pela conta de área %, que é necessária mas não suficiente.",
       "Botão \"Usar esta opção\" carrega o resultado direto no dimensionador.",
     ],
   },
   {
+    versao: "0.4.0",
     data: "2026-07-09",
     titulo: "Aba de cabos de comando (catálogo CABLIE)",
     tipo: "novo",
     itens: [
       "Catálogo de cabo de controle CABLIE, com seções até 4,0 mm² e de 2 a 35 condutores.",
       "Reaproveita todo o motor existente: empacotamento físico, ocupação e projetos salvos.",
-    ],
-  },
-  {
-    data: "2026-07-09",
-    titulo: "Cabo invisível na aba Comando",
-    tipo: "correcao",
-    itens: [
-      "As abas ficam todas montadas ao mesmo tempo e cada visualização repetia os mesmos ids de filtro/gradiente do SVG; o desenho resolvia para uma aba oculta e o cabo sumia.",
+      "Corrige o cabo que sumia da tela: as abas ficam todas montadas ao mesmo tempo e cada visualização repetia os mesmos identificadores de filtro do desenho, que resolviam para uma aba oculta.",
       "Abas renomeadas para Força e Comando.",
     ],
   },
   {
+    versao: "0.5.0",
     data: "2026-07-09",
     titulo: "Septo divisor para trechos com Força e Comando juntos",
     tipo: "novo",
@@ -101,81 +91,41 @@ const UPDATES = [
     ],
   },
   {
+    versao: "0.5.1",
     data: "2026-07-09",
-    titulo: "Número de condutores impresso na capa do cabo de comando",
+    titulo: "Desenho do cabo de comando",
     tipo: "melhoria",
     itens: [
-      "Antes todo cabo de comando era desenhado igual, sem diferenciar quantos condutores tinha.",
-      "A capa agora exibe o número no centro, como a marcação real desses cabos — decompor em 35 cores seria ilegível.",
+      "A capa passa a exibir o número de condutores no centro, como a marcação real desses cabos — decompor em 35 cores seria ilegível.",
+      "Sai o brilho cilíndrico usado nos demais tipos; o cabo de comando fica preto sólido.",
     ],
   },
   {
-    data: "2026-07-09",
-    titulo: "Cabo de comando sem brilho, preto sólido",
-    tipo: "melhoria",
-    itens: ["Removido o gradiente cilíndrico usado nos demais tipos, a pedido."],
-  },
-  {
+    versao: "0.5.2",
     data: "2026-07-09",
     titulo: "Visualização da opção escolhida dentro da própria busca",
     tipo: "melhoria",
     itens: [
-      "\"Usar esta opção\" não troca mais de aba: a visualização e a taxa de ocupação aparecem logo abaixo dos resultados.",
-      "Dá para alternar entre as opções e ver cada uma no mesmo lugar.",
+      "\"Usar esta opção\" não troca mais de aba: a visualização e a taxa de ocupação aparecem logo abaixo dos resultados, e dá para alternar entre as opções no mesmo lugar.",
+      "Uma seta âmbar aponta para o septo divisor, que antes era só uma parede metálica fácil de não perceber.",
     ],
   },
   {
+    versao: "0.5.3",
     data: "2026-07-09",
-    titulo: "Seta indicando o septo divisor na visualização",
-    tipo: "melhoria",
-    itens: ["Antes só existia a parede metálica entre os compartimentos, fácil de não perceber; agora uma seta âmbar aponta para ela."],
-  },
-  {
-    data: "2026-07-09",
-    titulo: "Taxa de ocupação desatualizada após adicionar cabos",
+    titulo: "Correções no desenho e na taxa de ocupação",
     tipo: "correcao",
     itens: [
-      "A opção aplicada guardava ocupação e área congeladas do momento da busca; agora recalcula ao vivo a cada mudança no trecho, inclusive por compartimento.",
-      "Corrige junto um travamento ao exibir a taxa quando a melhor opção era um eletroduto.",
+      "A taxa de ocupação ficava congelada no momento da busca; agora recalcula ao vivo a cada mudança no trecho, inclusive por compartimento. Corrige junto um travamento quando a melhor opção era um eletroduto.",
+      "Quando a combinação seção/tipo/vias não existia no catálogo, o app caía num diâmetro chute (4, 12 ou 8 mm) e desenhava o cabo com uma medida inventada, com a mesma cara de dado real — agora falha com erro descritivo.",
+      "O condutor do multipolar de 4 vias furava a capa externa em cerca de 7%.",
+      "Os nós do aramado eram desenhados metade para fora da área útil, e depois de recuados ficaram do lado errado: eles representam a parede e devem ficar por fora, sem invadir o espaço dos cabos.",
+      "Metade da espessura da linha do aramado invadia o espaço de apoio e os cabos pareciam afundar nela.",
+      "Os nós do fundo eram distribuídos por toda a largura, mas o trecho reto só existe entre as quinas curvas — os das pontas ficavam soltos, fora da linha.",
     ],
   },
   {
-    data: "2026-07-09",
-    titulo: "Diâmetro inventado nos catálogos deixa de existir",
-    tipo: "correcao",
-    itens: [
-      "Quando a combinação seção/tipo/vias não existia na tabela, o app caía num número chute (4, 12 ou 8 mm) e desenhava o cabo com uma medida inventada, com a mesma cara de dado real.",
-      "Agora falha com erro descritivo — era um alçapão pronto para mascarar um erro de catálogo futuro.",
-    ],
-  },
-  {
-    data: "2026-07-09",
-    titulo: "Condutor do multipolar de 4 vias vazando da capa",
-    tipo: "correcao",
-    itens: ["O condutor furava a capa externa em cerca de 7%; raio e centro ajustados para a mesma folga usada no caso de 3 vias."],
-  },
-  {
-    data: "2026-07-09",
-    titulo: "Nós do aramado vazando da área útil",
-    tipo: "correcao",
-    itens: ["Os círculos ficavam centrados na borda, então metade de cada um era desenhada fora do retângulo útil."],
-  },
-  {
-    data: "2026-07-09",
-    titulo: "Nós do aramado do lado de fora, não de dentro",
-    tipo: "correcao",
-    itens: ["Os nós representam a parede do aramado e devem ficar por fora, como a chapa das demais estruturas, sem invadir o espaço dos cabos."],
-  },
-  {
-    data: "2026-07-09",
-    titulo: "Linha do aramado sobrepondo cabos e nós soltos nas quinas",
-    tipo: "correcao",
-    itens: [
-      "Metade da espessura do traço invadia o espaço de apoio e os cabos pareciam afundar na linha.",
-      "Os nós do fundo eram distribuídos por toda a largura, mas o trecho reto só existe entre as quinas curvas — os das pontas ficavam fora da linha.",
-    ],
-  },
-  {
+    versao: "0.6.0",
     data: "2026-07-10",
     titulo: "Importador de cabos direto do memorial de cálculo (Excel)",
     tipo: "novo",
@@ -186,25 +136,19 @@ const UPDATES = [
     ],
   },
   {
+    versao: "0.7.0",
     data: "2026-07-10",
     titulo: "Limite de camadas na busca de infraestrutura",
     tipo: "novo",
     itens: [
       "Novo seletor \"Máximo de camadas\" (sem limite, 1 a 4): empilhar cabos demais piora a dissipação térmica, então a menor opção física nem sempre é a desejável.",
       "A camada sai do próprio resultado do empacotamento, por quem fisicamente sustenta o cabo — não de uma grade artificial.",
+      "Cabos de raios diferentes lado a lado no mesmo chão eram lidos como empilhados, e a busca rejeitava infraestruturas válidas sempre que o trecho misturava tamanhos de cabo — o caso comum.",
+      "Quando o limite rejeitava tudo, a mensagem culpava a ocupação; agora o app refaz a busca sem limite para descobrir o mínimo necessário e diz exatamente isso.",
     ],
   },
   {
-    data: "2026-07-10",
-    titulo: "Contagem de camadas superestimando o empilhamento",
-    tipo: "correcao",
-    itens: [
-      "Cabos de raios diferentes lado a lado no mesmo chão já têm centros em alturas distintas, e isso era lido como um apoiado sobre o outro.",
-      "A busca rejeitava infraestruturas válidas sempre que o trecho misturava tamanhos de cabo — o caso comum.",
-      "Cabo que toca o fundo ou a parede agora é camada 1 por definição.",
-    ],
-  },
-  {
+    versao: "0.7.1",
     data: "2026-07-10",
     titulo: "Busca limitada a 2 opções por tipo, com alturas diferentes",
     tipo: "melhoria",
@@ -214,152 +158,79 @@ const UPDATES = [
     ],
   },
   {
+    versao: "0.8.0",
     data: "2026-07-10",
     titulo: "Controle por ramal de quais grupos viram trifólio",
-    tipo: "melhoria",
+    tipo: "novo",
     itens: [
       "\"Analisar linhas\" mostra cada ramal do memorial com os componentes detectados antes de importar.",
       "Todo grupo de 3 unipolares de mesma seção vem com o marcador \"Trifólio\" pré-marcado, e você desmarca ramal por ramal antes de confirmar.",
     ],
   },
   {
-    data: "2026-07-10",
-    titulo: "Mensagem específica quando o limite de camadas rejeita tudo",
-    tipo: "melhoria",
-    itens: [
-      "Com \"1 camada\" e trifólios na lista, a busca acusava excesso de ocupação — enganoso, já que um trifólio nunca cabe em 1 camada.",
-      "Agora o app refaz a busca sem limite para descobrir o mínimo necessário e diz exatamente isso.",
-    ],
-  },
-  {
+    versao: "0.8.1",
     data: "2026-07-11",
-    titulo: "Trifólio conta como 1 camada",
-    tipo: "correcao",
-    itens: ["O feixe é manuseado e instalado como peça única, então só soma camada quando algo de fora se apoia em cima dele."],
-  },
-  {
-    data: "2026-07-11",
-    titulo: "Fundo branco em todas as infraestruturas; ramais importados não se agrupam",
+    titulo: "Trifólio como uma camada e ramais importados separados",
     tipo: "correcao",
     itens: [
-      "O chão da eletrocalha e do perfilado ficava cinza enquanto os demais eram claros; agora todos usam branco puro.",
+      "O feixe de trifólio é manuseado e instalado como peça única, então só soma camada quando algo de fora se apoia em cima dele.",
       "Cabos de ramais diferentes com a mesma especificação eram somados numa linha só, escondendo que eram circuitos distintos.",
+      "O chão da eletrocalha e do perfilado ficava cinza enquanto os demais eram claros; agora todos usam branco puro.",
     ],
   },
   {
+    versao: "0.8.2",
     data: "2026-07-11",
     titulo: "Logo oficial no cabeçalho",
     tipo: "melhoria",
-    itens: ["O PNG não tinha transparência, então o logo entra num painel branco para ficar legível nos dois temas."],
+    itens: [
+      "O logo entra no cabeçalho, centralizado entre as abas e o botão de tema.",
+      "A imagem foi processada para tornar o branco transparente, preservando as cores e o degradê do desenho.",
+      "O texto e a linha divisória do logo são escuros e sumiam no cabeçalho escuro; um painel claro atrás resolve sem recolorir a arte.",
+      "Uma tentativa de separar o ícone do bloco de texto foi revertida — o logo volta a ser uma peça única.",
+      "Documentação técnica do projeto.",
+    ],
   },
   {
-    data: "2026-07-11",
-    titulo: "Logo maior e centralizado no cabeçalho",
-    tipo: "melhoria",
-    itens: ["Cabeçalho reorganizado em três colunas para centralizar o logo de verdade entre as abas e o botão de tema."],
-  },
-  {
-    data: "2026-07-11",
-    titulo: "Fundo do logo transparente, sem legenda embaixo",
-    tipo: "melhoria",
-    itens: ["A imagem foi processada para tornar o branco transparente, preservando as cores e o degradê do desenho."],
-  },
-  {
-    data: "2026-07-11",
-    titulo: "Logo legível no modo escuro",
-    tipo: "correcao",
-    itens: ["O texto e a linha divisória do logo são escuros e sumiam no cabeçalho escuro; um painel claro atrás resolve sem recolorir a arte."],
-  },
-  {
-    data: "2026-07-11",
-    titulo: "Ícone e texto do logo posicionados separadamente",
-    tipo: "melhoria",
-    itens: ["Ícone à esquerda e bloco de texto centralizado, cada um posicionado de forma independente."],
-  },
-  {
-    data: "2026-07-11",
-    titulo: "Volta ao logo inteiro no cabeçalho",
-    tipo: "melhoria",
-    itens: ["A separação entre ícone e texto foi revertida — o logo volta a ser uma peça única."],
-  },
-  {
-    data: "2026-07-11",
-    titulo: "Documentação do projeto e logo maior",
-    tipo: "interno",
-    itens: ["Documentação técnica do projeto e novo ajuste no tamanho do logo do cabeçalho."],
-  },
-  {
+    versao: "0.9.0",
     data: "2026-07-11",
     titulo: "Relatório PDF e fator de agrupamento (NBR 5410, Tab. 42)",
     tipo: "novo",
     itens: [
       "Relatório em PDF do trecho dimensionado.",
       "Fator de agrupamento da Tabela 42 aplicado ao conjunto de cabos.",
+      "As três abas passam a gerar o mesmo relatório e a aplicar o mesmo derating.",
     ],
   },
   {
-    data: "2026-07-11",
-    titulo: "Relatório PDF também nas abas Comando e Buscar Infraestrutura",
-    tipo: "novo",
-    itens: ["As três abas passam a gerar o mesmo relatório."],
-  },
-  {
-    data: "2026-07-11",
-    titulo: "Fator de agrupamento nas abas Comando e Buscar Infraestrutura",
-    tipo: "novo",
-    itens: ["O derating passa a valer também nessas duas abas."],
-  },
-  {
+    versao: "0.10.0",
     data: "2026-07-13",
-    titulo: "Aba de dimensionamento de cabos (NBR 5410)",
+    titulo: "Dimensionamento de cabos e Quadro de Cargas",
     tipo: "novo",
-    itens: ["Primeira versão do cálculo de seção de condutor pela norma."],
+    itens: [
+      "Potência em CV ou kVA com rendimento, esquemas de condutores carregados e partida de motores.",
+      "Cobre e alumínio, condutores em paralelo e até 4 trechos de instalação.",
+      "Neutro (Tab. 48) e condutor de proteção (Tab. 58), queda em regime e na partida.",
+      "Memorial PDF do quadro completo e por circuito, com o resultado na designação padrão, tipo 3#25mm²+1#25mm²+1#16mm².",
+      "Edição e cópia de ramais já lançados; CV vira a unidade padrão de potência.",
+    ],
   },
   {
+    versao: "0.10.1",
     data: "2026-07-13",
     titulo: "Quatro valores da Tabela 37 corrigidos",
     tipo: "dados",
     itens: ["Método B2 trifásico, 150 a 300 mm², conferidos célula a célula contra a NBR 5410."],
   },
   {
-    data: "2026-07-13",
-    titulo: "Motor de cálculo completo e Quadro de Cargas",
-    tipo: "novo",
-    itens: [
-      "Potência em CV ou kVA com rendimento, esquemas de condutores carregados e partida de motores.",
-      "Cobre e alumínio, condutores em paralelo e até 4 trechos de instalação.",
-      "Neutro (Tab. 48) e condutor de proteção (Tab. 58), queda em regime e na partida.",
-    ],
-  },
-  {
-    data: "2026-07-13",
-    titulo: "Dimensionamento unificado no Quadro de Cargas",
-    tipo: "melhoria",
-    itens: [
-      "A aba separada some; o formulário continua dentro do Quadro de Cargas.",
-      "Memorial PDF do quadro completo e por circuito.",
-      "Resultado na designação padrão, tipo 3#25mm²+1#25mm²+1#16mm².",
-    ],
-  },
-  {
-    data: "2026-07-13",
-    titulo: "Editar e copiar ramais",
-    tipo: "melhoria",
-    itens: ["Aba renomeada para Dimensionar Cabos, com edição e cópia de ramais já lançados."],
-  },
-  {
-    data: "2026-07-13",
-    titulo: "Resultado mais enxuto e CV como unidade padrão",
-    tipo: "melhoria",
-    itens: ["Saem as caixas separadas de neutro e terra do resultado; CV vira a unidade padrão de potência."],
-  },
-  {
+    versao: "0.11.0",
     data: "2026-07-13",
     titulo: "Aba Infraestrutura única, com modos Manual e Auto",
     tipo: "melhoria",
     itens: ["Força, Comando e Buscar Infraestrutura viram uma aba só: Manual para montar o trecho, Auto para o app procurar."],
   },
   {
+    versao: "0.12.0",
     data: "2026-07-13",
     titulo: "Aba Sobre",
     tipo: "novo",
@@ -369,42 +240,26 @@ const UPDATES = [
     ],
   },
   {
+    versao: "0.12.1",
     data: "2026-07-13",
-    titulo: "Emblema no cabeçalho da aba Sobre",
-    tipo: "melhoria",
-    itens: ["Usa só o emblema, sem o bloco de texto do logo."],
-  },
-  {
-    data: "2026-07-13",
-    titulo: "Texto sobreposto na tabela do Memorial PDF",
+    titulo: "Ajustes no quadro de cargas e no memorial PDF",
     tipo: "correcao",
-    itens: ["As colunas do quadro de cargas se sobrepunham no PDF."],
+    itens: [
+      "As colunas do quadro de cargas se sobrepunham no PDF.",
+      "A letra grega η não existe na fonte padrão do PDF e causava sobreposição; passa a sair como \"Rend.\".",
+      "Queda em regime e na partida (%R e %P) explicadas na tela e no memorial.",
+      "Tensão, Ib, %R e %P ficavam invisíveis no tema escuro.",
+    ],
   },
   {
-    data: "2026-07-13",
-    titulo: "Símbolo de rendimento trocado no PDF",
-    tipo: "correcao",
-    itens: ["A letra grega η não existe na fonte padrão do PDF e causava sobreposição; passa a sair como \"Rend.\"."],
-  },
-  {
-    data: "2026-07-13",
-    titulo: "Explicação de %R e %P no quadro de cargas",
-    tipo: "melhoria",
-    itens: ["Queda em regime e na partida explicadas na tela e no memorial PDF."],
-  },
-  {
-    data: "2026-07-13",
-    titulo: "Contraste do quadro de cargas no modo escuro",
-    tipo: "correcao",
-    itens: ["Tensão, Ib, %R e %P ficavam invisíveis no tema escuro."],
-  },
-  {
+    versao: "0.12.2",
     data: "2026-07-14",
     titulo: "Importar do memorial sai do modo Manual",
     tipo: "melhoria",
     itens: ["O import pertence ao fluxo Auto; no Manual só poluía a tela."],
   },
   {
+    versao: "0.13.0",
     data: "2026-07-14",
     titulo: "Preset global e projetos na aba Cabos Elétricos",
     tipo: "novo",
@@ -415,12 +270,18 @@ const UPDATES = [
     ],
   },
   {
+    versao: "0.13.1",
     data: "2026-07-14",
-    titulo: "Temperatura ambiente volta a ser por trecho",
+    titulo: "Cada parâmetro no seu lugar",
     tipo: "melhoria",
-    itens: ["Cada trecho tem a sua; não faz sentido um valor único global no preset."],
+    itens: [
+      "A temperatura ambiente volta a ser por trecho — não faz sentido um valor único global no preset.",
+      "O fator de potência passa a ser do preset, e o alumínio fica restrito a 90 °C: não há cabo de alumínio com isolação PVC comercial.",
+      "A queda máxima na partida vira campo do circuito, já que cada motor pode ter um limite diferente, e só aparece quando há forma de partida selecionada.",
+    ],
   },
   {
+    versao: "0.14.0",
     data: "2026-07-14",
     titulo: "Condutor a 70 °C (PVC) além de 90 °C (EPR/XLPE)",
     tipo: "dados",
@@ -431,88 +292,40 @@ const UPDATES = [
     ],
   },
   {
+    versao: "0.14.1",
     data: "2026-07-14",
-    titulo: "Alumínio restrito a 90 °C e fator de potência no preset",
-    tipo: "melhoria",
-    itens: ["Não há cabo de alumínio com isolação PVC comercial; o F.P. passa a ser um valor do preset."],
-  },
-  {
-    data: "2026-07-14",
-    titulo: "Queda máxima na partida vira campo do circuito",
-    tipo: "melhoria",
-    itens: ["Cada motor pode ter um limite diferente, então o campo só aparece quando há forma de partida selecionada."],
-  },
-  {
-    data: "2026-07-14",
-    titulo: "Siglas para o critério dominante, com legenda",
+    titulo: "Critério dominante em siglas, com legenda",
     tipo: "melhoria",
     itens: [
       "A coluna Critério truncava o texto; agora mostra CC, QR, QP ou SM com o texto completo na dica.",
-      "Legenda explicando cada sigla abaixo da tabela e no rodapé do memorial.",
+      "Legenda explicando cada sigla abaixo da tabela e no rodapé do memorial, quebrada em duas linhas para não sair da margem.",
     ],
   },
   {
+    versao: "0.14.2",
     data: "2026-07-14",
-    titulo: "Legenda de critérios em duas linhas no PDF",
-    tipo: "correcao",
-    itens: ["A legenda saía da margem da página quando ficava em uma linha só."],
-  },
-  {
-    data: "2026-07-14",
-    titulo: "Condutores por fase movidos para o painel Carga",
+    titulo: "Ajustes no painel Carga",
     tipo: "melhoria",
-    itens: ["O painel Condutor tinha esse campo único e foi removido."],
+    itens: [
+      "Condutores por fase vem para o painel Carga; o painel Condutor tinha esse campo único e foi removido.",
+      "Nova ordem: condutores carregados e por fase juntos, depois forma de partida, e então tensão de linha antes da corrente ou potência.",
+      "Rótulos quebravam em quantidades diferentes de linha e empurravam os campos para alturas distintas.",
+      "Eletrocalha, eletroduto e canaleta embutida mostram a distribuição desabilitada com \"Feixe\", mantendo o padrão visual; o arranjo não se aplica a esses métodos.",
+    ],
   },
   {
+    versao: "0.14.3",
     data: "2026-07-14",
-    titulo: "Campos desalinhados na linha Condutores/Tensão/Fase",
-    tipo: "correcao",
-    itens: ["Rótulos quebravam em quantidades diferentes de linha e empurravam os campos para alturas distintas."],
-  },
-  {
-    data: "2026-07-14",
-    titulo: "Tensão de linha antes da potência",
-    tipo: "melhoria",
-    itens: ["Reordena o bloco de condutores carregados, tensão e condutores por fase."],
-  },
-  {
-    data: "2026-07-14",
-    titulo: "Só a tensão de linha muda de lugar",
-    tipo: "melhoria",
-    itens: ["Condutores carregados e por fase voltam a ficar juntos numa linha de duas colunas, com mais espaço para o rótulo."],
-  },
-  {
-    data: "2026-07-14",
-    titulo: "Forma de partida depois de condutores por fase",
-    tipo: "melhoria",
-    itens: ["Nova ordem do painel Carga: condutores, forma de partida e então tensão e corrente ou potência."],
-  },
-  {
-    data: "2026-07-14",
-    titulo: "Distribuição \"Feixe\" fixa para condutos B1 e B2",
-    tipo: "melhoria",
-    itens: ["Eletrocalha, eletroduto e canaleta embutida mostram o campo desabilitado com \"Feixe\", mantendo o padrão visual; o arranjo não se aplica a esses métodos."],
-  },
-  {
-    data: "2026-07-14",
-    titulo: "Testes de valor conferido do motor de dimensionamento",
+    titulo: "Cálculo travado contra a norma",
     tipo: "interno",
     itens: [
       "17 casos com seção final e critério dominante calculados à mão pela NBR 5410 — não capturas do resultado atual.",
-      "Cobre capacidade de condução em cobre e alumínio, queda em regime e na partida, paralelismo, harmônicas e método D.",
+      "Transcrição das Tabelas 36, 37, 38 e 39 conferida célula a célula contra o PDF oficial: 810 de 810 batem, zero divergências.",
       "Protege o cálculo de regressões silenciosas em mudanças de tela.",
     ],
   },
   {
-    data: "2026-07-14",
-    titulo: "Tabelas de ampacidade travadas contra a norma (810 células)",
-    tipo: "interno",
-    itens: [
-      "Transcrição das Tabelas 36, 37, 38 e 39 conferida célula a célula contra o PDF oficial: 810 de 810 batem, zero divergências.",
-      "Os valores da norma viram referência fixa de teste, e uma ferramenta reconfere contra o PDF quando preciso.",
-    ],
-  },
-  {
+    versao: "0.14.4",
     data: "2026-07-14",
     titulo: "Condutor de proteção subdimensionado para fase de 150 mm²",
     tipo: "correcao",
@@ -522,6 +335,7 @@ const UPDATES = [
     ],
   },
   {
+    versao: "0.14.5",
     data: "2026-07-15",
     titulo: "Agrupamento em dutos subterrâneos distingue unipolar de multipolar",
     tipo: "correcao",
@@ -531,23 +345,20 @@ const UPDATES = [
     ],
   },
   {
+    versao: "1.0.0",
     data: "2026-07-15",
     titulo: "Identidade visual nova: cobre e aço, em estilo prancha de projeto",
     tipo: "melhoria",
     itens: [
       "Paleta cinza-aço com o cobre como acento único, substituindo o azul em todo o app.",
       "Tipografia condensada de carimbo técnico nos títulos e fonte monoespaçada em todo número calculado ou digitado.",
-      "Cabeçalho vira carimbo com régua de cobre e selo NBR 5410:2004; quadro de cargas com critério em pílula colorida e barras de aproveitamento dos limites de queda.",
+      "Cabeçalho vira carimbo com régua de cobre e selo NBR 5410:2004.",
+      "Quadro de cargas com critério em pílula colorida e barras de aproveitamento dos limites de queda.",
       "Nenhuma mudança no motor de cálculo.",
     ],
   },
   {
-    data: "2026-07-15",
-    titulo: "Fundo azul remanescente na visualização",
-    tipo: "correcao",
-    itens: ["O SVG no tema escuro e o PNG exportado ainda usavam o azul antigo em vez do cinza-aço do tema."],
-  },
-  {
+    versao: "1.0.1",
     data: "2026-07-15",
     titulo: "Explicação da queda de tensão em linguagem direta",
     tipo: "melhoria",
@@ -557,12 +368,7 @@ const UPDATES = [
     ],
   },
   {
-    data: "2026-07-15",
-    titulo: "Projeto: enviar cabos do Quadro de Cargas para a Infraestrutura",
-    tipo: "interno",
-    itens: ["Desenho aprovado da funcionalidade, com casos de borda e plano de testes, antes de escrever o código."],
-  },
-  {
+    versao: "1.1.0",
     data: "2026-07-15",
     titulo: "Enviar cabos do Quadro de Cargas para a Infraestrutura (Auto)",
     tipo: "novo",
@@ -573,12 +379,7 @@ const UPDATES = [
     ],
   },
   {
-    data: "2026-07-16",
-    titulo: "Projeto: eletroduto de aço inox",
-    tipo: "interno",
-    itens: ["Desenho aprovado para acrescentar as séries Schedule 10 e 40 ao cadastro de eletrodutos."],
-  },
-  {
+    versao: "1.2.0",
     data: "2026-07-16",
     titulo: "Eletroduto de aço inox, séries Schedule 10 e 40",
     tipo: "dados",
@@ -588,18 +389,14 @@ const UPDATES = [
     ],
   },
   {
+    versao: "1.2.1",
     data: "2026-07-16",
     titulo: "Busca Auto: um eletroduto por norma, a menor que comporta",
     tipo: "melhoria",
     itens: ["Com seis normas cadastradas, a segunda bitola de cada uma não informava nada — a seguinte sempre cabe. As bandejas seguem com duas alturas."],
   },
   {
-    data: "2026-07-16",
-    titulo: "Projeto: aba Capacitores",
-    tipo: "interno",
-    itens: ["Desenho aprovado a partir da planilha CAPAC-380 PARA 440, que vira referência de teste do motor de cálculo."],
-  },
-  {
+    versao: "1.3.0",
     data: "2026-07-16",
     titulo: "Aba Capacitores: dimensionamento de banco",
     tipo: "novo",
@@ -610,25 +407,18 @@ const UPDATES = [
     ],
   },
   {
+    versao: "1.4.0",
     data: "2026-07-16",
     titulo: "Placa de montagem em vista superior",
     tipo: "novo",
     itens: [
       "Layout das células cilíndricas em grade e a placa mínima calculada, com cotas.",
-      "Diâmetro da célula, espaçamento, margem e células por fileira editáveis.",
-      "Botão para remover todos os estágios de uma vez.",
+      "Cada célula é desenhada no diâmetro típico de catálogo para a sua potência; o passo da grade e a placa mínima são governados pela maior célula presente.",
+      "Diâmetro, espaçamento, margem e células por fileira editáveis, e botão para remover todos os estágios de uma vez.",
     ],
   },
   {
-    data: "2026-07-16",
-    titulo: "Diâmetro da célula automático pelo kvar",
-    tipo: "melhoria",
-    itens: [
-      "Cada célula é desenhada no diâmetro típico de catálogo para a sua potência.",
-      "O passo da grade e a placa mínima passam a ser governados pela maior célula presente; o modo manual trava tudo no mesmo diâmetro.",
-    ],
-  },
-  {
+    versao: "1.4.1",
     data: "2026-07-17",
     titulo: "Dimensões e códigos do catálogo Siemens Brasil",
     tipo: "dados",
@@ -638,64 +428,41 @@ const UPDATES = [
     ],
   },
   {
+    versao: "1.5.0",
     data: "2026-07-17",
     titulo: "Arrastar capacitor para trocar de lugar na placa",
     tipo: "novo",
     itens: [
-      "A célula engata no slot mais próximo e troca com quem estava lá; a cota continua sendo cálculo da grade, não a medida de onde a peça foi solta.",
-      "O arranjo sobrevive a adicionar e remover estágios, e um botão devolve o arranjo automático.",
-      "Corrige cotas cortadas em placas largas e texto ilegível sobre a célula no modo escuro.",
+      "A célula engata no slot mais próximo e troca com quem estava lá; os slots livres também viram alvo e aparecem tracejados durante o movimento.",
+      "A cota continua sendo cálculo da grade, não a medida de onde a peça foi solta, e o arranjo sobrevive a adicionar e remover estágios.",
+      "A placa mede até a última posição realmente ocupada, então juntar as células encolhe: 7 em 6+1 dão 837 mm; rearranjadas em 4+3, 578 mm.",
+      "Corrige cotas cortadas em placas largas, texto ilegível sobre a célula no modo escuro e dois defeitos que travavam o arrasto ao soltar sobre espaço vazio.",
     ],
   },
   {
-    data: "2026-07-17",
-    titulo: "Soltar em slot vazio e a placa encolhe ao juntar as células",
-    tipo: "melhoria",
-    itens: [
-      "Os slots livres viram alvo de arrasto e aparecem tracejados só durante o movimento.",
-      "A placa mede até a última posição realmente ocupada: 7 células em 6+1 dão 837 mm; rearranjadas em 4+3, 578 mm.",
-      "Corrige dois defeitos de arrasto que travavam ao soltar sobre espaço vazio.",
-    ],
-  },
-  {
-    data: "2026-07-17",
-    titulo: "Prever o tamanho da placa antes de soltar",
-    tipo: "melhoria",
-    itens: [
-      "A placa desenhada durante o arrasto é a que resultaria de soltar a célula ali — a prévia não pode discordar do resultado.",
-      "Nenhum slot livre fica cortado, e a célula deixa de teleportar no primeiro movimento.",
-    ],
-  },
-  {
+    versao: "1.5.1",
     data: "2026-07-18",
-    titulo: "Fileira vaga para puxar célula para uma nova linha",
+    titulo: "Prévia do tamanho, fileira de pouso e escala fixa",
     tipo: "melhoria",
     itens: [
-      "Antes, com menos células que a capacidade da fileira, não havia para onde arrastar embaixo.",
-      "A placa só cresce quando você realmente solta uma célula lá — verificado no navegador: puxar a 3ª célula para baixo leva a placa de 449×190 para 449×319 mm.",
+      "A placa desenhada durante o arrasto é a que resultaria de soltar a célula ali — a prévia não pode discordar do resultado, e nenhum slot livre fica cortado.",
+      "Uma fileira vaga embaixo dá para onde arrastar mesmo com poucas células; a placa só cresce quando você realmente solta uma lá. Puxar a 3ª célula para baixo leva a placa de 449×190 para 449×319 mm.",
+      "O desenho passa a usar 0,6 px por mm em qualquer arranjo, em vez de esticar para preencher a tela — uma placa estreita e alta chegava a 920 px de altura. O PDF rasteriza em resolução própria e sai nítido.",
     ],
   },
   {
+    versao: "1.6.0",
     data: "2026-07-18",
-    titulo: "Marca de origem no arrasto, editar estágio e relatório PDF",
+    titulo: "Editar estágio e relatório PDF dos capacitores",
     tipo: "novo",
     itens: [
-      "Círculo vermelho pontilhado marca de onde a célula está saindo.",
       "\"Editar\" abre o estágio no formulário preservando o id, então o arranjo da placa sobrevive à mudança.",
       "Relatório PDF com parâmetros, tabela por estágio, totais, comparação com o trafo e a vista superior da placa.",
+      "Círculo vermelho pontilhado marca de onde a célula está saindo durante o arrasto.",
     ],
   },
   {
-    data: "2026-07-18",
-    titulo: "Placa em escala fixa, não esticada para preencher a tela",
-    tipo: "correcao",
-    itens: [
-      "Uma placa estreita e alta esticava até cerca de 920 px de altura para manter a proporção do container.",
-      "Agora são 0,6 px por mm em qualquer arranjo, então a vista é proporcional e comparável entre bancos.",
-      "O PDF passa a rasterizar em resolução própria e sai nítido, independentemente da escala de exibição.",
-    ],
-  },
-  {
+    versao: "1.7.0",
     data: "2026-07-18",
     titulo: "Projetos salvos na aba Capacitores",
     tipo: "novo",
@@ -706,6 +473,7 @@ const UPDATES = [
     ],
   },
   {
+    versao: "1.7.1",
     data: "2026-07-18",
     titulo: "Células de 1 a 3 kvar e alturas corrigidas",
     tipo: "dados",
@@ -716,6 +484,7 @@ const UPDATES = [
     ],
   },
   {
+    versao: "1.8.0",
     data: "2026-07-20",
     titulo: "Contator por estágio, nome do projeto e placa clara no PDF",
     tipo: "novo",
@@ -726,34 +495,29 @@ const UPDATES = [
     ],
   },
   {
+    versao: "1.8.1",
     data: "2026-07-20",
-    titulo: "Catálogo Siemens completo, extraído do configurador oficial",
+    titulo: "Catálogo Siemens do configurador oficial",
     tipo: "dados",
     itens: [
       "35 capacitores monofásicos, 118 trifásicos e 66 módulos de média tensão, cada um casado com contator, disjuntor, fusível e base porta-fusível.",
       "Cruzamento conferido: a corrente do capacitor bate com a da tabela de proteção em 100% das linhas.",
+      "Fim da tabela duplicada de células 440 V — dimensões e códigos passam a derivar do configurador, com os diâmetros corrigidos para 53; 63,5; 75 e 85 mm.",
     ],
   },
   {
+    versao: "1.9.0",
     data: "2026-07-20",
-    titulo: "Células 440 V passam a vir do configurador Siemens",
-    tipo: "dados",
-    itens: [
-      "Fim da tabela duplicada: dimensões e códigos derivam do catálogo oficial.",
-      "Diâmetros corrigidos para 53; 63,5; 75 e 85 mm, que prevalecem sobre o PDF de catálogo; sai o 1,2 kvar, que não existe em 440 V.",
-    ],
-  },
-  {
-    data: "2026-07-20",
-    titulo: "Seletor de marca com códigos de equipamento por célula",
+    titulo: "Seletor de marca com códigos de equipamento",
     tipo: "novo",
     itens: [
       "Novo campo Marca (Genérica ou Siemens) nos parâmetros.",
-      "Com Siemens, tela e PDF ganham a seção de equipamentos: capacitor, contator e disjuntor ou fusível de cada célula.",
+      "Com Siemens, tela e PDF ganham a seção de equipamentos: capacitor, contator e disjuntor ou fusível.",
       "Célula fora do catálogo vem sinalizada, sem inventar código.",
     ],
   },
   {
+    versao: "1.10.0",
     data: "2026-07-20",
     titulo: "Proteção da célula: disjuntor ou seccionadora porta-fusíveis",
     tipo: "novo",
@@ -763,9 +527,10 @@ const UPDATES = [
     ],
   },
   {
+    versao: "1.11.0",
     data: "2026-07-20",
     titulo: "Contator e proteção dimensionados pelo kvar total do estágio",
-    tipo: "melhoria",
+    tipo: "novo",
     itens: [
       "O estágio chaveia inteiro, então contator e disjuntor não podem ser por célula.",
       "Mesma régua dos módulos do configurador: o menor contator cujo teto de kvar cobre o total do estágio.",
@@ -773,25 +538,19 @@ const UPDATES = [
     ],
   },
   {
+    versao: "1.11.1",
     data: "2026-07-21",
-    titulo: "Fora do catálogo: a mensagem diz o teto e sugere a saída",
-    tipo: "melhoria",
-    itens: [
-      "Confirmado que a Siemens monta bancos com uma célula por estágio, nunca duas num contator.",
-      "Ao passar do maior contator, a mensagem agora diz quanto passou e sugere dividir em estágios de célula única.",
-    ],
-  },
-  {
-    data: "2026-07-21",
-    titulo: "Contator 3MT70075 e disjuntor 3VJ1112 para estágios grandes",
+    titulo: "Estágios grandes: contator 3MT70075 e disjuntor 3VJ1112",
     tipo: "dados",
     itens: [
       "A série 3MT7 do catálogo oficial vai a 100 kvar; o configurador parava em 60 só porque monta uma célula por estágio.",
       "O estágio padrão de 2×33,7 = 67,4 kvar passa a mostrar o contator correto em vez de \"fora do catálogo\".",
       "Disjuntor de estágio grande por corrente comercial: 3VJ1112 para 125 A, o padrão usado nesse caso.",
+      "Acima do teto, a mensagem agora diz quanto passou e sugere dividir em estágios de célula única — o caminho que o próprio configurador usa.",
     ],
   },
   {
+    versao: "1.12.0",
     data: "2026-07-23",
     titulo: "Nova aba Iluminação: cabo mínimo por queda de tensão",
     tipo: "novo",
@@ -802,6 +561,7 @@ const UPDATES = [
     ],
   },
   {
+    versao: "1.13.0",
     data: "2026-07-23",
     titulo: "Circuito de iluminação montado em diagrama",
     tipo: "novo",
@@ -812,6 +572,7 @@ const UPDATES = [
     ],
   },
   {
+    versao: "1.14.0",
     data: "2026-07-23",
     titulo: "Vários circuitos e método de instalação por trecho",
     tipo: "novo",
@@ -822,6 +583,7 @@ const UPDATES = [
     ],
   },
   {
+    versao: "1.15.0",
     data: "2026-07-23",
     titulo: "Quadro de cargas da iluminação e PDF",
     tipo: "novo",
@@ -831,6 +593,7 @@ const UPDATES = [
     ],
   },
   {
+    versao: "1.16.0",
     data: "2026-07-24",
     titulo: "Eletroduto corrugado de PVC (NBR 15465)",
     tipo: "dados",
@@ -840,40 +603,41 @@ const UPDATES = [
     ],
   },
   {
+    versao: "1.16.1",
     data: "2026-07-24",
-    titulo: "Rótulo renomeado para Corrugado PVC",
-    tipo: "melhoria",
-    itens: ["O seletor de norma passa a nomear o material em vez da marca."],
-  },
-  {
-    data: "2026-07-24",
-    titulo: "Três defeitos de duplicação em cliques rápidos",
+    titulo: "Auditoria do app: duplicação em cliques rápidos",
     tipo: "correcao",
     itens: [
       "Iluminação: dois cliques criavam duas luminárias com o mesmo rótulo e na mesma posição, uma escondida sob a outra — inflava a corrente do circuito sem aparecer no diagrama.",
       "Iluminação: dois cliques geravam dois \"Circuito 2\"; no Quadro de Cargas, um dos circuitos era perdido e a tag repetia.",
       "A numeração passa a vir do maior número já usado, então remover um item do meio também deixa de repetir rótulo.",
-      "Auditoria do app inteiro; tabelas normativas conferidas à parte (monotonicidade, 2 contra 3 carregados, 90 contra 70 °C e fatores) sem erro.",
+      "Tabelas normativas conferidas à parte (monotonicidade, 2 contra 3 carregados, 90 contra 70 °C e fatores) sem erro.",
+      "O motor de iluminação antigo, substituído pelo modelo em árvore quando a aba ganhou o diagrama, foi removido: 265 linhas de código e testes que validavam o que não roda mais.",
     ],
   },
   {
-    data: "2026-07-24",
-    titulo: "Motor de iluminação antigo removido",
-    tipo: "interno",
+    versao: "1.17.0",
+    data: "2026-07-25",
+    titulo: "Aba Atualizações",
+    tipo: "novo",
     itens: [
-      "A aba passou a usar o modelo em árvore quando ganhou o diagrama; sobravam 265 linhas de código e testes que validavam o que não roda mais.",
-      "Passa a existir uma única fórmula de queda de tensão de iluminação no código.",
-      "Verificado na aba: o caso de referência devolve exatamente as mesmas seções e quedas.",
+      "Histórico de tudo o que mudou no app desde a primeira versão, agrupado por dia.",
+      "Cada entrada é um release, com versão no formato maior.menor.correção: a maior muda a cara ou a estrutura do app, a menor traz funcionalidade nova e a última é conserto ou ajuste fino.",
+      "Filtro por tipo de mudança; as entradas internas ficam ocultas por padrão.",
+      "A versão exibida na aba Sobre passa a sair daqui, então há um lugar só dizendo em que versão o app está.",
     ],
   },
 ];
 
-// A versão nunca é escrita à mão: 0.00 para a primeira, +0.01 a cada update.
-// Aritmética inteira para não depender de ponto flutuante.
-export function versaoDoIndice(i) {
-  return `${Math.floor(i / 100)}.${String(i % 100).padStart(2, "0")}`;
+// Ordena versões maior.menor.correção. Negativo se `a` vem antes de `b`.
+// Comparar como texto não serve: "1.9.0" > "1.10.0" em ordem alfabética.
+export function compararVersao(a, b) {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) {
+    if (pa[i] !== pb[i]) return pa[i] - pb[i];
+  }
+  return 0;
 }
-
-export const CHANGELOG = UPDATES.map((u, i) => ({ ...u, versao: versaoDoIndice(i) }));
 
 export const APP_VERSION = CHANGELOG[CHANGELOG.length - 1].versao;
