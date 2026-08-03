@@ -52,3 +52,89 @@ export function parseLista(raw) {
   const nCols = Math.max(...grade.map((g) => g.length));
   return grade.map((g) => [...g, ...Array(nCols - g.length).fill("")]);
 }
+
+// Papéis que uma coluna colada pode assumir (ordem do seletor da prévia).
+export const PAPEIS = [
+  { id: "descricao", label: "Descrição" },
+  { id: "tag", label: "TAG" },
+  { id: "potencia", label: "Potência" },
+  { id: "tensao", label: "Tensão (V)" },
+  { id: "distancia", label: "Distância (m)" },
+  { id: "corrente", label: "Corrente (A)" },
+  { id: "ignorar", label: "Ignorar" },
+];
+
+const TENSOES_USUAIS = [127, 220, 380, 440, 660];
+const RE_TAG = /^[a-z]{1,5}-?\d{1,4}$/i;
+
+// A primeira linha é cabeçalho quando nenhuma célula dela é numérica e há
+// pelo menos uma linha de dados abaixo.
+export function detectarCabecalho(grade) {
+  if (grade.length < 2) return false;
+  return grade[0].every(
+    (cel) => cel === "" || (parsePotencia(cel) == null && parseTensao(cel) == null)
+  );
+}
+
+const DICAS_CABECALHO = [
+  [/\btag\b/, "tag"],
+  [/desc|nome/, "descricao"],
+  [/pot|^cv$|^kw$|^kva$|^w$/, "potencia"],
+  [/tens|^v$/, "tensao"],
+  [/dist|compr|^m$/, "distancia"],
+  [/corrente|^a$/, "corrente"],
+];
+
+const semAcento = (t) =>
+  String(t).toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").trim();
+
+function papelPorDica(celula) {
+  const t = semAcento(celula);
+  if (!t) return null;
+  for (const [re, papel] of DICAS_CABECALHO) if (re.test(t)) return papel;
+  return null;
+}
+
+// Classifica uma coluna pelo conteúdo. `usados` impede papel repetido:
+// a segunda coluna numérica genérica vira distância, a terceira, ignorar.
+// Corrente nunca sai daqui — só mapeável à mão, para não confundir com
+// potência.
+function papelPorConteudo(celulas, usados, unicaColuna) {
+  if (!celulas.length) return "ignorar";
+  const livre = (p) => !usados.has(p);
+  const numerica = celulas.every(
+    (c) => parsePotencia(c) != null || parseTensao(c) != null
+  );
+  if (numerica) {
+    if (unicaColuna && livre("potencia")) return "potencia";
+    const soTensoesUsuais =
+      celulas.every((c) => TENSOES_USUAIS.includes(parseTensao(c))) &&
+      celulas.every((c) => parsePotencia(c)?.unidade == null);
+    if (livre("tensao") && soTensoesUsuais) return "tensao";
+    if (livre("potencia")) return "potencia";
+    if (livre("distancia")) return "distancia";
+    return "ignorar";
+  }
+  if (livre("tag") && celulas.every((c) => RE_TAG.test(c))) return "tag";
+  if (livre("descricao")) return "descricao";
+  return "ignorar";
+}
+
+// Um papel por coluna: dica do cabeçalho primeiro (quando há), conteúdo
+// depois. A prévia mostra um seletor por coluna para corrigir o que errar.
+export function detectarColunas(grade) {
+  const temCabecalho = detectarCabecalho(grade);
+  const dados = temCabecalho ? grade.slice(1) : grade;
+  const nCols = grade[0]?.length ?? 0;
+  const usados = new Set();
+  const papeis = [];
+  for (let c = 0; c < nCols; c++) {
+    const celulas = dados.map((l) => l[c]).filter((x) => x !== "");
+    let papel = temCabecalho ? papelPorDica(grade[0][c]) : null;
+    if (papel && usados.has(papel)) papel = null;
+    if (!papel) papel = papelPorConteudo(celulas, usados, nCols === 1);
+    if (papel !== "ignorar") usados.add(papel);
+    papeis.push(papel);
+  }
+  return { papeis, temCabecalho };
+}

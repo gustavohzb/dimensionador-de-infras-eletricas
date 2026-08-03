@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseLista, parseNumero, parsePotencia, parseTensao } from "./importCargas";
+import { parseLista, parseNumero, parsePotencia, parseTensao, detectarColunas } from "./importCargas";
 
 describe("parseNumero", () => {
   it("aceita vírgula decimal e ponto de milhar", () => {
@@ -67,5 +67,47 @@ describe("parseLista", () => {
   it("texto vazio vira lista vazia", () => {
     expect(parseLista("")).toEqual([]);
     expect(parseLista("   \n  ")).toEqual([]);
+  });
+});
+
+describe("detectarColunas", () => {
+  it("texto vira descrição e número vira potência", () => {
+    const grade = parseLista("Exaustor\t15\nBomba\t7,5");
+    expect(detectarColunas(grade)).toEqual({
+      papeis: ["descricao", "potencia"],
+      temCabecalho: false,
+    });
+  });
+  it("coluna única numérica é potência", () => {
+    expect(detectarColunas(parseLista("15\n7,5")).papeis).toEqual(["potencia"]);
+  });
+  it("unidades misturadas na mesma coluna ainda é potência", () => {
+    expect(detectarColunas(parseLista("15 CV\n3,7 kW")).papeis).toEqual(["potencia"]);
+  });
+  it("coluna com só 127/220/380/440/660 é tensão", () => {
+    const grade = parseLista("Exaustor\t15\t380\nBomba\t7,5\t220");
+    expect(detectarColunas(grade).papeis).toEqual(["descricao", "potencia", "tensao"]);
+  });
+  it("segunda coluna numérica genérica vira distância", () => {
+    const grade = parseLista("Exaustor\t15\t45\nBomba\t7,5\t80");
+    expect(detectarColunas(grade).papeis).toEqual(["descricao", "potencia", "distancia"]);
+  });
+  it("TAG no padrão XX-99 é reconhecida", () => {
+    const grade = parseLista("AL-01\tExaustor\t15\nAL-02\tBomba\t7,5");
+    expect(detectarColunas(grade).papeis).toEqual(["tag", "descricao", "potencia"]);
+  });
+  it("cabeçalho é detectado e usado como dica de mapeamento", () => {
+    const grade = parseLista("Descrição\tPotência (kW)\tDistância\nExaustor\t15\t45");
+    const r = detectarColunas(grade);
+    expect(r.temCabecalho).toBe(true);
+    expect(r.papeis).toEqual(["descricao", "potencia", "distancia"]);
+  });
+  it("lista de uma linha só não tem cabeçalho", () => {
+    expect(detectarColunas(parseLista("Exaustor\t15")).temCabecalho).toBe(false);
+  });
+  it("corrente nunca é detectada sozinha", () => {
+    // Coluna de números genéricos vira potência/distância — corrente só à mão.
+    const { papeis } = detectarColunas(parseLista("42\n18"));
+    expect(papeis).not.toContain("corrente");
   });
 });
