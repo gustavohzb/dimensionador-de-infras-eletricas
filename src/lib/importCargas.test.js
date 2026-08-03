@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { parseLista, parseNumero, parsePotencia, parseTensao, detectarColunas } from "./importCargas";
+import {
+  parseLista, parseNumero, parsePotencia, parseTensao, detectarColunas, montarCircuitos,
+} from "./importCargas";
 
 describe("parseNumero", () => {
   it("aceita vírgula decimal e ponto de milhar", () => {
@@ -109,5 +111,104 @@ describe("detectarColunas", () => {
     // Coluna de números genéricos vira potência/distância — corrente só à mão.
     const { papeis } = detectarColunas(parseLista("42\n18"));
     expect(papeis).not.toContain("corrente");
+  });
+});
+
+describe("montarCircuitos", () => {
+  const PADROES = {
+    unidade: "CV",
+    esquemaId: "trifCnCt",
+    tensao: 380,
+    distancia: 30,
+    formaPartidaId: "nenhuma",
+  };
+  const montar = (texto, extra = {}) => {
+    const grade = parseLista(texto);
+    return montarCircuitos({
+      grade,
+      ...detectarColunas(grade),
+      padroes: PADROES,
+      tagsExistentes: [],
+      ...extra,
+    });
+  };
+
+  it("caso mínimo: uma coluna de números + padrões do lote", () => {
+    const { circuitos, avisos } = montar("15\n7,5");
+    expect(avisos).toEqual([]);
+    expect(circuitos).toHaveLength(2);
+    expect(circuitos[0]).toMatchObject({
+      modo: "potencia",
+      potencia: 15,
+      unidade: "CV",
+      tensao: 380,
+      esquemaId: "trifCnCt",
+      formaPartidaId: "nenhuma",
+      tag: "AL-01",
+      descricao: "",
+    });
+    expect(circuitos[0].trechos[0].distancia).toBe(30);
+    expect(circuitos[1].tag).toBe("AL-02");
+  });
+
+  it("coluna vence padrão do lote", () => {
+    const { circuitos } = montar("Exaustor\t3,7 kW\t220\t55");
+    expect(circuitos[0]).toMatchObject({
+      descricao: "Exaustor",
+      potencia: 3.7,
+      unidade: "kW",
+      tensao: 220,
+    });
+    expect(circuitos[0].trechos[0].distancia).toBe(55);
+    // O esquema NÃO vem da tensão — sempre do padrão do lote.
+    expect(circuitos[0].esquemaId).toBe("trifCnCt");
+  });
+
+  it("unidade da célula vence a padrão; número puro usa a padrão", () => {
+    const { circuitos } = montar("15\n3,7 kW");
+    expect(circuitos[0].unidade).toBe("CV");
+    expect(circuitos[1].unidade).toBe("kW");
+  });
+
+  it("linha sem número aproveitável vira aviso e é pulada", () => {
+    const { circuitos, avisos, porLinha } = montar("Exaustor\t15\nReserva");
+    expect(circuitos).toHaveLength(1);
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0]).toMatch(/Linha 2/);
+    expect(porLinha[1].aviso).toBeDefined();
+  });
+
+  it("o número da linha no aviso conta o cabeçalho", () => {
+    const { avisos } = montar("Descrição\tPotência\nExaustor\t15\nReserva");
+    expect(avisos[0]).toMatch(/Linha 3/);
+  });
+
+  it("TAGs geradas não colidem com as existentes", () => {
+    const { circuitos } = montar("15\n7,5", { tagsExistentes: ["AL-01", "AL-07"] });
+    expect(circuitos.map((c) => c.tag)).toEqual(["AL-08", "AL-09"]);
+  });
+
+  it("coluna TAG mapeada é usada no lugar da sequência", () => {
+    const { circuitos } = montar("QF-01\tExaustor\t15");
+    expect(circuitos[0].tag).toBe("QF-01");
+  });
+
+  it("coluna mapeada à mão como corrente cria circuito em modo corrente", () => {
+    const grade = parseLista("Exaustor\t42\nBomba\t18");
+    const det = detectarColunas(grade); // detecta potência…
+    det.papeis[1] = "corrente"; // …e o usuário corrige no seletor
+    const { circuitos } = montarCircuitos({
+      grade,
+      ...det,
+      padroes: PADROES,
+      tagsExistentes: [],
+    });
+    expect(circuitos[0]).toMatchObject({ modo: "corrente", corrente: 42 });
+  });
+
+  it("cabeçalho não vira circuito", () => {
+    const { circuitos } = montar("Descrição\tPotência\nExaustor\t15");
+    expect(circuitos).toHaveLength(1);
+    expect(circuitos[0].descricao).toBe("Exaustor");
   });
 });

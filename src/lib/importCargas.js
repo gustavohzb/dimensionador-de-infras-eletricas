@@ -5,6 +5,9 @@
 // detectar o papel de cada coluna e deixar o usuário corrigir na prévia.
 // Precedência de valores: coluna > padrão do lote > default do formulário.
 
+import { defaultCircuito } from "../components/cabos/CircuitoForm";
+import { proximoNumero } from "./sequencialRotulos";
+
 const UNIDADE_CANONICA = { cv: "CV", kw: "kW", w: "W", kva: "kVA" };
 const RE_POTENCIA = /^([\d.,]+)\s*(cv|kw|kva|w)?$/i;
 const RE_TENSAO = /^([\d.,]+)\s*v?$/i;
@@ -137,4 +140,56 @@ export function detectarColunas(grade) {
     papeis.push(papel);
   }
   return { papeis, temCabecalho };
+}
+
+// Constrói os circuitos: uma linha de dados → um circuito completo no
+// formato de defaultCircuito(). `porLinha` fica alinhado às linhas de dados
+// para a prévia pintar linha boa/linha pulada; `circuitos` e `avisos` são a
+// versão achatada para importar e avisar.
+export function montarCircuitos({ grade, papeis, temCabecalho, padroes, tagsExistentes = [] }) {
+  const dados = temCabecalho ? grade.slice(1) : grade;
+  const tags = [...tagsExistentes];
+  const porLinha = dados.map((linha, i) => {
+    const numLinha = i + (temCabecalho ? 2 : 1);
+    const col = (papel) => {
+      const idx = papeis.indexOf(papel);
+      return idx === -1 ? "" : (linha[idx] ?? "");
+    };
+    // defaultCircuito() cria trechos novos a cada chamada — mexer em
+    // c.trechos[0] não vaza para outros circuitos.
+    const c = { ...defaultCircuito() };
+    c.esquemaId = padroes.esquemaId;
+    c.tensao = Number(padroes.tensao);
+    c.unidade = padroes.unidade;
+    c.formaPartidaId = padroes.formaPartidaId;
+    c.trechos[0].distancia = Number(padroes.distancia);
+    c.descricao = col("descricao");
+
+    const corrente = papeis.includes("corrente") ? parseNumero(col("corrente")) : null;
+    const pot = parsePotencia(col("potencia"));
+    if (corrente != null) {
+      c.modo = "corrente";
+      c.corrente = corrente;
+    } else if (pot) {
+      c.modo = "potencia";
+      c.potencia = pot.valor;
+      if (pot.unidade) c.unidade = pot.unidade;
+    } else {
+      return { aviso: `Linha ${numLinha}: sem potência ou corrente aproveitável — pulada.` };
+    }
+
+    const v = parseTensao(col("tensao"));
+    if (v != null) c.tensao = v;
+    const d = parseNumero(col("distancia"));
+    if (d != null) c.trechos[0].distancia = d;
+
+    c.tag = col("tag") || `AL-${String(proximoNumero(tags, /^AL-(\d+)/)).padStart(2, "0")}`;
+    tags.push(c.tag);
+    return { circuito: c };
+  });
+  return {
+    porLinha,
+    circuitos: porLinha.filter((l) => l.circuito).map((l) => l.circuito),
+    avisos: porLinha.filter((l) => l.aviso).map((l) => l.aviso),
+  };
 }
