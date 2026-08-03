@@ -3,6 +3,7 @@ import {
   CircuitoForm, ResultadoCircuito, computeCircuito, defaultCircuito, defaultPreset, CRITERIO_LABEL, CRITERIO_SIGLA, CRITERIO_LEGENDA,
 } from "./cabos/CircuitoForm";
 import PresetPanel from "./cabos/PresetPanel";
+import ImportarCargas from "./cabos/ImportarCargas";
 import ProjectsPanel from "./ProjectsPanel";
 import { useCabosProjects } from "../hooks/useCabosProjects";
 import { ESQUEMAS } from "../data/cabosNBR5410";
@@ -73,6 +74,7 @@ export default function QuadroCargasTab({ onEnviarParaInfra }) {
   // Índices marcados para envio à aba Infraestrutura (checkbox por linha).
   const [selecionadosEnvio, setSelecionadosEnvio] = useState(() => new Set());
   const formRef = useRef(null);
+  const [importando, setImportando] = useState(false);
 
   const projectsApi = useCabosProjects();
   const [activeProject, setActiveProject] = useState(null);
@@ -122,6 +124,16 @@ export default function QuadroCargasTab({ onEnviarParaInfra }) {
     setCircuitos(next);
     setSelecionado(Math.min(selecionado, next.length - 1));
     setSelecionadosEnvio(new Set()); // índices deslocam ao remover — zera a seleção
+  };
+
+  // Recebe os circuitos prontos do painel de importação. Somar: seleciona o
+  // primeiro importado (índice = tamanho atual). Substituir: zera tudo.
+  const importarCircuitos = ({ circuitos: novos, substituir }) => {
+    const primeiro = substituir ? 0 : circuitos.length;
+    setCircuitos((cs) => (substituir ? novos : [...cs, ...novos]));
+    setSelecionado(primeiro);
+    setSelecionadosEnvio(new Set()); // índices mudaram — zera a seleção de envio
+    setImportando(false);
   };
 
   // ---- Envio para a aba Infraestrutura (Auto) ----
@@ -217,6 +229,14 @@ export default function QuadroCargasTab({ onEnviarParaInfra }) {
               className="rounded-xs border border-copper-600 px-3 py-1.5 text-xs font-medium text-copper-600 hover:bg-copper-50 disabled:opacity-40 disabled:hover:bg-transparent dark:border-copper-500 dark:text-copper-300 dark:hover:bg-copper-500/10"
             >
               {selEnvio.length > 0 ? `Enviar ${selEnvio.length} p/ Infra (Auto)` : "Enviar p/ Infra (Auto)"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setImportando((v) => !v)}
+              title="Cole uma lista de cargas do Excel e crie vários circuitos de uma vez."
+              className="rounded-xs border border-copper-600 px-3 py-1.5 text-xs font-medium text-copper-600 hover:bg-copper-50 dark:border-copper-500 dark:text-copper-300 dark:hover:bg-copper-500/10"
+            >
+              Importar lista
             </button>
             <button
               type="button"
@@ -370,6 +390,20 @@ export default function QuadroCargasTab({ onEnviarParaInfra }) {
         </div>
         <p className="mt-1.5 font-mono text-[10.5px] text-slate-400 dark:text-slate-500">{CRITERIO_LEGENDA}</p>
       </div>
+
+      {importando && (
+        <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="mb-2 font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+            Importar lista de cargas
+          </h2>
+          <ImportarCargas
+            tagsExistentes={circuitos.map((c) => c.tag)}
+            existingCount={circuitos.length}
+            onImportar={importarCircuitos}
+            onClose={() => setImportando(false)}
+          />
+        </div>
+      )}
 
       {atual && (
         <div ref={formRef} className="grid grid-cols-1 gap-3 lg:grid-cols-[360px_1fr]">

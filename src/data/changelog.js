@@ -627,6 +627,18 @@ export const CHANGELOG = [
       "A versão exibida na aba Sobre passa a sair daqui, então há um lugar só dizendo em que versão o app está.",
     ],
   },
+  {
+    versao: "1.18.0",
+    data: "2026-08-03",
+    titulo: "Importar lista de cargas",
+    tipo: "novo",
+    itens: [
+      'Botão "Importar lista" no Quadro de Cargas: cole colunas do Excel e cada linha vira um circuito.',
+      "Detecção automática de colunas (descrição, TAG, potência, tensão, distância) com correção por seletor no topo de cada coluna.",
+      'Unidade lida da própria célula ("15 CV", "3,7 kW") ou do padrão do lote; padrões do lote completam o que a lista não traz.',
+      "Linhas sem potência aproveitável viram aviso e são puladas; ao confirmar dá para somar ao quadro ou substituir tudo.",
+    ],
+  },
 ];
 
 // Ordena versões maior.menor.correção. Negativo se `a` vem antes de `b`.
