@@ -3,6 +3,7 @@ import { defaultEntrada, avaliarRisco } from "../lib/spdaRisco";
 import ResultadoRisco from "./spda/ResultadoRisco";
 import EstruturaForm from "./spda/EstruturaForm";
 import LinhasForm from "./spda/LinhasForm";
+import ProtecoesForm from "./spda/ProtecoesForm";
 
 const STORAGE_KEY = "spdaRisco.v1";
 
@@ -58,6 +59,15 @@ export default function SpdaTab() {
       <LinhasForm
         linhas={entrada.linhas}
         onChange={(fn) => setEntrada((e) => ({ ...e, linhas: fn(e.linhas) }))}
+      />
+
+      <ProtecoesForm
+        value={entrada.protecoes}
+        linhas={entrada.linhas}
+        onChange={setParte("protecoes")}
+        onSistemas={(fn) =>
+          setEntrada((e) => ({ ...e, protecoes: { ...e.protecoes, sistemas: fn(e.protecoes.sistemas) } }))
+        }
       />
     </div>
   );
