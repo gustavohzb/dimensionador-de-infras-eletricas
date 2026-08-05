@@ -651,6 +651,16 @@ export const CHANGELOG = [
       "O N_G é informado pelo usuário a partir do Anexo F da norma, que é a única fonte que ela admite.",
     ],
   },
+  {
+    versao: "1.19.1",
+    data: "2026-08-05",
+    titulo: "Veredito do risco fixo no topo",
+    tipo: "melhoria",
+    itens: [
+      "Na aba SPDA, o veredito de R1 (e de R3, quando avaliado) acompanha a rolagem e fica sempre à vista enquanto os dados são preenchidos nos painéis de baixo.",
+      "A barra ganha sombra ao grudar no topo, para se separar do conteúdo que passa por baixo.",
+    ],
+  },
 ];
 
 // Ordena versões maior.menor.correção. Negativo se `a` vem antes de `b`.
