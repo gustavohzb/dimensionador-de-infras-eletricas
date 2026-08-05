@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { defaultEntrada, avaliarRisco } from "../lib/spdaRisco";
 import ResultadoRisco from "./spda/ResultadoRisco";
 import EstruturaForm from "./spda/EstruturaForm";
+import LinhasForm from "./spda/LinhasForm";
 
 const STORAGE_KEY = "spdaRisco.v1";
 
@@ -53,6 +54,11 @@ export default function SpdaTab() {
       <ResultadoRisco resultado={resultado} />
 
       <EstruturaForm value={entrada.estrutura} onChange={setParte("estrutura")} />
+
+      <LinhasForm
+        linhas={entrada.linhas}
+        onChange={(fn) => setEntrada((e) => ({ ...e, linhas: fn(e.linhas) }))}
+      />
     </div>
   );
 }
