@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { defaultEntrada, avaliarRisco } from "../lib/spdaRisco";
 import ResultadoRisco from "./spda/ResultadoRisco";
+import EstruturaForm from "./spda/EstruturaForm";
 
 const STORAGE_KEY = "spdaRisco.v1";
 
@@ -33,6 +34,9 @@ export default function SpdaTab() {
 
   const resultado = useMemo(() => avaliarRisco(entrada), [entrada]);
 
+  const setParte = (parte) => (patch) =>
+    setEntrada((e) => ({ ...e, [parte]: { ...e[parte], ...patch } }));
+
   return (
     <div className="space-y-3">
       <div className="rounded-sm border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -48,10 +52,7 @@ export default function SpdaTab() {
 
       <ResultadoRisco resultado={resultado} />
 
-      {/* Painéis de entrada entram aqui nas tarefas seguintes. */}
-      <div className="text-xs text-slate-400 dark:text-slate-500">
-        Entrada em construção — por enquanto o cálculo usa os valores padrão.
-      </div>
+      <EstruturaForm value={entrada.estrutura} onChange={setParte("estrutura")} />
     </div>
   );
 }
