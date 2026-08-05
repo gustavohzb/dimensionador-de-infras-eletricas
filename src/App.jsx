@@ -5,6 +5,7 @@ import InfraTab from "./components/InfraTab";
 import QuadroCargasTab from "./components/QuadroCargasTab";
 import CapacitoresTab from "./components/CapacitoresTab";
 import IluminacaoTab from "./components/IluminacaoTab";
+import SpdaTab from "./components/SpdaTab";
 import AtualizacoesTab from "./components/AtualizacoesTab";
 import SobreTab from "./components/SobreTab";
 
@@ -70,6 +71,7 @@ export default function App() {
             { id: "quadroCargas", label: "Cabos Elétricos" },
             { id: "iluminacao", label: "Iluminação" },
             { id: "capacitores", label: "Capacitores" },
+            { id: "spda", label: "SPDA" },
             { id: "atualizacoes", label: "Atualizações" },
             { id: "sobre", label: "Sobre" },
           ].map((tab) => (
@@ -108,6 +110,10 @@ export default function App() {
 
         <div className={activeTab === "capacitores" ? "" : "hidden"}>
           <CapacitoresTab dark={dark} />
+        </div>
+
+        <div className={activeTab === "spda" ? "" : "hidden"}>
+          <SpdaTab />
         </div>
 
         {/* Só monta quando aberta: são mais de cem cartões e a aba não guarda
