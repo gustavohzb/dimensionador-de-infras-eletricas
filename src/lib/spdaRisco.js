@@ -273,6 +273,10 @@ export function avaliarRisco(entrada) {
 
   return {
     componentes,
+    // Quais componentes a soma de R1 usou. A tabela de resultado precisa disso
+    // para não exibir porcentagem das que ficaram de fora — a razão sobre um
+    // total do qual não participam dá números absurdos, tipo 848 000 %.
+    chavesR1,
     r1,
     r3,
     rt: RISCO_TOLERAVEL,

@@ -354,6 +354,16 @@ describe("avaliarRisco", () => {
     expect(r.r1).toBeCloseTo(r.componentes.RA + r.componentes.RB + r.componentes.RU + r.componentes.RV, 15);
   });
 
+  it("chavesR1 diz quais componentes a soma usou", () => {
+    expect(avaliarRisco(galpao()).chavesR1).toEqual(["RA", "RB", "RU", "RV"]);
+
+    const comExplosao = galpao();
+    comExplosao.estrutura.explosaoOuRiscoVida = true;
+    expect(avaliarRisco(comExplosao).chavesR1).toEqual(
+      ["RA", "RB", "RU", "RV", "RC", "RM", "RW", "RZ"]
+    );
+  });
+
   it("com explosão marcada, as quatro entram em R1", () => {
     const entrada = galpao();
     entrada.estrutura.explosaoOuRiscoVida = true;
