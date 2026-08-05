@@ -31,8 +31,9 @@ componentes de risco, somar **R1** (vida humana) e **R3** (patrimônio
 cultural), comparar com os riscos toleráveis da Tabela 4 (10⁻⁵ e 10⁻⁴) e dizer
 se a proteção é necessária.
 
-**Fora do escopo da Etapa 1:** múltiplas zonas, múltiplos trechos de linha,
-sugestão automática de medidas, frequência de danos F, PDF, projetos salvos.
+**Fora do escopo da Etapa 1:** múltiplas zonas de estudo, divisão de uma linha
+em vários trechos S_L, sugestão automática de medidas, frequência de danos F,
+PDF e projetos salvos.
 
 ## Regras de cálculo
 
@@ -46,9 +47,12 @@ exigem decisão de implementação:
 2. **R3** soma apenas R_B e R_V, com as perdas da Tabela C.8 (`L_B = L_V =
    r_p × r_f × L_F × c_z/c_t`, L_F = 10⁻¹ para museus e galerias). Quando o
    usuário não marcar que há patrimônio cultural, R3 não é avaliado.
-3. **Duas linhas elétricas** na Etapa 1: uma de energia e uma de sinal, cada
-   uma opcional e com trecho único. As contribuições R_U, R_V, R_W e R_Z são
-   somadas entre as linhas.
+3. **Linhas elétricas** são uma lista de zero ou mais, cada uma com tipo
+   (energia ou sinal) e **trecho único** — a divisão em trechos S_L fica para a
+   Etapa 3. As contribuições R_U, R_V, R_W e R_Z são somadas entre as linhas.
+   A norma pede cálculo separado para linhas com roteamentos diferentes
+   (6.5.4); linhas de mesmo roteamento podem ser colapsadas na de piores
+   características (6.5.5), e a aba traz essa observação como nota de ajuda.
 4. **Estrutura adjacente** (a da outra extremidade da linha, que entra como
    N_DJ em R_U, R_V e R_W) é opcional por linha: sem ela, N_DJ = 0; com ela,
    o usuário informa L_J, W_J, H_J e C_DJ, e vale a equação A.4.
@@ -91,7 +95,8 @@ separado da UI, painéis pequenos por assunto).
     providências (r_p), perigo especial (h_z), pessoas (n_z, n_t, t_z) e as
     marcações de explosão/risco à vida e patrimônio cultural (esta última
     abrindo os campos c_z e c_t da equação C.7).
-  - `LinhasForm.jsx` — linha de energia e linha de sinal: L_L, C_I, C_E, C_T,
+  - `LinhasForm.jsx` — lista de linhas com "+ linha" e remoção, cada uma com
+    tipo (energia ou sinal), L_L, C_I, C_E, C_T,
     condição de blindagem/equipotencialização (C_LD/C_LI), R_S da blindagem,
     U_W do equipamento e a estrutura adjacente opcional (L_J, W_J, H_J, C_DJ).
   - `ProtecoesForm.jsx` — NP do SPDA (P_B), DPS coordenado (P_SPD), DPS classe
@@ -115,6 +120,8 @@ separado da UI, painéis pequenos por assunto).
 - Perdas: L_A, L_B e L_C pelas equações C.1 a C.4, incluindo r_S; L3 pela C.7.
 - Regra da nota "a": sem marcação de explosão/risco à vida, R_C, R_M, R_W e R_Z
   são calculadas mas não somadas em R1; com a marcação, entram.
+- Linhas: nenhuma linha zera R_U, R_V, R_W e R_Z; duas linhas somam suas
+  contribuições nessas quatro componentes.
 - Veredito: um cenário com R1 abaixo de 10⁻⁵ (dispensa proteção) e um acima
   (exige), com a componente dominante identificada corretamente.
 - Caso completo: uma estrutura conferida passo a passo contra a norma.
