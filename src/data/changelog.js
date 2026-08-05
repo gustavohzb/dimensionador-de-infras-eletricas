@@ -639,6 +639,18 @@ export const CHANGELOG = [
       "Linhas sem potência aproveitável viram aviso e são puladas; ao confirmar dá para somar ao quadro ou substituir tudo.",
     ],
   },
+  {
+    versao: "1.19.0",
+    data: "2026-08-05",
+    titulo: "Gerenciamento de risco (SPDA)",
+    tipo: "novo",
+    itens: [
+      "Aba nova de análise de risco de descargas atmosféricas conforme a ABNT NBR 5419-2:2026, com a estrutura tratada como zona de estudo única.",
+      "Calcula as oito componentes de risco (R_A a R_Z), soma R1 e R3 e compara com os riscos toleráveis da Tabela 4, apontando a componente dominante.",
+      "Painéis de estrutura, linhas elétricas (quantas forem, com estrutura adjacente opcional) e medidas de proteção, com todas as tabelas dos Anexos A, B e C.",
+      "O N_G é informado pelo usuário a partir do Anexo F da norma, que é a única fonte que ela admite.",
+    ],
+  },
 ];
 
 // Ordena versões maior.menor.correção. Negativo se `a` vem antes de `b`.
