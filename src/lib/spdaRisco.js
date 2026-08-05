@@ -9,7 +9,7 @@ import {
   MEDIDAS_PTA, MEDIDAS_PTU, SPDA_PB, DPS_PSPD, DPS_PEB, FIACAO_KS3,
   LINHA_CLD_CLI, BLINDAGEM_RS, PLI_POR_TIPO, UW_VALORES,
   LT, LF_L3, TIPO_ESTRUTURA_LF, LO_POR_ESTRUTURA, PISO_RT,
-  PROVIDENCIAS_RP, RISCO_RF, PERIGO_HZ, CONSTRUCAO_RS,
+  PROVIDENCIAS_RP, RISCO_RF, PERIGO_HZ, CONSTRUCAO_RS, RISCO_TOLERAVEL,
 } from "../data/spdaNBR5419";
 
 // Busca o valor de uma tabela pelo id. Id desconhecido devolve 0 em vez de
@@ -193,4 +193,96 @@ export function perdaL3(estrutura) {
   const rf = fator(RISCO_RF, estrutura.riscoIncendio);
   const ct = Number(estrutura.ct) || 1;
   return rp * rf * LF_L3 * ((Number(estrutura.cz) || 0) / ct);
+}
+
+// Estado inicial da aba: um galpão industrial simples, sem proteção, com uma
+// linha de energia aérea — o caso mais comum de quem abre a aba pela primeira
+// vez, e que já mostra um resultado de verdade.
+export function defaultEntrada() {
+  return {
+    estrutura: {
+      L: 50, W: 30, H: 8, Hp: null,
+      ng: 10, cd: "isolada",
+      construcao: "robusta", tipoEstrutura: "industrial", piso: "terraConcreto",
+      riscoIncendio: "incendioNormal", providencias: "nenhuma", perigoEspecial: "nenhum",
+      loEstrutura: "explosao",
+      nz: 20, nt: 20, tz: 8760,
+      explosaoOuRiscoVida: false,
+      patrimonioCultural: false, cz: 0, ct: 1,
+    },
+    linhas: [{
+      id: "l1", tipo: "energia", ll: 1000, ci: "aereo", ce: "rural", ct: "btOuSinal",
+      blindagem: "aereaNaoBlindada", rs: "naoBlindada", adjacente: null,
+    }],
+    protecoes: {
+      spdaNp: "nenhum", dpsNp: "nenhum", dpsClasseI: "nenhum",
+      medidasPta: [], medidasPtu: [], fiacao: "semCuidado",
+      larguraMalha: null, blindagemContinua: false,
+      sistemas: [{ id: "s1", uw: 2.5, blindado: false, interfaceIsolante: false, linhaId: "l1" }],
+    },
+  };
+}
+
+// Componentes sempre somadas em R1, e as que dependem da nota "a" da Tabela 2.
+const SEMPRE_EM_R1 = ["RA", "RB", "RU", "RV"];
+const SO_COM_RISCO_ESPECIAL = ["RC", "RM", "RW", "RZ"];
+
+// Tabela 6 — as oito componentes, R1, R3 e o veredito.
+export function avaliarRisco(entrada) {
+  const { estrutura } = entrada;
+  const eventos = numeroEventos(entrada);
+  const probs = probabilidades(entrada);
+  const perdas = perdasL1(estrutura);
+
+  // Cada linha contribui com suas próprias R_U, R_V, R_W e R_Z; a estrutura
+  // pode ter várias linhas com roteamentos diferentes (6.5.4).
+  const somaLinhas = (fn) =>
+    eventos.porLinha.reduce((acc, ev) => {
+      const p = probs.porLinha.find((x) => x.id === ev.id);
+      return p ? acc + fn(ev, p) : acc;
+    }, 0);
+
+  const componentes = {
+    RA: eventos.nd * probs.pa * perdas.la,
+    RB: eventos.nd * probs.pb * perdas.lb,
+    RC: eventos.nd * probs.pc * perdas.lc,
+    RM: eventos.nm * probs.pm * perdas.lc,
+    RU: somaLinhas((ev, p) => (ev.nl + ev.ndj) * p.pu * perdas.la),
+    RV: somaLinhas((ev, p) => (ev.nl + ev.ndj) * p.pv * perdas.lb),
+    RW: somaLinhas((ev, p) => (ev.nl + ev.ndj) * p.pw * perdas.lc),
+    RZ: somaLinhas((ev, p) => ev.ni * p.pz * perdas.lc),
+  };
+
+  // Nota "a" da Tabela 2: as componentes de falha de sistemas internos só
+  // entram em R1 quando há risco de explosão ou risco imediato à vida.
+  const chavesR1 = estrutura.explosaoOuRiscoVida
+    ? [...SEMPRE_EM_R1, ...SO_COM_RISCO_ESPECIAL]
+    : SEMPRE_EM_R1;
+  const r1 = chavesR1.reduce((acc, k) => acc + componentes[k], 0);
+
+  // R3 só considera danos físicos (R_B e R_V), com as perdas da Tabela C.8.
+  let r3 = null;
+  if (estrutura.patrimonioCultural) {
+    const l3 = perdaL3(estrutura);
+    r3 = eventos.nd * probs.pb * l3 + somaLinhas((ev, p) => (ev.nl + ev.ndj) * p.pv * l3);
+  }
+
+  const dominante = r1 > 0
+    ? chavesR1.reduce((a, b) => (componentes[a] >= componentes[b] ? a : b))
+    : null;
+
+  return {
+    componentes,
+    r1,
+    r3,
+    rt: RISCO_TOLERAVEL,
+    precisa: {
+      r1: r1 > RISCO_TOLERAVEL.R1,
+      r3: r3 === null ? null : r3 > RISCO_TOLERAVEL.R3,
+    },
+    dominante,
+    eventos,
+    probs,
+    perdas,
+  };
 }

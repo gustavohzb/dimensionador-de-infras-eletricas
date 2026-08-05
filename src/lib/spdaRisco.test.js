@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   areaExposicaoEstrutura, areaExposicaoProxima, areasLinha, numeroEventos,
-  probabilidades, produtoMedidas, perdasL1, perdaL3,
+  probabilidades, produtoMedidas, perdasL1, perdaL3, avaliarRisco, defaultEntrada,
 } from "./spdaRisco";
 import { MEDIDAS_PTA } from "../data/spdaNBR5419";
 
@@ -310,5 +310,140 @@ describe("perdas (Anexo C)", () => {
     };
     // r_p × r_f × L_F × c_z/c_t = 0,5 × 0,1 × 0,1 × 0,25
     expect(perdaL3(museu)).toBeCloseTo(0.00125, 10);
+  });
+});
+
+describe("avaliarRisco", () => {
+  // Galpão industrial sem proteção nenhuma, com uma linha de energia aérea.
+  const galpao = () => ({
+    estrutura: {
+      L: 60, W: 40, H: 8, Hp: null, ng: 10, cd: "isolada",
+      construcao: "robusta", tipoEstrutura: "industrial", piso: "terraConcreto",
+      riscoIncendio: "incendioNormal", providencias: "nenhuma", perigoEspecial: "nenhum",
+      loEstrutura: "explosao", nz: 30, nt: 30, tz: 8760,
+      explosaoOuRiscoVida: false, patrimonioCultural: false, cz: 0, ct: 1,
+    },
+    linhas: [{
+      id: "l1", tipo: "energia", ll: 1000, ci: "aereo", ce: "rural", ct: "btOuSinal",
+      blindagem: "aereaNaoBlindada", rs: "naoBlindada", adjacente: null,
+    }],
+    protecoes: {
+      spdaNp: "nenhum", dpsNp: "nenhum", dpsClasseI: "nenhum",
+      medidasPta: [], medidasPtu: [], fiacao: "semCuidado",
+      larguraMalha: null, blindagemContinua: false,
+      sistemas: [{ id: "s1", uw: 2.5, blindado: false, interfaceIsolante: false, linhaId: "l1" }],
+    },
+  });
+
+  it("R_A = N_D × P_A × L_A", () => {
+    const r = avaliarRisco(galpao());
+    expect(r.componentes.RA).toBeCloseTo(r.eventos.nd * r.probs.pa * r.perdas.la, 15);
+  });
+
+  it("R_U e R_V usam (N_L + N_DJ)", () => {
+    const r = avaliarRisco(galpao());
+    const [linha] = r.eventos.porLinha;
+    const [prob] = r.probs.porLinha;
+    expect(r.componentes.RU).toBeCloseTo((linha.nl + linha.ndj) * prob.pu * r.perdas.la, 15);
+    expect(r.componentes.RV).toBeCloseTo((linha.nl + linha.ndj) * prob.pv * r.perdas.lb, 15);
+  });
+
+  it("sem explosão nem risco à vida, R_C/R_M/R_W/R_Z ficam fora de R1", () => {
+    const r = avaliarRisco(galpao());
+    expect(r.componentes.RC).toBeGreaterThan(0); // calculada
+    expect(r.r1).toBeCloseTo(r.componentes.RA + r.componentes.RB + r.componentes.RU + r.componentes.RV, 15);
+  });
+
+  it("com explosão marcada, as quatro entram em R1", () => {
+    const entrada = galpao();
+    entrada.estrutura.explosaoOuRiscoVida = true;
+    const r = avaliarRisco(entrada);
+    const soma = r.componentes.RA + r.componentes.RB + r.componentes.RC + r.componentes.RM
+      + r.componentes.RU + r.componentes.RV + r.componentes.RW + r.componentes.RZ;
+    expect(r.r1).toBeCloseTo(soma, 15);
+  });
+
+  it("duas linhas somam suas contribuições", () => {
+    const entrada = galpao();
+    const uma = avaliarRisco(entrada).componentes.RU;
+    entrada.linhas.push({ ...entrada.linhas[0], id: "l2", tipo: "sinal" });
+    entrada.protecoes.sistemas.push({ id: "s2", uw: 2.5, blindado: false, interfaceIsolante: false, linhaId: "l2" });
+    expect(avaliarRisco(entrada).componentes.RU).toBeCloseTo(uma * 2, 15);
+  });
+
+  it("sem linhas, as componentes de linha zeram", () => {
+    const entrada = galpao();
+    entrada.linhas = [];
+    entrada.protecoes.sistemas = [];
+    const { componentes } = avaliarRisco(entrada);
+    expect(componentes.RU).toBe(0);
+    expect(componentes.RV).toBe(0);
+    expect(componentes.RW).toBe(0);
+    expect(componentes.RZ).toBe(0);
+  });
+
+  it("estrutura desprotegida excede o risco tolerável", () => {
+    const r = avaliarRisco(galpao());
+    expect(r.r1).toBeGreaterThan(1e-5);
+    expect(r.precisa.r1).toBe(true);
+    expect(r.rt.R1).toBe(1e-5);
+  });
+
+  it("SPDA NP I e DPS derrubam R1 abaixo do tolerável", () => {
+    const entrada = galpao();
+    entrada.protecoes.spdaNp = "npI";
+    entrada.protecoes.dpsNp = "npI";
+    entrada.protecoes.dpsClasseI = "npI";
+    entrada.protecoes.medidasPta = ["descidaNatural"];
+    entrada.protecoes.medidasPtu = ["restricoesFisicas"];
+    const r = avaliarRisco(entrada);
+    expect(r.r1).toBeLessThan(1e-5);
+    expect(r.precisa.r1).toBe(false);
+  });
+
+  it("identifica a componente dominante", () => {
+    const r = avaliarRisco(galpao());
+    const somadas = ["RA", "RB", "RU", "RV"];
+    const maior = somadas.reduce((a, b) => (r.componentes[a] >= r.componentes[b] ? a : b));
+    expect(r.dominante).toBe(maior);
+  });
+
+  it("R3 só é avaliado quando há patrimônio cultural", () => {
+    expect(avaliarRisco(galpao()).r3).toBeNull();
+    expect(avaliarRisco(galpao()).precisa.r3).toBeNull();
+
+    const museu = galpao();
+    museu.estrutura.patrimonioCultural = true;
+    museu.estrutura.cz = 1000000;
+    museu.estrutura.ct = 1000000;
+    const r = avaliarRisco(museu);
+    expect(r.r3).toBeGreaterThan(0);
+    expect(typeof r.precisa.r3).toBe("boolean");
+  });
+
+  it("caso completo conferido à mão contra a norma", () => {
+    // Galpão 60 × 40 × 8 m, isolado, N_G = 10, sem proteção nenhuma.
+    //   A_D = 60×40 + 2×(3×8)×(60+40) + π×(3×8)²
+    //       = 2 400 + 4 800 + 1 809,5574 = 9 009,5574 m²      (A.1)
+    //   N_D = 10 × 9 009,5574 × 1 × 10⁻⁶ = 0,090095574        (A.3)
+    //   P_A = P_TA × P_B = 1 × 1 = 1                          (B.1)
+    //   L_A = r_t × L_T × 1 × 1 × r_S = 0,01 × 0,01 × 1 = 10⁻⁴ (C.1)
+    //   R_A = 0,090095574 × 1 × 10⁻⁴ = 9,0095574 × 10⁻⁶
+    //   L_B = r_p × r_f × h_z × L_F × 1 × r_S
+    //       = 1 × 0,01 × 1 × 0,02 = 2 × 10⁻⁴                  (C.3)
+    //   R_B = 0,090095574 × 1 × 2 × 10⁻⁴ = 1,80191148 × 10⁻⁵
+    const r = avaliarRisco(galpao());
+    expect(r.eventos.ad).toBeCloseTo(9009.5574, 3);
+    expect(r.eventos.nd).toBeCloseTo(0.090095574, 9);
+    expect(r.perdas.la).toBeCloseTo(1e-4, 12);
+    expect(r.perdas.lb).toBeCloseTo(2e-4, 12);
+    expect(r.componentes.RA).toBeCloseTo(9.0095574e-6, 12);
+    expect(r.componentes.RB).toBeCloseTo(1.80191148e-5, 12);
+  });
+
+  it("defaultEntrada roda sem erro e produz números finitos", () => {
+    const r = avaliarRisco(defaultEntrada());
+    expect(Number.isFinite(r.r1)).toBe(true);
+    for (const v of Object.values(r.componentes)) expect(Number.isFinite(v)).toBe(true);
   });
 });
