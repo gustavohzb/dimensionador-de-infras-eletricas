@@ -16,8 +16,17 @@ function carregar() {
       const salvo = JSON.parse(raw);
       // Espalha sobre o padrão para não quebrar se um campo novo entrar depois.
       const base = defaultEntrada();
+      const estrutura = { ...base.estrutura, ...salvo.estrutura };
+      // A ocupação era guardada em horas por ano; virou horas por dia mais dias
+      // por semana. Converte o que estiver salvo assumindo semana cheia, que é
+      // como o valor antigo tinha sido informado.
+      if (salvo.estrutura?.tz != null && salvo.estrutura.horasDia == null) {
+        estrutura.horasDia = Math.min(24, +(salvo.estrutura.tz / 365).toFixed(2));
+        estrutura.diasSemana = 7;
+      }
+      delete estrutura.tz;
       return {
-        estrutura: { ...base.estrutura, ...salvo.estrutura },
+        estrutura,
         linhas: salvo.linhas ?? base.linhas,
         protecoes: { ...base.protecoes, ...salvo.protecoes },
       };

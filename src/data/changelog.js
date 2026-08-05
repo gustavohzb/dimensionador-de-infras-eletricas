@@ -661,6 +661,17 @@ export const CHANGELOG = [
       "A barra ganha sombra ao grudar no topo, para se separar do conteúdo que passa por baixo.",
     ],
   },
+  {
+    versao: "1.19.2",
+    data: "2026-08-05",
+    titulo: "Painel da estrutura explicado",
+    tipo: "melhoria",
+    itens: [
+      "Os campos do painel Estrutura foram agrupados em Geometria, Exposição, Características da edificação, Ocupação e Situações especiais, cada grupo com uma linha dizendo o que ele controla no resultado.",
+      "Todas as dicas foram reescritas para explicar o que informar e por quê, com exemplos — o que é n_z contra n_t, de onde tirar o N_G, como classificar a carga de incêndio.",
+      "A ocupação passa a ser informada em horas por dia e dias por semana, no lugar de horas por ano; o app mostra o total anual resultante e faz a conversão internamente.",
+    ],
+  },
 ];
 
 // Ordena versões maior.menor.correção. Negativo se `a` vem antes de `b`.
