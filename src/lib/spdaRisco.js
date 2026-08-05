@@ -166,6 +166,16 @@ export function probabilidades({ linhas = [], protecoes }) {
   return { pa, pb, pc: composta(pcPorSistema), pm: composta(pmPorSistema), porLinha };
 }
 
+// Converte o turno de trabalho no t_z que a norma pede (horas por ano, C.3).
+// Quem projeta sabe o turno — "8 h por dia, de segunda a sexta" —, não o total
+// anual; multiplicar só por 365 assumiria operação todos os dias e inflaria a
+// ocupação de uma fábrica de 5 dias em 40 %.
+export function horasPorAno({ horasDia, diasSemana }) {
+  const h = Number(horasDia) || 0;
+  const d = Number(diasSemana) || 0;
+  return h * (d / 7) * 365;
+}
+
 // C.1 a C.4 — perdas de vida humana (L1) da zona de estudo.
 export function perdasL1(estrutura) {
   const rt = fator(PISO_RT, estrutura.piso);
@@ -176,9 +186,12 @@ export function perdasL1(estrutura) {
   const lf = TIPO_ESTRUTURA_LF.find((t) => t.id === estrutura.tipoEstrutura)?.lf ?? 0;
   const lo = fator(LO_POR_ESTRUTURA, estrutura.loEstrutura);
 
-  // Presença de pessoas: fração da zona (n_z/n_t) e do ano (t_z/8760).
+  // Presença de pessoas: fração da zona (n_z/n_t) e do ano (t_z/8760). A
+  // fração do ano é limitada a 1 — não há como ocupar mais do que o ano todo,
+  // e sem o teto um turno digitado errado (25 h/dia) passaria batido.
   const nt = Number(estrutura.nt) || 1;
-  const presenca = ((Number(estrutura.nz) || 0) / nt) * ((Number(estrutura.tz) || 0) / 8760);
+  const fracaoAno = Math.min(1, horasPorAno(estrutura) / 8760);
+  const presenca = ((Number(estrutura.nz) || 0) / nt) * fracaoAno;
 
   return {
     la: rt * LT * presenca * rs, // (C.1) — vale também para L_U (C.2)
@@ -206,7 +219,7 @@ export function defaultEntrada() {
       construcao: "robusta", tipoEstrutura: "industrial", piso: "terraConcreto",
       riscoIncendio: "incendioNormal", providencias: "nenhuma", perigoEspecial: "nenhum",
       loEstrutura: "explosao",
-      nz: 20, nt: 20, tz: 8760,
+      nz: 20, nt: 20, horasDia: 24, diasSemana: 7,
       explosaoOuRiscoVida: false,
       patrimonioCultural: false, cz: 0, ct: 1,
     },

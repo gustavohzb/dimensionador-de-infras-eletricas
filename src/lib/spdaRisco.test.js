@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   areaExposicaoEstrutura, areaExposicaoProxima, areasLinha, numeroEventos,
   probabilidades, produtoMedidas, perdasL1, perdaL3, avaliarRisco, defaultEntrada,
+  horasPorAno,
 } from "./spdaRisco";
 import { MEDIDAS_PTA } from "../data/spdaNBR5419";
 
@@ -266,9 +267,24 @@ describe("perdas (Anexo C)", () => {
     providencias: "nenhuma", // r_p = 1
     perigoEspecial: "nenhum", // h_z = 1
     loEstrutura: "explosao", // L_O = 0,1
-    nz: 20, nt: 20, tz: 8760,
+    nz: 20, nt: 20, horasDia: 24, diasSemana: 7,
     patrimonioCultural: false, cz: 0, ct: 1,
   };
+
+  it("horasPorAno converte o turno em t_z", () => {
+    // Operação contínua tem de dar exatamente o ano inteiro.
+    expect(horasPorAno({ horasDia: 24, diasSemana: 7 })).toBeCloseTo(8760, 6);
+    // Fábrica de 8 h, segunda a sexta: 8 × (5/7) × 365 ≈ 2 085,7 h/ano —
+    // e não 2 920, que sairia de multiplicar por 365 dias corridos.
+    expect(horasPorAno({ horasDia: 8, diasSemana: 5 })).toBeCloseTo(2085.71, 2);
+    expect(horasPorAno({ horasDia: 0, diasSemana: 5 })).toBe(0);
+  });
+
+  it("a fração do ano nunca passa de 1", () => {
+    // 25 h/dia é erro de digitação; sem teto, a perda passaria do máximo.
+    const impossivel = { ...estrutura, horasDia: 25, diasSemana: 7 };
+    expect(perdasL1(impossivel).la).toBeCloseTo(perdasL1(estrutura).la, 12);
+  });
 
   it("L_A pela equação C.1", () => {
     // r_t × L_T × (n_z/n_t) × (t_z/8760) × r_S = 0,01 × 0,01 × 1 × 1 × 1
@@ -286,8 +302,8 @@ describe("perdas (Anexo C)", () => {
   });
 
   it("presença parcial de pessoas reduz a perda", () => {
-    const meioTempo = { ...estrutura, nz: 10, nt: 20, tz: 4380 };
-    // 1e-4 × 0,5 × 0,5
+    // Metade das pessoas, 12 h por dia: 1e-4 × 0,5 × 0,5
+    const meioTempo = { ...estrutura, nz: 10, nt: 20, horasDia: 12, diasSemana: 7 };
     expect(perdasL1(meioTempo).la).toBeCloseTo(2.5e-5, 10);
   });
 
@@ -320,7 +336,7 @@ describe("avaliarRisco", () => {
       L: 60, W: 40, H: 8, Hp: null, ng: 10, cd: "isolada",
       construcao: "robusta", tipoEstrutura: "industrial", piso: "terraConcreto",
       riscoIncendio: "incendioNormal", providencias: "nenhuma", perigoEspecial: "nenhum",
-      loEstrutura: "explosao", nz: 30, nt: 30, tz: 8760,
+      loEstrutura: "explosao", nz: 30, nt: 30, horasDia: 24, diasSemana: 7,
       explosaoOuRiscoVida: false, patrimonioCultural: false, cz: 0, ct: 1,
     },
     linhas: [{
