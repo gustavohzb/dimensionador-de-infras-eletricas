@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { defaultEntrada, avaliarRisco } from "../lib/spdaRisco";
+import VereditoRisco from "./spda/VereditoRisco";
 import ResultadoRisco from "./spda/ResultadoRisco";
 import EstruturaForm from "./spda/EstruturaForm";
 import LinhasForm from "./spda/LinhasForm";
@@ -51,6 +52,8 @@ export default function SpdaTab() {
           riscos toleráveis da Tabela 4.
         </p>
       </div>
+
+      <VereditoRisco resultado={resultado} />
 
       <ResultadoRisco resultado={resultado} />
 

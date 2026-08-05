@@ -1,15 +1,4 @@
-import { RISCO_TOLERAVEL } from "../../data/spdaNBR5419";
-
-// Notação científica em português, como aparece num memorial: 2,34 × 10⁻⁵.
-const SUPER = { "-": "⁻", 0: "⁰", 1: "¹", 2: "²", 3: "³", 4: "⁴", 5: "⁵", 6: "⁶", 7: "⁷", 8: "⁸", 9: "⁹" };
-function cientifica(n) {
-  if (!Number.isFinite(n)) return "—";
-  if (n === 0) return "0";
-  const exp = Math.floor(Math.log10(Math.abs(n)));
-  const mant = (n / 10 ** exp).toFixed(2).replace(".", ",");
-  const expTexto = String(exp).split("").map((c) => SUPER[c]).join("");
-  return `${mant} × 10${expTexto}`;
-}
+import { cientifica } from "./formato";
 
 const DESCRICAO = {
   RA: "Ferimentos por choque — descarga na estrutura",
@@ -22,49 +11,12 @@ const DESCRICAO = {
   RZ: "Falha de sistemas internos — descarga perto da linha",
 };
 
-function Veredito({ titulo, valor, tolerado, precisa }) {
-  return (
-    <div
-      className={`rounded-sm border p-3 ${
-        precisa
-          ? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-500/10"
-          : "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-500/10"
-      }`}
-    >
-      <div className="font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-        {titulo}
-      </div>
-      <div className="mt-1 font-mono text-lg font-bold text-slate-800 dark:text-slate-100">
-        {cientifica(valor)}
-        <span className="ml-2 text-xs font-normal text-slate-500 dark:text-slate-400">
-          /ano · tolerável {cientifica(tolerado)}
-        </span>
-      </div>
-      <div
-        className={`mt-1 text-sm font-semibold ${
-          precisa ? "text-red-700 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"
-        }`}
-      >
-        {precisa ? "Proteção necessária" : "Proteção não é necessária"}
-      </div>
-    </div>
-  );
-}
-
 export default function ResultadoRisco({ resultado }) {
-  const { componentes, chavesR1, r1, r3, precisa, dominante } = resultado;
+  const { componentes, chavesR1, r1, dominante } = resultado;
   const chaves = Object.keys(componentes);
   const entraEmR1 = (k) => chavesR1.includes(k);
 
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Veredito titulo="R1 — perda de vida humana" valor={r1} tolerado={RISCO_TOLERAVEL.R1} precisa={precisa.r1} />
-        {r3 !== null && (
-          <Veredito titulo="R3 — patrimônio cultural" valor={r3} tolerado={RISCO_TOLERAVEL.R3} precisa={precisa.r3} />
-        )}
-      </div>
-
       <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <h2 className="mb-2 font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
           Componentes de risco
@@ -130,6 +82,5 @@ export default function ResultadoRisco({ resultado }) {
           calculadas sobre o R1 somado.
         </p>
       </div>
-    </div>
   );
 }
