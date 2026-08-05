@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   areaExposicaoEstrutura, areaExposicaoProxima, areasLinha, numeroEventos,
-  probabilidades, produtoMedidas,
+  probabilidades, produtoMedidas, perdasL1, perdaL3,
 } from "./spdaRisco";
 import { MEDIDAS_PTA } from "../data/spdaNBR5419";
 
@@ -254,5 +254,61 @@ describe("probabilidades de dano (Anexo B)", () => {
     const [linha] = probabilidades(doisUw).porLinha;
     // menor U_W = 1,5 → P_LD (R_S ≤ 1) = 0,4; C_LD = 1
     expect(linha.pw).toBeCloseTo(0.01 * 0.4 * 1, 10);
+  });
+});
+
+describe("perdas (Anexo C)", () => {
+  const estrutura = {
+    construcao: "robusta", // r_S = 1
+    tipoEstrutura: "industrial", // L_F = 0,02
+    piso: "terraConcreto", // r_t = 0,01
+    riscoIncendio: "incendioNormal", // r_f = 0,01
+    providencias: "nenhuma", // r_p = 1
+    perigoEspecial: "nenhum", // h_z = 1
+    loEstrutura: "explosao", // L_O = 0,1
+    nz: 20, nt: 20, tz: 8760,
+    patrimonioCultural: false, cz: 0, ct: 1,
+  };
+
+  it("L_A pela equação C.1", () => {
+    // r_t × L_T × (n_z/n_t) × (t_z/8760) × r_S = 0,01 × 0,01 × 1 × 1 × 1
+    expect(perdasL1(estrutura).la).toBeCloseTo(1e-4, 10);
+  });
+
+  it("L_B pela equação C.3", () => {
+    // r_p × r_f × h_z × L_F × 1 × 1 × r_S = 1 × 0,01 × 1 × 0,02 × 1
+    expect(perdasL1(estrutura).lb).toBeCloseTo(2e-4, 10);
+  });
+
+  it("L_C pela equação C.4", () => {
+    // L_O × (n_z/n_t) × (t_z/8760) × r_S = 0,1
+    expect(perdasL1(estrutura).lc).toBeCloseTo(0.1, 10);
+  });
+
+  it("presença parcial de pessoas reduz a perda", () => {
+    const meioTempo = { ...estrutura, nz: 10, nt: 20, tz: 4380 };
+    // 1e-4 × 0,5 × 0,5
+    expect(perdasL1(meioTempo).la).toBeCloseTo(2.5e-5, 10);
+  });
+
+  it("construção simples dobra a perda (r_S = 2)", () => {
+    const simples = { ...estrutura, construcao: "simples" };
+    expect(perdasL1(simples).la).toBeCloseTo(2e-4, 10);
+  });
+
+  it("perigo especial e providências entram só em L_B", () => {
+    const comPanico = { ...estrutura, perigoEspecial: "panicoAlto", providencias: "automaticas" };
+    // 0,2 × 0,01 × 10 × 0,02 = 4e-4
+    expect(perdasL1(comPanico).lb).toBeCloseTo(4e-4, 10);
+    expect(perdasL1(comPanico).la).toBeCloseTo(1e-4, 10); // inalterada
+  });
+
+  it("L3 pela equação C.7", () => {
+    const museu = {
+      ...estrutura, patrimonioCultural: true,
+      providencias: "manuais", riscoIncendio: "incendioAlto", cz: 500000, ct: 2000000,
+    };
+    // r_p × r_f × L_F × c_z/c_t = 0,5 × 0,1 × 0,1 × 0,25
+    expect(perdaL3(museu)).toBeCloseTo(0.00125, 10);
   });
 });

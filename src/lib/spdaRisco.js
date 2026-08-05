@@ -8,6 +8,8 @@ import {
   LOCALIZACAO_CD, INSTALACAO_CI, TIPO_LINHA_CT, AMBIENTE_CE,
   MEDIDAS_PTA, MEDIDAS_PTU, SPDA_PB, DPS_PSPD, DPS_PEB, FIACAO_KS3,
   LINHA_CLD_CLI, BLINDAGEM_RS, PLI_POR_TIPO, UW_VALORES,
+  LT, LF_L3, TIPO_ESTRUTURA_LF, LO_POR_ESTRUTURA, PISO_RT,
+  PROVIDENCIAS_RP, RISCO_RF, PERIGO_HZ, CONSTRUCAO_RS,
 } from "../data/spdaNBR5419";
 
 // Busca o valor de uma tabela pelo id. Id desconhecido devolve 0 em vez de
@@ -162,4 +164,33 @@ export function probabilidades({ linhas = [], protecoes }) {
   });
 
   return { pa, pb, pc: composta(pcPorSistema), pm: composta(pmPorSistema), porLinha };
+}
+
+// C.1 a C.4 — perdas de vida humana (L1) da zona de estudo.
+export function perdasL1(estrutura) {
+  const rt = fator(PISO_RT, estrutura.piso);
+  const rp = fator(PROVIDENCIAS_RP, estrutura.providencias);
+  const rf = fator(RISCO_RF, estrutura.riscoIncendio);
+  const hz = fator(PERIGO_HZ, estrutura.perigoEspecial);
+  const rs = fator(CONSTRUCAO_RS, estrutura.construcao);
+  const lf = TIPO_ESTRUTURA_LF.find((t) => t.id === estrutura.tipoEstrutura)?.lf ?? 0;
+  const lo = fator(LO_POR_ESTRUTURA, estrutura.loEstrutura);
+
+  // Presença de pessoas: fração da zona (n_z/n_t) e do ano (t_z/8760).
+  const nt = Number(estrutura.nt) || 1;
+  const presenca = ((Number(estrutura.nz) || 0) / nt) * ((Number(estrutura.tz) || 0) / 8760);
+
+  return {
+    la: rt * LT * presenca * rs, // (C.1) — vale também para L_U (C.2)
+    lb: rp * rf * hz * lf * presenca * rs, // (C.3) — vale também para L_V
+    lc: lo * presenca * rs, // (C.4) — vale para L_M, L_W e L_Z
+  };
+}
+
+// C.7 — perda de patrimônio cultural (L3). Vale para L_B e L_V de R3.
+export function perdaL3(estrutura) {
+  const rp = fator(PROVIDENCIAS_RP, estrutura.providencias);
+  const rf = fator(RISCO_RF, estrutura.riscoIncendio);
+  const ct = Number(estrutura.ct) || 1;
+  return rp * rf * LF_L3 * ((Number(estrutura.cz) || 0) / ct);
 }
