@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { defaultEntrada, avaliarRisco } from "../lib/spdaRisco";
 import VereditoRisco from "./spda/VereditoRisco";
 import ResultadoRisco from "./spda/ResultadoRisco";
+import FrequenciaDanos from "./spda/FrequenciaDanos";
 import EstruturaForm from "./spda/EstruturaForm";
 import LinhasForm from "./spda/LinhasForm";
 import ProtecoesForm from "./spda/ProtecoesForm";
@@ -69,6 +70,7 @@ export default function SpdaTab() {
       <VereditoRisco resultado={resultado} pendente={entrada.estrutura.ng == null} />
 
       {entrada.estrutura.ng != null && <ResultadoRisco resultado={resultado} />}
+      {entrada.estrutura.ng != null && <FrequenciaDanos frequencias={resultado.frequencias} />}
 
       <EstruturaForm value={entrada.estrutura} onChange={setParte("estrutura")} />
 
