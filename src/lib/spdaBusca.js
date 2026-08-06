@@ -7,11 +7,15 @@ import { avaliarRisco } from "./spdaRisco";
 // partir do estado: degrau zero é "manter como está" e os degraus seguintes
 // são só as opções da tabela com fator menor que o atual.
 function eixoQueMelhora({ id, label, campo, tabela, esforcos }, entrada) {
-  const atualId = entrada.estrutura[campo];
-  const atual = tabela.find((t) => t.id === atualId)?.valor ?? Infinity;
-  const melhores = tabela
-    .filter((t) => t.valor < atual)
-    .sort((a, b) => b.valor - a.valor);
+  const atual = tabela.find((t) => t.id === entrada.estrutura[campo]);
+  // Id fora da tabela (projeto salvo antes de o catálogo mudar, por exemplo):
+  // não dá para saber o que é melhoria. Tratar o desconhecido como o pior
+  // valor possível faria o eixo oferecer a tabela inteira como "melhora", e a
+  // busca chegaria a recomendar uma troca que PIORA o risco. Sem referência,
+  // o eixo só oferece "manter como está".
+  const melhores = atual
+    ? tabela.filter((t) => t.valor < atual.valor).sort((a, b) => b.valor - a.valor)
+    : [];
 
   return {
     id,
@@ -49,6 +53,23 @@ export function montarEixos(entrada) {
   ];
 }
 
+// Partes do estado que `aplicarEscolhas` copia antes de escrever. Um eixo com
+// outro `alvo` escreveria direto no objeto do chamador, quebrando a promessa
+// de não mutar a entrada original — melhor falhar alto do que corromper.
+const ALVOS_COPIADOS = ["estrutura", "protecoes"];
+
+// Escreve um patch do catálogo no estado novo. Valores de array são COPIADOS:
+// o `entrada` devolvido por uma combinação vai para a tela, e o primeiro
+// `push` em cima de `medidasPta` corromperia o array de EIXOS_FIXOS para o
+// resto da sessão — toda busca seguinte aplicaria um conjunto de medidas
+// diferente do que ela mesma anuncia.
+function aplicarPatch(destino, patch) {
+  for (const chave of Object.keys(patch)) {
+    const valor = patch[chave];
+    destino[chave] = Array.isArray(valor) ? [...valor] : valor;
+  }
+}
+
 // Monta a entrada que uma combinação representa. Nunca muta a original: a
 // busca avalia milhares de candidatas em cima do mesmo estado de partida.
 export function aplicarEscolhas(entrada, eixos, indices) {
@@ -58,7 +79,10 @@ export function aplicarEscolhas(entrada, eixos, indices) {
     protecoes: { ...entrada.protecoes },
   };
   eixos.forEach((eixo, i) => {
-    Object.assign(nova[eixo.alvo], eixo.opcoes[indices[i]].patch);
+    if (!ALVOS_COPIADOS.includes(eixo.alvo)) {
+      throw new Error(`aplicarEscolhas: eixo "${eixo.id}" tem alvo desconhecido "${eixo.alvo}"`);
+    }
+    aplicarPatch(nova[eixo.alvo], eixo.opcoes[indices[i]].patch);
   });
   return nova;
 }
@@ -79,6 +103,17 @@ function piorFrequencia(resultado) {
   return resultado.frequencias.reduce((a, b) => (a.maior / a.ft >= b.maior / b.ft ? a : b));
 }
 
+// O quanto a candidata ainda estoura, na pior das três frentes. Cada critério
+// é dividido pelo próprio limite — R1 por R1 tolerável, R3 por R3 tolerável e
+// o F de cada sistema pelo seu F_T —, o que põe grandezas de unidades
+// diferentes na mesma escala: 1 é exatamente o limite, 2 é o dobro dele.
+function excessoNormalizado(resultado) {
+  let pior = resultado.r1 / RISCO_TOLERAVEL.R1;
+  if (resultado.r3 !== null) pior = Math.max(pior, resultado.r3 / RISCO_TOLERAVEL.R3);
+  for (const f of resultado.frequencias) pior = Math.max(pior, f.maior / f.ft);
+  return pior;
+}
+
 function descreverEscolhas(eixos, indices) {
   return eixos
     .map((eixo, i) => ({ eixo: eixo.label, ...eixo.opcoes[indices[i]] }))
@@ -86,10 +121,47 @@ function descreverEscolhas(eixos, indices) {
     .map((o) => ({ eixo: o.eixo, label: o.label, esforco: o.esforco }));
 }
 
+// Fila de prioridade por baldes de custo.
+//
+// Todo esforço do catálogo é inteiro e não negativo, e o total tem umas poucas
+// dezenas de níveis distintos, então dá para indexar um array pelo esforço
+// acumulado e varrer um ponteiro para o menor balde não vazio. Inserir e
+// remover ficam O(1).
+//
+// A versão anterior era uma lista mantida ordenada com findIndex + splice, dois
+// O(n) por inserção e nove inserções por remoção: no pior caso (20 000
+// avaliações) ela respondia por ~96 % do tempo da busca.
+//
+// A ordem de saída é a mesma de antes — esforço crescente e, dentro do mesmo
+// esforço, ordem de inserção. É dela que depende a garantia de que a primeira
+// combinação encontrada é a mais barata.
+function criarFilaPorCusto(custoMaximo) {
+  const baldes = new Array(custoMaximo + 1);
+  const lidos = new Array(custoMaximo + 1).fill(0);
+  let menor = 0;
+  let pendentes = 0;
+
+  return {
+    vazia: () => pendentes === 0,
+    inserir(no) {
+      if (baldes[no.esforco] === undefined) baldes[no.esforco] = [];
+      baldes[no.esforco].push(no);
+      if (no.esforco < menor) menor = no.esforco;
+      pendentes++;
+    },
+    remover() {
+      if (pendentes === 0) return null;
+      while (baldes[menor] === undefined || lidos[menor] >= baldes[menor].length) menor++;
+      pendentes--;
+      return baldes[menor][lidos[menor]++];
+    },
+  };
+}
+
 // Busca melhor-primeiro sobre a grade de degraus dos eixos.
 //
-// Por que não força bruta: o produto cartesiano dos eixos passa de um milhão
-// de arranjos, e avaliar todos travaria a tela.
+// Por que não força bruta: o produto cartesiano dos eixos chega a 600 000
+// arranjos, e avaliar todos travaria a tela.
 //
 // Por que a primeira encontrada é a mais barata: a fila devolve sempre o nó de
 // menor esforço acumulado, e subir um degrau só soma esforço (nunca subtrai),
@@ -99,40 +171,97 @@ function descreverEscolhas(eixos, indices) {
 // combinação aprovada também é aprovado e custa mais. Expandir só produziria
 // variações redundantes da mesma resposta, e as três recomendações sairiam
 // praticamente iguais.
-export function buscarMedidas(entrada, { maximo = 3, teto = 20000 } = {}) {
+// Teto de avaliações. É orçamento de tempo, não critério de engenharia: a
+// busca roda num useMemo, no mesmo quadro em que o usuário digita, e acima de
+// ~100 ms a digitação engasga.
+//
+// O valor saiu de medida, não de chute. Medindo a estrutura que a grade
+// inteira não resolve — o pior caso, em que a busca só para no teto —, já com
+// a fila por baldes: 20 000 avaliações levam 97 a 107 ms em processo frio e
+// 12 000 levam 69 a 93 ms isoladas, mas 112 ms com a máquina disputada pelo
+// resto da suíte. 6 000 ficam em 39 a 42 ms isoladas e 80 a 86 ms com a
+// máquina saturada — cabe no orçamento nos dois cenários. Antes da fila por
+// baldes eram 1 609 ms para 20 000 avaliações.
+//
+// O teto é orçamento de tempo, não julgamento de engenharia: baixá-lo não
+// muda nenhuma resposta que a busca dá, só a profundidade que ela alcança
+// antes de desistir — e ela avisa que desistiu em `esgotou`. O galpão típico
+// fecha as três recomendações em ~3 200 avaliações. Quem precisar varrer mais
+// fundo passa `teto` na chamada.
+const TETO_PADRAO = 6000;
+
+export function buscarMedidas(entrada, { maximo = 3, teto = TETO_PADRAO } = {}) {
+  const ng = Number(entrada.estrutura?.ng);
+  // Sem N_G (município ainda não escolhido) todo número de eventos é zero, e
+  // com ele todas as componentes de risco e todas as frequências. O degrau
+  // zero "atenderia" à norma e a busca responderia que não falta proteção
+  // nenhuma — a coisa mais perigosa que este módulo poderia dizer. Enquanto
+  // não houver N_G não há recomendação, e o resultado diz por quê.
+  if (!Number.isFinite(ng) || ng <= 0) {
+    return { combinacoes: [], avaliadas: 0, esgotou: false, melhorParcial: null, semNg: true };
+  }
+
   const eixos = montarEixos(entrada);
   const zero = eixos.map(() => 0);
+  const custoMaximo = eixos.reduce((acc, e) => acc + Math.max(...e.opcoes.map((o) => o.esforco)), 0);
 
-  // Fila de prioridade simples: a grade é pequena o bastante para a inserção
-  // ordenada custar menos que manter um heap.
-  const fila = [{ indices: zero, esforco: 0 }];
-  const vistos = new Set([zero.join(",")]);
+  // Chave do nó em base mista sobre os tamanhos dos eixos: injetora como o
+  // antigo join dos índices, mas um inteiro em vez de string. A grade tem no
+  // máximo 600 000 arranjos, então cabe com folga num inteiro exato — e um Set
+  // de números poupa as centenas de milhares de strings que a busca criava.
+  const pesos = new Array(eixos.length);
+  for (let i = 0, base = 1; i < eixos.length; i++) {
+    pesos[i] = base;
+    base *= eixos[i].opcoes.length;
+  }
+  const chaveDe = (indices) => {
+    let k = 0;
+    for (let i = 0; i < indices.length; i++) k += indices[i] * pesos[i];
+    return k;
+  };
+
+  const fila = criarFilaPorCusto(custoMaximo);
+  fila.inserir({ indices: zero, esforco: 0 });
+  const vistos = new Set([chaveDe(zero)]);
 
   const combinacoes = [];
   let avaliadas = 0;
   let melhorParcial = null;
 
-  while (fila.length && combinacoes.length < maximo && avaliadas < teto) {
-    const no = fila.shift();
+  while (!fila.vazia() && combinacoes.length < maximo && avaliadas < teto) {
+    const no = fila.remover();
     const candidata = aplicarEscolhas(entrada, eixos, no.indices);
     const resultado = avaliarRisco(candidata);
     avaliadas++;
 
     if (atendeNorma(resultado)) {
-      combinacoes.push({
-        indices: no.indices,
-        esforco: no.esforco,
-        escolhas: descreverEscolhas(eixos, no.indices),
-        r1: resultado.r1,
-        r3: resultado.r3,
-        piorF: piorFrequencia(resultado),
-        entrada: candidata,
-      });
+      // Candidata que está em degrau igual ou maior que uma solução já
+      // registrada em TODOS os eixos é aquela mesma resposta com medida
+      // sobrando. Não expandir quem atende fecha só o caminho direto até ela;
+      // pela volta, por outro pai, o supersete ainda chega aqui — e foi assim
+      // que a terceira recomendação virava a primeira mais uma medida inútil.
+      const redundante = combinacoes.some((c) => no.indices.every((v, k) => v >= c.indices[k]));
+      if (!redundante) {
+        combinacoes.push({
+          indices: no.indices,
+          esforco: no.esforco,
+          escolhas: descreverEscolhas(eixos, no.indices),
+          r1: resultado.r1,
+          r3: resultado.r3,
+          piorF: piorFrequencia(resultado),
+          entrada: candidata,
+        });
+      }
       continue; // não expande: os filhos seriam a mesma resposta, mais cara
     }
 
-    if (!melhorParcial || resultado.r1 < melhorParcial.r1) {
+    // O parcial mostrado é o que chegou mais perto de passar nas TRÊS frentes,
+    // e não o de menor R1: o critério da busca é R1, R3 e F juntos, e uma
+    // candidata ótima em R1 podia estar reprovando feio na frequência de danos.
+    const excesso = excessoNormalizado(resultado);
+    if (!melhorParcial || excesso < melhorParcial.excesso) {
       melhorParcial = {
+        excesso,
         esforco: no.esforco,
         escolhas: descreverEscolhas(eixos, no.indices),
         r1: resultado.r1,
@@ -147,24 +276,30 @@ export function buscarMedidas(entrada, { maximo = 3, teto = 20000 } = {}) {
       if (proximo >= eixos[i].opcoes.length) continue;
       const indices = [...no.indices];
       indices[i] = proximo;
-      const chave = indices.join(",");
+      const chave = chaveDe(indices);
       if (vistos.has(chave)) continue;
       vistos.add(chave);
 
-      const esforco = indices.reduce((acc, idx, j) => acc + eixos[j].opcoes[idx].esforco, 0);
-      const filho = { indices, esforco };
-      const pos = fila.findIndex((x) => x.esforco > esforco);
-      if (pos === -1) fila.push(filho);
-      else fila.splice(pos, 0, filho);
+      // O esforço sai do vetor de índices inteiro, e não de um acréscimo sobre
+      // o do pai: é o que garante que o custo é função pura do nó, e é disso
+      // que dependem tanto a otimalidade quanto a segurança de deduplicar por
+      // chave — dois caminhos até o mesmo arranjo custam o mesmo.
+      let esforco = 0;
+      for (let j = 0; j < indices.length; j++) esforco += eixos[j].opcoes[indices[j]].esforco;
+      fila.inserir({ indices, esforco });
     }
   }
 
   return {
     combinacoes,
     avaliadas,
-    // Verdadeiro quando a busca parou sem completar o pedido — ou porque a
-    // grade acabou, ou porque bateu o teto de avaliações.
-    esgotou: combinacoes.length < maximo,
+    // Verdadeiro só quando a busca foi truncada pelo teto de avaliações, ou
+    // seja, quando pode existir resposta que ela nem chegou a ver. Uma busca
+    // que varreu a grade inteira, ou que já entregou o número pedido de
+    // recomendações, devolve falso — inclusive a estrutura que atende de
+    // saída e por isso tem uma resposta só.
+    esgotou: avaliadas >= teto,
     melhorParcial,
+    semNg: false,
   };
 }

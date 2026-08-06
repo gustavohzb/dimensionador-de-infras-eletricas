@@ -17,6 +17,11 @@
 // `alvo` diz em que parte do estado o `patch` é mesclado. Piso e providências
 // contra incêndio ficam na estrutura, não nas proteções, e por isso a tela
 // avisa que aplicar uma sugestão mexe nos dois painéis.
+//
+// As listas dentro dos patches são congeladas de propósito. Quem aplica um
+// patch tem de COPIAR o array antes de guardá-lo no estado; se algum dia
+// alguém guardar a referência e der um push, o congelamento faz isso estourar
+// na hora em vez de corromper este catálogo em silêncio pela sessão inteira.
 
 export const EIXOS_FIXOS = [
   {
@@ -75,19 +80,19 @@ export const EIXOS_FIXOS = [
     label: "Contra tensões de toque e passo na estrutura",
     alvo: "protecoes",
     opcoes: [
-      { id: "nenhuma", label: "Nenhuma", esforco: 0, patch: { medidasPta: [] } },
-      { id: "avisos", label: "Avisos de alerta", esforco: 1, patch: { medidasPta: ["avisos"] } },
+      { id: "nenhuma", label: "Nenhuma", esforco: 0, patch: { medidasPta: Object.freeze([]) } },
+      { id: "avisos", label: "Avisos de alerta", esforco: 1, patch: { medidasPta: Object.freeze(["avisos"]) } },
       {
         id: "avisosIsolacao",
         label: "Avisos + isolação das descidas",
         esforco: 5,
-        patch: { medidasPta: ["avisos", "isolacaoDescidas"] },
+        patch: { medidasPta: Object.freeze(["avisos", "isolacaoDescidas"]) },
       },
       {
         id: "restricoes",
         label: "Restrições físicas fixas",
         esforco: 9,
-        patch: { medidasPta: ["restricoesFisicas"] },
+        patch: { medidasPta: Object.freeze(["restricoesFisicas"]) },
       },
     ],
   },
@@ -96,10 +101,20 @@ export const EIXOS_FIXOS = [
     label: "Contra tensões de toque vindas da linha",
     alvo: "protecoes",
     opcoes: [
-      { id: "nenhuma", label: "Nenhuma", esforco: 0, patch: { medidasPtu: [] } },
-      { id: "avisos", label: "Avisos visíveis", esforco: 1, patch: { medidasPtu: ["avisos"] } },
-      { id: "isolacao", label: "Avisos + isolação elétrica", esforco: 5, patch: { medidasPtu: ["avisos", "isolacao"] } },
-      { id: "restricoes", label: "Restrições físicas", esforco: 9, patch: { medidasPtu: ["restricoesFisicas"] } },
+      { id: "nenhuma", label: "Nenhuma", esforco: 0, patch: { medidasPtu: Object.freeze([]) } },
+      { id: "avisos", label: "Avisos visíveis", esforco: 1, patch: { medidasPtu: Object.freeze(["avisos"]) } },
+      {
+        id: "isolacao",
+        label: "Avisos + isolação elétrica",
+        esforco: 5,
+        patch: { medidasPtu: Object.freeze(["avisos", "isolacao"]) },
+      },
+      {
+        id: "restricoes",
+        label: "Restrições físicas",
+        esforco: 9,
+        patch: { medidasPtu: Object.freeze(["restricoesFisicas"]) },
+      },
     ],
   },
   {
