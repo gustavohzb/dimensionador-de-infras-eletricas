@@ -40,7 +40,7 @@ function Veredito({ titulo, valor, tolerado, precisa }) {
 // Precisa ficar como filha direta do contêiner que abrange a aba inteira —
 // `position: sticky` só gruda dentro dos limites do próprio pai, e dentro do
 // cartão de resultado ela se descolaria logo depois da tabela.
-export default function VereditoRisco({ resultado }) {
+export default function VereditoRisco({ resultado, pendente }) {
   const { r1, r3, precisa } = resultado;
   const barra = useRef(null);
   const [grudado, setGrudado] = useState(false);
@@ -66,6 +66,18 @@ export default function VereditoRisco({ resultado }) {
         grudado ? "shadow-[0_10px_14px_-12px_rgba(15,23,42,0.5)]" : ""
       }`}
     >
+      {/* Sem N_G não há cálculo: mostrar R1 = 0 em verde diria "não precisa de
+          proteção", que é a resposta oposta à correta para um dado que falta. */}
+      {pendente ? (
+        <div className="rounded-sm border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+          <b className="font-display text-[11px] font-bold uppercase tracking-[0.1em]">
+            Aguardando o município
+          </b>
+          <span className="ml-2">
+            Escolha o estado e o município no painel Estrutura para o cálculo começar.
+          </span>
+        </div>
+      ) : (
       <div className={`grid gap-2 ${r3 !== null ? "sm:grid-cols-2" : ""}`}>
         <Veredito
           titulo="R1 — vida humana"
@@ -82,6 +94,7 @@ export default function VereditoRisco({ resultado }) {
           />
         )}
       </div>
+      )}
     </div>
   );
 }
