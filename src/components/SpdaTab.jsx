@@ -62,9 +62,11 @@ export default function SpdaTab() {
         </p>
       </div>
 
-      <VereditoRisco resultado={resultado} />
+      {/* Sem município escolhido não há N_G, e sem N_G todas as componentes dão
+          zero — o que a aba exibiria como "proteção não é necessária". */}
+      <VereditoRisco resultado={resultado} pendente={entrada.estrutura.ng == null} />
 
-      <ResultadoRisco resultado={resultado} />
+      {entrada.estrutura.ng != null && <ResultadoRisco resultado={resultado} />}
 
       <EstruturaForm value={entrada.estrutura} onChange={setParte("estrutura")} />
 
