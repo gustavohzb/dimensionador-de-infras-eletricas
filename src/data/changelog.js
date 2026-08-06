@@ -685,6 +685,18 @@ export const CHANGELOG = [
       "Sem tabela importada, o campo segue manual como antes.",
     ],
   },
+  {
+    versao: "1.21.0",
+    data: "2026-08-06",
+    titulo: "Tabela de N_G embutida no app",
+    tipo: "dados",
+    itens: [
+      "Os 5.572 municípios do país entram no aplicativo com o N_G do Anexo F da NBR 5419-2:2026: basta escolher estado e cidade.",
+      "Saíram o campo de digitar o N_G à mão e a importação de tabela — a norma (A.1.3) não admite valores de outra fonte, e agora não é mais preciso colar nada.",
+      "Enquanto o município não for escolhido, a aba avisa que está aguardando em vez de mostrar risco zero, que seria lido como \"proteção não é necessária\".",
+      "Os números vêm do levantamento INPE/DISSM e UFMT que deu base ao Anexo F, pelo conjunto de dados público ng-brasil-mapas (licença MIT). Para laudo assinado, confira o município na norma.",
+    ],
+  },
 ];
 
 // Ordena versões maior.menor.correção. Negativo se `a` vem antes de `b`.
