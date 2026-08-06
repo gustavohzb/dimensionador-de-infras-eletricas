@@ -59,6 +59,7 @@ export default function ProtecoesForm({ value: p, linhas, onChange: set, onSiste
       {
         id: `s${proximoNumero(ss.map((s) => s.id), /^s(\d+)$/)}`,
         uw: 2.5, blindado: false, interfaceIsolante: false, linhaId: linhas[0]?.id ?? null,
+        critico: false, zpr0a: false,
       },
     ]);
 
@@ -158,9 +159,17 @@ export default function ProtecoesForm({ value: p, linhas, onChange: set, onSiste
         R_Z usam o pior caso da linha — o menor U_W entre os sistemas ligados a ela (6.9.1.2).
       </p>
 
+      <p className="mb-2 text-[11px] text-slate-400 dark:text-slate-500">
+        <b>Crítico</b> (Seção 7): sistema cuja falha pode afetar uma comunidade, com perdas
+        irreversíveis ou de longa duração, ou que possa levar a danos físicos ou ameaça à vida.
+        A frequência de danos tolerável cai de 1/ano para 0,1/ano. <b>Em ZPR₀ᴬ</b>: equipamento
+        exposto à descarga direta — isolado, no topo ou fora do volume protegido; só nesse caso
+        F_B é contabilizado.
+      </p>
+
       <div className="space-y-2">
         {sistemas.map((s) => (
-          <div key={s.id} className="grid grid-cols-2 items-end gap-2 rounded-xs border border-slate-200 p-2 sm:grid-cols-5 dark:border-slate-700">
+          <div key={s.id} className="grid grid-cols-2 items-end gap-2 rounded-xs border border-slate-200 p-2 sm:grid-cols-7 dark:border-slate-700">
             <Field label="U_W (kV)" tip="Tensão suportável nominal de impulso do equipamento mais vulnerável.">
               <select
                 value={s.uw}
@@ -201,6 +210,24 @@ export default function ProtecoesForm({ value: p, linhas, onChange: set, onSiste
                 className="h-3.5 w-3.5 accent-copper-600"
               />
               Interface isolante
+            </label>
+            <label className="flex items-center gap-2 pb-2 text-xs text-slate-600 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={s.critico}
+                onChange={(e) => alterarSistema(s.id, { critico: e.target.checked })}
+                className="h-3.5 w-3.5 accent-copper-600"
+              />
+              Crítico
+            </label>
+            <label className="flex items-center gap-2 pb-2 text-xs text-slate-600 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={s.zpr0a}
+                onChange={(e) => alterarSistema(s.id, { zpr0a: e.target.checked })}
+                className="h-3.5 w-3.5 accent-copper-600"
+              />
+              Em ZPR₀ᴬ
             </label>
             <button
               type="button"

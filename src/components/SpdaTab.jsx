@@ -25,11 +25,13 @@ function carregar() {
         estrutura.diasSemana = 7;
       }
       delete estrutura.tz;
-      return {
-        estrutura,
-        linhas: salvo.linhas ?? base.linhas,
-        protecoes: { ...base.protecoes, ...salvo.protecoes },
-      };
+      // Sistemas salvos antes da Seção 7 não têm as marcações novas. Sem o
+      // padrão explícito o checkbox nasce não controlado e o React reclama.
+      const protecoes = { ...base.protecoes, ...salvo.protecoes };
+      protecoes.sistemas = (protecoes.sistemas ?? []).map((s) => ({
+        critico: false, zpr0a: false, ...s,
+      }));
+      return { estrutura, linhas: salvo.linhas ?? base.linhas, protecoes };
     }
   } catch { /* estado inicial */ }
   return defaultEntrada();
