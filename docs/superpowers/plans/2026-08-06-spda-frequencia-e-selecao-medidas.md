@@ -1016,19 +1016,16 @@ describe("busca de medidas de proteção", () => {
     expect(r.combinacoes[0].escolhas).toEqual([]);
   });
 
-  it("avisa quando o catálogo inteiro não resolve", () => {
-    const e = galpao();
-    e.estrutura.ng = 32; // o maior N_G do país
-    e.estrutura.L = 200; e.estrutura.W = 200; e.estrutura.H = 60;
-    e.estrutura.perigoEspecial = "panicoAlto";
-    e.estrutura.riscoIncendio = "explosaoZ0";
-    e.estrutura.construcao = "simples";
-    const r = buscarMedidas(e);
-    if (r.combinacoes.length === 0) {
-      expect(r.esgotou).toBe(true);
-      expect(r.melhorParcial).not.toBeNull();
-      expect(r.melhorParcial.r1).toBeGreaterThan(0);
-    }
+  it("avisa quando para sem achar solução, com o melhor parcial", () => {
+    // Teto de 1 avaliação: só o degrau zero é testado, e o galpão sem
+    // proteção reprova. Força o caminho "não achei" de forma determinística,
+    // sem depender de uma estrutura extrema que o catálogo talvez resolvesse.
+    const r = buscarMedidas(galpao(), { teto: 1 });
+    expect(r.combinacoes).toHaveLength(0);
+    expect(r.esgotou).toBe(true);
+    expect(r.melhorParcial).not.toBeNull();
+    expect(r.melhorParcial.r1).toBeGreaterThan(0);
+    expect(r.melhorParcial.escolhas).toEqual([]);
   });
 
   it("respeita o teto de avaliações", () => {
