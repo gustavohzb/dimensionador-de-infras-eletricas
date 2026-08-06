@@ -26,8 +26,10 @@ export function frequenciaDanos({ eventos, probs, sistemas = [] }) {
     const fw = pLinha ? naLinha * pLinha.pw : 0;
     const fv = pLinha ? naLinha * probs.peb : 0;
     const fz = evLinha && pLinha ? evLinha.ni * pLinha.pz : 0;
-    // Nota "a" da Tabela 7: F_B só conta para equipamento em ZPR₀ᴬ, isolado
-    // ou no topo da estrutura. Nas demais situações é zero.
+    // Nota "a" da Tabela 7 reúne três situações (equipamento em ZPR₀ᴬ,
+    // isolado ou no topo da estrutura) sob uma única marcação do sistema,
+    // s.zpr0a — é o engenheiro quem atesta que uma delas se aplica. Fora
+    // disso, F_B é zero.
     const fb = s.zpr0a ? eventos.nd * probs.pb : 0;
 
     const maior = Math.max(fc, fm, fw, fv, fz, fb);

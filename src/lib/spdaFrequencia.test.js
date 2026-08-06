@@ -95,4 +95,27 @@ describe("frequência de danos (Seção 7, Tabela 7)", () => {
   it("devolve lista vazia sem sistemas internos", () => {
     expect(frequenciaDanos({ eventos: EVENTOS, probs: PROBS, sistemas: [] })).toEqual([]);
   });
+
+  it("zera F_C e F_M quando o sistema não tem entrada em probs.porSistema", () => {
+    expect(() => {
+      const [f] = frequenciaDanos({
+        eventos: EVENTOS,
+        probs: PROBS,
+        sistemas: [{ ...SISTEMA, id: "s-sem-probs" }],
+      });
+      expect(f.fc).toBe(0);
+      expect(f.fm).toBe(0);
+    }).not.toThrow();
+  });
+
+  it("atende quando o maior F é exatamente igual ao F_T", () => {
+    const [f] = frequenciaDanos({
+      eventos: { ...EVENTOS, nd: 1 }, // F_C = 1 × 1 = 1
+      probs: { ...PROBS, porSistema: [{ id: "s1", pc: 1, pm: 0.25 }] },
+      sistemas: [SISTEMA], // não crítico: F_T = 1
+    });
+    expect(f.maior).toBe(1);
+    expect(f.ft).toBe(1);
+    expect(f.atende).toBe(true);
+  });
 });
