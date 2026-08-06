@@ -672,6 +672,19 @@ export const CHANGELOG = [
       "A ocupação passa a ser informada em horas por dia e dias por semana, no lugar de horas por ano; o app mostra o total anual resultante e faz a conversão internamente.",
     ],
   },
+  {
+    versao: "1.20.0",
+    data: "2026-08-05",
+    titulo: "N_G por estado e cidade",
+    tipo: "novo",
+    itens: [
+      "O campo N_G ganha seletores de estado e cidade, que preenchem a densidade de descargas automaticamente.",
+      "Os valores vêm da Tabela F.1 do Anexo F da NBR 5419-2:2026, colada uma vez pelo próprio usuário: a tabela é conteúdo da norma e fica guardada apenas no navegador de quem a importou, fora do aplicativo.",
+      "A importação aceita o texto copiado do documento (município, UF e N_G separados por tabulação ou ponto e vírgula), descarta o cabeçalho e lista as linhas que não deu para aproveitar.",
+      "O valor preenchido continua editável à mão, com aviso quando diverge do tabelado para a cidade escolhida.",
+      "Sem tabela importada, o campo segue manual como antes.",
+    ],
+  },
 ];
 
 // Ordena versões maior.menor.correção. Negativo se `a` vem antes de `b`.

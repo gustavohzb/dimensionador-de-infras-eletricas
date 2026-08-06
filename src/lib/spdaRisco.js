@@ -216,6 +216,10 @@ export function defaultEntrada() {
     estrutura: {
       L: 50, W: 30, H: 8, Hp: null,
       ng: 10, cd: "isolada",
+      // Cidade escolhida na tabela de N_G, quando o usuário importou a Tabela
+      // F.1. Guardado no projeto só para lembrar a escolha; o que entra na
+      // conta é o `ng`.
+      uf: null, municipio: null,
       construcao: "robusta", tipoEstrutura: "industrial", piso: "terraConcreto",
       riscoIncendio: "incendioNormal", providencias: "nenhuma", perigoEspecial: "nenhum",
       loEstrutura: "explosao",

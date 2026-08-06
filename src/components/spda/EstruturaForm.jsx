@@ -4,6 +4,7 @@ import {
   RISCO_RF, PROVIDENCIAS_RP, PERIGO_HZ, LO_POR_ESTRUTURA,
 } from "../../data/spdaNBR5419";
 import { horasPorAno } from "../../lib/spdaRisco";
+import CampoNG from "./CampoNG";
 
 const inputCls =
   "w-full rounded-xs border border-slate-300 bg-white px-2.5 py-1.5 text-sm tabular-nums text-slate-800 focus:outline-none focus:ring-2 focus:ring-copper-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100";
@@ -79,12 +80,7 @@ export default function EstruturaForm({ value: e, onChange: set }) {
         explicacao="Quantas descargas caem na região e o quanto a vizinhança abriga ou expõe a estrutura. Juntos, definem quantos eventos perigosos por ano ela recebe."
       >
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <Numero
-            label="N_G — densidade de descargas (raios/km²/ano)"
-            tip="Procure o município na Tabela F.1 do Anexo F da NBR 5419-2:2026. É o único dado que a norma aceita de fonte externa a ela — o item A.1.3 proíbe expressamente usar valores de outras fontes. No Brasil os valores vão de cerca de 2 no litoral do Nordeste a mais de 30 no Centro-Oeste."
-            value={e.ng}
-            onChange={(v) => set({ ng: v })}
-          />
+          <CampoNG ng={e.ng} uf={e.uf} municipio={e.municipio} onChange={set} />
           <Selecao
             label="Localização relativa (C_D)"
             tip="O que existe em volta, num raio de três vezes a altura da estrutura. Prédios mais altos ao redor funcionam como para-raios e reduzem o fator a 0,25; já um galpão isolado no alto de um morro dobra a exposição (Tabela A.1)."
