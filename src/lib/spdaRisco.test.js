@@ -496,4 +496,35 @@ describe("avaliarRisco", () => {
     expect(Number.isFinite(r.r1)).toBe(true);
     for (const v of Object.values(r.componentes)) expect(Number.isFinite(v)).toBe(true);
   });
+
+  it("traz as frequências de dano e o veredito de F", () => {
+    const e = defaultEntrada();
+    e.estrutura.ng = 14;
+    const r = avaliarRisco(e);
+
+    expect(r.frequencias).toHaveLength(1);
+    expect(r.frequencias[0].id).toBe("s1");
+    // O galpão padrão não tem proteção nenhuma. Quem domina não é F_C (a
+    // estrutura em si é pequena), e sim F_Z: a linha de 1000 m desprotegida
+    // expõe N_I = 56 eventos próximos/ano, contra N_D ≈ 0,1 da estrutura.
+    // F_Z = N_I × P_Z = 56 × 0,3 = 16,8, que passa de 1/ano (F_T não crítico).
+    expect(r.frequencias[0].maior).toBeCloseTo(r.frequencias[0].fz, 12);
+    expect(r.frequencias[0].maior).toBeCloseTo(16.8, 10);
+    expect(r.precisa.f).toBe(true);
+  });
+
+  it("não exige F quando não há sistema interno", () => {
+    const e = defaultEntrada();
+    e.estrutura.ng = 14;
+    e.protecoes.sistemas = [];
+    const r = avaliarRisco(e);
+    expect(r.frequencias).toEqual([]);
+    expect(r.precisa.f).toBe(false);
+  });
+
+  it("dá aos sistemas do estado inicial as marcações da Seção 7", () => {
+    const [s] = defaultEntrada().protecoes.sistemas;
+    expect(s.critico).toBe(false);
+    expect(s.zpr0a).toBe(false);
+  });
 });

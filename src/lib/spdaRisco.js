@@ -11,6 +11,7 @@ import {
   LT, LF_L3, TIPO_ESTRUTURA_LF, LO_POR_ESTRUTURA, PISO_RT,
   PROVIDENCIAS_RP, RISCO_RF, PERIGO_HZ, CONSTRUCAO_RS, RISCO_TOLERAVEL,
 } from "../data/spdaNBR5419";
+import { frequenciaDanos } from "./spdaFrequencia";
 
 // Busca o valor de uma tabela pelo id. Id desconhecido devolve 0 em vez de
 // NaN: um fator ausente zera a componente, o que é visível no resultado, ao
@@ -244,7 +245,12 @@ export function defaultEntrada() {
       spdaNp: "nenhum", dpsNp: "nenhum", dpsClasseI: "nenhum",
       medidasPta: [], medidasPtu: [], fiacao: "semCuidado",
       larguraMalha: null, blindagemContinua: false,
-      sistemas: [{ id: "s1", uw: 2.5, blindado: false, interfaceIsolante: false, linhaId: "l1" }],
+      sistemas: [{
+        id: "s1", uw: 2.5, blindado: false, interfaceIsolante: false, linhaId: "l1",
+        // Seção 7: criticidade e posição do equipamento são declaração de quem
+        // projeta, e o caso comum é equipamento não crítico dentro da estrutura.
+        critico: false, zpr0a: false,
+      }],
     },
   };
 }
@@ -297,6 +303,8 @@ export function avaliarRisco(entrada) {
     ? chavesR1.reduce((a, b) => (componentes[a] >= componentes[b] ? a : b))
     : null;
 
+  const frequencias = frequenciaDanos({ eventos, probs, sistemas: entrada.protecoes.sistemas ?? [] });
+
   return {
     componentes,
     // Quais componentes a soma de R1 usou. A tabela de resultado precisa disso
@@ -306,9 +314,12 @@ export function avaliarRisco(entrada) {
     r1,
     r3,
     rt: RISCO_TOLERAVEL,
+    frequencias,
     precisa: {
       r1: r1 > RISCO_TOLERAVEL.R1,
       r3: r3 === null ? null : r3 > RISCO_TOLERAVEL.R3,
+      // Basta um sistema reprovar: F é avaliado equipamento a equipamento.
+      f: frequencias.some((x) => !x.atende),
     },
     dominante,
     eventos,
