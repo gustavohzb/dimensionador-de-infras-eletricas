@@ -163,7 +163,17 @@ export function probabilidades({ linhas = [], protecoes }) {
     };
   });
 
-  return { pa, pb, pc: composta(pcPorSistema), pm: composta(pmPorSistema), porLinha };
+  return {
+    pa,
+    pb,
+    peb,
+    pc: composta(pcPorSistema),
+    pm: composta(pmPorSistema),
+    // A Seção 7 compara equipamento a equipamento, então precisa do valor de
+    // cada sistema — o composto das equações 12 e 13 não serve para F.
+    porSistema: sistemas.map((s, i) => ({ id: s.id, pc: pcPorSistema[i], pm: pmPorSistema[i] })),
+    porLinha,
+  };
 }
 
 // Converte o turno de trabalho no t_z que a norma pede (horas por ano, C.3).

@@ -256,6 +256,30 @@ describe("probabilidades de dano (Anexo B)", () => {
     // menor U_W = 1,5 → P_LD (R_S ≤ 1) = 0,4; C_LD = 1
     expect(linha.pw).toBeCloseTo(0.01 * 0.4 * 1, 10);
   });
+
+  it("expõe P_C e P_M de cada sistema, além do composto", () => {
+    const e = defaultEntrada();
+    e.protecoes.dpsNp = "npI"; // P_SPD = 0,01
+    e.protecoes.sistemas = [
+      { id: "s1", uw: 2.5, blindado: false, interfaceIsolante: false, linhaId: "l1" },
+      { id: "s2", uw: 2.5, blindado: false, interfaceIsolante: true, linhaId: "l1" },
+    ];
+    const p = probabilidades(e);
+
+    expect(p.porSistema.map((s) => s.id)).toEqual(["s1", "s2"]);
+    // s1 não é blindado e tem linha: C_LD = 1 por B.4.4, então P_C = P_SPD.
+    expect(p.porSistema[0].pc).toBeCloseTo(0.01, 12);
+    // s2 tem interface isolante: P_M = 0 por B.4.11.
+    expect(p.porSistema[1].pm).toBe(0);
+    // O composto continua sendo o de antes e não é a soma dos individuais.
+    expect(p.pc).toBeCloseTo(1 - (1 - 0.01) * (1 - 0.01), 12);
+  });
+
+  it("expõe P_EB, que R_V e F_V usam direto", () => {
+    const e = defaultEntrada();
+    e.protecoes.dpsClasseI = "npII"; // Tabela B.7 = 0,02
+    expect(probabilidades(e).peb).toBe(0.02);
+  });
 });
 
 describe("perdas (Anexo C)", () => {

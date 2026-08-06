@@ -210,3 +210,8 @@ export const LF_L3 = 0.1;
 
 // Tabela 4 — riscos toleráveis (1/ano).
 export const RISCO_TOLERAVEL = { R1: 1e-5, R3: 1e-4 };
+
+// Seção 7 — frequência de danos tolerável F_T (1/ano). O valor de sistema
+// crítico é máximo: só autoridade com jurisdição pode alterá-lo. O de não
+// crítico a norma dá como meramente representativo.
+export const FREQUENCIA_TOLERAVEL = { critico: 0.1, naoCritico: 1 };
