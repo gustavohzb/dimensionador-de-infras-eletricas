@@ -697,6 +697,20 @@ export const CHANGELOG = [
       "Os números vêm do levantamento INPE/DISSM e UFMT que deu base ao Anexo F, pelo conjunto de dados público ng-brasil-mapas (licença MIT). Para laudo assinado, confira o município na norma.",
     ],
   },
+  {
+    versao: "1.22.0",
+    data: "2026-08-06",
+    titulo: "Frequência de danos e sugestão de medidas no SPDA",
+    tipo: "novo",
+    itens: [
+      "A aba passa a avaliar a frequência de danos F da Seção 7 da NBR 5419-2:2026, critério novo da edição de 2026 e independente do risco: uma estrutura pode ficar abaixo do R1 tolerável e ainda assim reprovar.",
+      "F aparece como um terceiro cartão na barra de veredito e numa tabela que abre o cálculo por sistema interno e por fonte de dano.",
+      "Cada sistema interno ganha as marcações de crítico (a frequência tolerável cai de 1/ano para 0,1/ano) e de equipamento em ZPR₀ᴬ, que decide se F_B é contabilizado.",
+      "Novo painel \"Como atender a norma\": quando algum critério reprova, o botão procura as combinações de medidas mais enxutas que trazem R1, R3 e F para dentro dos limites de uma vez, e aplica a escolhida nos campos.",
+      "A busca varre o catálogo inteiro — até 600 mil combinações — em vez de parar cedo, para que \"nenhuma combinação resolve\" só apareça depois de olhar todas. Por isso ela roda num botão, e não a cada campo digitado.",
+      "A ordem das sugestões usa um peso de esforço de obra definido no código, não valor normativo: mudá-lo muda só a ordem de apresentação, nunca se a combinação atende.",
+    ],
+  },
 ];
 
 // Ordena versões maior.menor.correção. Negativo se `a` vem antes de `b`.
