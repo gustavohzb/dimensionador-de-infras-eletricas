@@ -110,9 +110,10 @@ export const EIXOS_FIXOS = [
       { id: "avisos", label: "Avisos de alerta", esforco: 1, patch: { medidasPta: Object.freeze(["avisos"]) } },
       {
         // Sozinha, e não somada aos avisos: a Tabela B.1 dá 0,01 para a
-        // equipotencialização do solo, o mesmo que os avisos somados à isolação
-        // das descidas custariam mais adiante. É um degrau de terraplenagem
-        // entre os dois, não um acréscimo ao anterior.
+        // equipotencialização do solo, dez vezes melhor que os avisos (0,1) e
+        // dez vezes pior que avisos com isolação das descidas (0,001), que vem
+        // no degrau seguinte. É um degrau de terraplenagem entre os dois, não
+        // um acréscimo ao anterior.
         id: "equipotencializacaoSolo",
         label: "Equipotencialização do solo",
         esforco: 4,

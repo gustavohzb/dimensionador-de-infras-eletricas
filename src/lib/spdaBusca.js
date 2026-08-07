@@ -288,7 +288,7 @@ export function buscarMedidas(entrada, { maximo = 3, teto = null } = {}) {
 
   // Chave do nó em base mista sobre os tamanhos dos eixos: injetora como o
   // antigo join dos índices, mas um inteiro em vez de string. A grade tem no
-  // máximo 600 000 arranjos, então cabe com folga num inteiro exato — e um Set
+  // máximo 1 260 000 arranjos, então cabe com folga num inteiro exato — e um Set
   // de números poupa as centenas de milhares de strings que a busca criava.
   const pesos = new Array(eixos.length);
   let base = 1;
