@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { defaultEntrada, avaliarRisco } from "../lib/spdaRisco";
+import { exportSpdaPDF } from "../lib/spdaPdf";
 import VereditoRisco from "./spda/VereditoRisco";
 import ResultadoRisco from "./spda/ResultadoRisco";
 import FrequenciaDanos from "./spda/FrequenciaDanos";
@@ -53,17 +54,38 @@ export default function SpdaTab() {
   const setParte = (parte) => (patch) =>
     setEntrada((e) => ({ ...e, [parte]: { ...e[parte], ...patch } }));
 
+  const [gerandoPdf, setGerandoPdf] = useState(false);
+
+  const exportarPdf = () => {
+    setGerandoPdf(true);
+    exportSpdaPDF({ entrada, resultado }).finally(() => setGerandoPdf(false));
+  };
+
   return (
     <div className="space-y-3">
       <div className="rounded-sm border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h1 className="font-display text-base font-bold uppercase tracking-[0.08em] text-slate-800 dark:text-slate-100">
-          Gerenciamento de risco — SPDA
-        </h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Análise de risco conforme a <b>ABNT NBR 5419-2:2026</b>, com a estrutura tratada como
-          zona de estudo única. Calcula as oito componentes de risco, soma R1 e R3 e compara com os
-          riscos toleráveis da Tabela 4.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h1 className="font-display text-base font-bold uppercase tracking-[0.08em] text-slate-800 dark:text-slate-100">
+              Gerenciamento de risco — SPDA
+            </h1>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Análise de risco conforme a <b>ABNT NBR 5419-2:2026</b>, com a estrutura tratada como
+              zona de estudo única. Calcula as oito componentes de risco, soma R1 e R3 e compara com os
+              riscos toleráveis da Tabela 4.
+            </p>
+          </div>
+          {entrada.estrutura.ng != null && (
+            <button
+              type="button"
+              onClick={exportarPdf}
+              disabled={gerandoPdf}
+              className="shrink-0 rounded-xs bg-copper-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-copper-700 disabled:opacity-50"
+            >
+              {gerandoPdf ? "Gerando…" : "Relatório PDF"}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Sem município escolhido não há N_G, e sem N_G todas as componentes dão
