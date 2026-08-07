@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { defaultEntrada, avaliarRisco } from "../lib/spdaRisco";
+import { normalizarEntrada } from "../lib/spdaEntrada";
 import { exportSpdaPDF } from "../lib/spdaPdf";
 import VereditoRisco from "./spda/VereditoRisco";
 import ResultadoRisco from "./spda/ResultadoRisco";
@@ -15,27 +16,7 @@ const STORAGE_KEY = "spdaRisco.v1";
 function carregar() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const salvo = JSON.parse(raw);
-      // Espalha sobre o padrão para não quebrar se um campo novo entrar depois.
-      const base = defaultEntrada();
-      const estrutura = { ...base.estrutura, ...salvo.estrutura };
-      // A ocupação era guardada em horas por ano; virou horas por dia mais dias
-      // por semana. Converte o que estiver salvo assumindo semana cheia, que é
-      // como o valor antigo tinha sido informado.
-      if (salvo.estrutura?.tz != null && salvo.estrutura.horasDia == null) {
-        estrutura.horasDia = Math.min(24, +(salvo.estrutura.tz / 365).toFixed(2));
-        estrutura.diasSemana = 7;
-      }
-      delete estrutura.tz;
-      // Sistemas salvos antes da Seção 7 não têm as marcações novas. Sem o
-      // padrão explícito o checkbox nasce não controlado e o React reclama.
-      const protecoes = { ...base.protecoes, ...salvo.protecoes };
-      protecoes.sistemas = (protecoes.sistemas ?? []).map((s) => ({
-        critico: false, zpr0a: false, ...s,
-      }));
-      return { estrutura, linhas: salvo.linhas ?? base.linhas, protecoes };
-    }
+    if (raw) return normalizarEntrada(JSON.parse(raw));
   } catch { /* estado inicial */ }
   return defaultEntrada();
 }
