@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { EIXOS_FIXOS, ESFORCO_MAXIMO } from "./spdaEsforco";
-import { SPDA_PB, DPS_PSPD, DPS_PEB, FIACAO_KS3 } from "./spdaNBR5419";
+import { EIXOS_FIXOS } from "./spdaEsforco";
+import { SPDA_PB, DPS_PSPD, DPS_PEB, FIACAO_KS3, MEDIDAS_PTA, MEDIDAS_PTU } from "./spdaNBR5419";
 
 describe("catálogo de medidas de proteção", () => {
   it("começa cada eixo no esforço zero", () => {
@@ -31,11 +31,24 @@ describe("catálogo de medidas de proteção", () => {
     }
   });
 
-  it("soma o esforço máximo de todos os eixos", () => {
-    const esperado = EIXOS_FIXOS.reduce(
-      (acc, e) => acc + Math.max(...e.opcoes.map((o) => o.esforco)),
-      0
-    );
-    expect(ESFORCO_MAXIMO).toBe(esperado);
+  // Quando o catálogo omite uma linha da norma, a busca varre tudo o que conhece
+  // e conclui que "nenhuma combinação resolve" — sobre uma grade menor que a da
+  // norma. Foi o que acontecia com `npIDescidaNatural` (P_B = 0,01) e
+  // `coberturaMetalica` (0,001), justamente os dois degraus mais fortes de SPDA:
+  // havia estrutura que a norma resolve e o app declarava insolúvel.
+  it("cobre todas as linhas das tabelas normativas que os eixos representam", () => {
+    const acha = (id) => EIXOS_FIXOS.find((x) => x.id === id);
+    const idsSimples = (eixo) => acha(eixo).opcoes.map((o) => Object.values(o.patch)[0]);
+    // Nos eixos de conjunto, cada opção é uma lista; o que precisa estar
+    // coberto é cada medida da tabela, em alguma das listas.
+    const idsDeConjunto = (eixo) => acha(eixo).opcoes.flatMap((o) => Object.values(o.patch)[0]);
+
+    expect([...idsSimples("spdaNp")].sort()).toEqual([...SPDA_PB.map((t) => t.id)].sort());
+    expect([...idsSimples("dpsNp")].sort()).toEqual([...DPS_PSPD.map((t) => t.id)].sort());
+    expect([...idsSimples("dpsClasseI")].sort()).toEqual([...DPS_PEB.map((t) => t.id)].sort());
+    expect([...idsSimples("fiacao")].sort()).toEqual([...FIACAO_KS3.map((t) => t.id)].sort());
+
+    for (const t of MEDIDAS_PTA) expect(idsDeConjunto("medidasPta"), t.id).toContain(t.id);
+    for (const t of MEDIDAS_PTU) expect(idsDeConjunto("medidasPtu"), t.id).toContain(t.id);
   });
 });

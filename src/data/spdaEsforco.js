@@ -10,9 +10,23 @@
 // A escala:
 //     0  nada a fazer
 //   1–2  ajuste de projeto, sem material novo (roteamento, avisos)
-//   3–6  material e mão de obra pontuais (DPS, piso, alarme)
-//  7–12  intervenção estrutural (SPDA, malha de blindagem)
+//   3–6  material e mão de obra pontuais (DPS, piso, alarme,
+//        equipotencialização do solo)
+//  7–16  intervenção estrutural (SPDA, descida natural, malha de blindagem)
 //    20  reforma pesada (blindagem metálica contínua)
+//
+// Este catálogo é o que o app sabe recomendar, e NÃO é a norma: a busca pode
+// varrê-lo inteiro sem achar solução e ainda assim existir projeto que atenda
+// por um caminho que não está aqui. Quem escreve a mensagem de "não achei"
+// precisa dizer isso.
+//
+// Cada eixo é uma ESCADA completa, do degrau "sem medida nenhuma" até o mais
+// forte, em ordem de esforço não decrescente e de fator normativo não
+// crescente. Ela descreve o que existe, não o que vai ser oferecido: quem monta
+// a busca (`montarEixos`, em lib/spdaBusca.js) reconstrói cada eixo contra o
+// estado declarado pelo engenheiro e descarta os degraus que não são
+// estritamente melhores do que ele. Por isso o degrau 0 daqui, que força o pior
+// valor, nunca chega a ser aplicado numa estrutura que já tem proteção.
 //
 // `alvo` diz em que parte do estado o `patch` é mesclado. Piso e providências
 // contra incêndio ficam na estrutura, não nas proteções, e por isso a tela
@@ -34,6 +48,18 @@ export const EIXOS_FIXOS = [
       { id: "npIII", label: "SPDA NP III", esforco: 8, patch: { spdaNp: "npIII" } },
       { id: "npII", label: "SPDA NP II", esforco: 10, patch: { spdaNp: "npII" } },
       { id: "npI", label: "SPDA NP I", esforco: 12, patch: { spdaNp: "npI" } },
+      {
+        id: "npIDescidaNatural",
+        label: "Captação NP I + descida natural",
+        esforco: 14,
+        patch: { spdaNp: "npIDescidaNatural" },
+      },
+      {
+        id: "coberturaMetalica",
+        label: "Cobertura metálica como captação natural + descida natural",
+        esforco: 16,
+        patch: { spdaNp: "coberturaMetalica" },
+      },
     ],
   },
   {
@@ -83,10 +109,29 @@ export const EIXOS_FIXOS = [
       { id: "nenhuma", label: "Nenhuma", esforco: 0, patch: { medidasPta: Object.freeze([]) } },
       { id: "avisos", label: "Avisos de alerta", esforco: 1, patch: { medidasPta: Object.freeze(["avisos"]) } },
       {
+        // Sozinha, e não somada aos avisos: a Tabela B.1 dá 0,01 para a
+        // equipotencialização do solo, o mesmo que os avisos somados à isolação
+        // das descidas custariam mais adiante. É um degrau de terraplenagem
+        // entre os dois, não um acréscimo ao anterior.
+        id: "equipotencializacaoSolo",
+        label: "Equipotencialização do solo",
+        esforco: 4,
+        patch: { medidasPta: Object.freeze(["equipotencializacaoSolo"]) },
+      },
+      {
         id: "avisosIsolacao",
         label: "Avisos + isolação das descidas",
         esforco: 5,
         patch: { medidasPta: Object.freeze(["avisos", "isolacaoDescidas"]) },
+      },
+      {
+        // Cumulativa com os avisos, como o resto do eixo: a descida natural
+        // sozinha vale 0,001, o mesmo que o degrau anterior, e seria um degrau
+        // morto — mais caro sem ser melhor.
+        id: "avisosDescidaNatural",
+        label: "Avisos + estrutura como descida natural",
+        esforco: 7,
+        patch: { medidasPta: Object.freeze(["avisos", "descidaNatural"]) },
       },
       {
         id: "restricoes",
@@ -132,10 +177,3 @@ export const EIXOS_FIXOS = [
     ],
   },
 ];
-
-// Teto do esforço somado, usado para dimensionar barras na tela e como
-// referência nos testes da busca.
-export const ESFORCO_MAXIMO = EIXOS_FIXOS.reduce(
-  (acc, e) => acc + Math.max(...e.opcoes.map((o) => o.esforco)),
-  0
-);

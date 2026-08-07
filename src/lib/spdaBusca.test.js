@@ -2,7 +2,10 @@ import { describe, it, expect } from "vitest";
 import { montarEixos, aplicarEscolhas, atendeNorma, buscarMedidas } from "./spdaBusca";
 import { defaultEntrada, avaliarRisco } from "./spdaRisco";
 import { EIXOS_FIXOS } from "../data/spdaEsforco";
-import { RISCO_TOLERAVEL } from "../data/spdaNBR5419";
+import {
+  RISCO_TOLERAVEL, RISCO_RF, PISO_RT, PROVIDENCIAS_RP,
+  SPDA_PB, DPS_PSPD, DPS_PEB, FIACAO_KS3, MEDIDAS_PTA, MEDIDAS_PTU,
+} from "../data/spdaNBR5419";
 
 // Galpão padrão com N_G real: reprova em R1 e em F sem proteção nenhuma.
 function galpao() {
@@ -40,6 +43,262 @@ function inatendivel() {
   e.estrutura.explosaoOuRiscoVida = true;
   return e;
 }
+
+// Estrutura que JÁ tem proteção declarada em todos os eixos onde a busca podia
+// recomendar uma retirada. As outras fixtures partem da estrutura nua, e nela o
+// degrau zero do catálogo — que força o pior valor de cada eixo — coincide com
+// o que já existe: é a única forma em que "a sugestão apaga a proteção" não
+// consegue aparecer, e por isso nenhum teste antigo pegava o defeito.
+//
+// Proteção parcial de propósito nos eixos de DPS e de tensões de toque vindas
+// da linha: assim o eixo não colapsa em "manter" e ainda sobra degrau melhor
+// para a busca oferecer, o que exercita a filtragem em vez de só o bloqueio.
+function galpaoJaProtegido() {
+  const e = galpao();
+  e.protecoes.spdaNp = "npI";
+  e.protecoes.dpsClasseI = "npI";
+  e.protecoes.fiacao = "blindado";
+  e.protecoes.blindagemContinua = true;
+  e.protecoes.medidasPta = ["restricoesFisicas"];
+  e.protecoes.medidasPtu = ["avisos", "isolacao"];
+  e.estrutura.piso = "britaCarpete";
+  e.estrutura.providencias = "manuais";
+  return e;
+}
+
+// Oráculo independente da implementação: o multiplicador que cada eixo aplica
+// à sua probabilidade de dano, lido direto das tabelas normativas. Menor é
+// melhor em todos eles. Deliberadamente NÃO reusa os ajudantes da busca — um
+// teste que chamasse a mesma função que está sob teste não provaria nada sobre
+// o que a norma diz.
+const valorNormativo = (tabela, id) => tabela.find((t) => t.id === id).valor;
+const produtoNormativo = (tabela, ids) =>
+  ids.reduce((acc, id) => acc * valorNormativo(tabela, id), 1);
+
+function fatoresPorEixo({ estrutura, protecoes }) {
+  return {
+    spdaNp: valorNormativo(SPDA_PB, protecoes.spdaNp),
+    dpsNp: valorNormativo(DPS_PSPD, protecoes.dpsNp),
+    dpsClasseI: valorNormativo(DPS_PEB, protecoes.dpsClasseI),
+    fiacao: valorNormativo(FIACAO_KS3, protecoes.fiacao),
+    medidasPta: produtoNormativo(MEDIDAS_PTA, protecoes.medidasPta),
+    medidasPtu: produtoNormativo(MEDIDAS_PTU, protecoes.medidasPtu),
+    blindagem: protecoes.blindagemContinua
+      ? 1e-4
+      : Math.min(1, protecoes.larguraMalha ? 0.12 * Number(protecoes.larguraMalha) : 1),
+    piso: valorNormativo(PISO_RT, estrutura.piso),
+    providencias: valorNormativo(PROVIDENCIAS_RP, estrutura.providencias),
+  };
+}
+
+describe("a busca nunca recomenda retirar proteção já declarada", () => {
+  it("monta todo eixo com 'manter como está' de patch vazio no degrau zero", () => {
+    // O degrau zero do catálogo força o PIOR valor do eixo ("Sem SPDA",
+    // "larguraMalha: null"). Aplicá-lo sem olhar o estado fazia a linha de
+    // partida da busca ser a estrutura despida do que o engenheiro informou.
+    for (const eixo of montarEixos(galpaoJaProtegido())) {
+      expect(eixo.opcoes[0].id, eixo.id).toBe("manter");
+      expect(eixo.opcoes[0].patch, eixo.id).toEqual({});
+      expect(eixo.opcoes[0].esforco, eixo.id).toBe(0);
+    }
+  });
+
+  it("o degrau zero devolve exatamente a estrutura declarada", () => {
+    const e = galpaoJaProtegido();
+    const eixos = montarEixos(e);
+    const partida = aplicarEscolhas(e, eixos, eixos.map(() => 0));
+    expect(partida.protecoes).toEqual(e.protecoes);
+    expect(partida.estrutura).toEqual(e.estrutura);
+  });
+
+  it("só oferece degraus estritamente melhores que o declarado", () => {
+    const e = galpaoJaProtegido();
+    const eixos = montarEixos(e);
+    const base = fatoresPorEixo(e);
+    const zero = eixos.map(() => 0);
+
+    for (let i = 0; i < eixos.length; i++) {
+      for (let j = 1; j < eixos[i].opcoes.length; j++) {
+        const indices = [...zero];
+        indices[i] = j;
+        const fatores = fatoresPorEixo(aplicarEscolhas(e, eixos, indices));
+        const onde = `${eixos[i].id} degrau ${j} (${eixos[i].opcoes[j].id})`;
+        expect(fatores[eixos[i].id], onde).toBeLessThan(base[eixos[i].id]);
+        // E mexer num eixo não pode mexer em outro.
+        for (const chave of Object.keys(base)) {
+          if (chave === eixos[i].id) continue;
+          expect(fatores[chave], `${onde} alterou ${chave}`).toBe(base[chave]);
+        }
+      }
+    }
+  });
+
+  it("colapsa em 'manter' o eixo que já está no melhor degrau", () => {
+    const e = galpaoJaProtegido();
+    const eixos = montarEixos(e);
+    // fiação blindada (K_S3 = 10⁻⁴), blindagem contínua e restrições físicas
+    // (P_TA = 0) são o topo de suas tabelas: não há o que oferecer.
+    for (const id of ["fiacao", "blindagem", "medidasPta"]) {
+      const eixo = eixos.find((x) => x.id === id);
+      expect(eixo.opcoes.map((o) => o.id), id).toEqual(["manter"]);
+    }
+    // E o SPDA, que está em NP I, só pode subir para os dois degraus acima.
+    expect(eixos.find((x) => x.id === "spdaNp").opcoes.map((o) => o.id)).toEqual([
+      "manter",
+      "npIDescidaNatural",
+      "coberturaMetalica",
+    ]);
+  });
+
+  it("nenhuma combinação devolvida é pior que o declarado, em nenhum eixo", () => {
+    // A invariante do módulo inteiro. O defeito media assim: a estrutura abaixo
+    // era oferecida uma "Opção 1" que apagava SPDA, fiação blindada, blindagem
+    // contínua e restrições físicas, não listava nenhuma dessas remoções (todas
+    // custam esforço zero) e multiplicava R1 por oito.
+    const e = galpaoJaProtegido();
+    const base = fatoresPorEixo(e);
+    const rBase = avaliarRisco(e);
+    const r = buscarMedidas(e);
+    expect(r.combinacoes.length).toBeGreaterThan(0);
+
+    const folga = 1 + 1e-12;
+    for (const [i, c] of r.combinacoes.entries()) {
+      const fatores = fatoresPorEixo(c.entrada);
+      for (const chave of Object.keys(base)) {
+        expect(fatores[chave], `opção ${i + 1} piorou ${chave}`).toBeLessThanOrEqual(base[chave]);
+      }
+      expect(c.r1, `R1 da opção ${i + 1}`).toBeLessThanOrEqual(rBase.r1 * folga);
+      for (const f of avaliarRisco(c.entrada).frequencias) {
+        const antes = rBase.frequencias.find((x) => x.id === f.id);
+        expect(f.maior, `F da opção ${i + 1}`).toBeLessThanOrEqual(antes.maior * folga);
+      }
+    }
+  });
+
+  it("lista toda alteração que a sugestão faz, e nenhuma dela é remoção", () => {
+    // `descreverEscolhas` filtrava por esforço > 0, e uma remoção custa zero:
+    // era o que escondia as retiradas da lista mostrada na tela.
+    const e = galpaoJaProtegido();
+    const eixos = montarEixos(e);
+    for (const c of buscarMedidas(e).combinacoes) {
+      const mexidos = eixos
+        .map((eixo, i) => ({ eixo, i }))
+        .filter(({ i }) => c.indices[i] > 0)
+        .map(({ eixo }) => eixo.label);
+      expect(c.escolhas.map((x) => x.eixo)).toEqual(mexidos);
+    }
+  });
+
+  it("também não retira proteção quando o parcial é tudo o que ela acha", () => {
+    // O bloco "melhor encontrado" do painel vem daqui, e cai no mesmo defeito:
+    // sem a correção, o parcial de uma estrutura protegida era ela despida.
+    const e = galpaoJaProtegido();
+    const base = fatoresPorEixo(e);
+    const r = buscarMedidas(e, { teto: 1 });
+    expect(r.combinacoes).toHaveLength(0);
+    const fatores = fatoresPorEixo(r.melhorParcial.entrada);
+    for (const chave of Object.keys(base)) {
+      expect(fatores[chave], chave).toBe(base[chave]);
+    }
+  });
+});
+
+describe("a busca não credita providências proibidas em zona de explosão", () => {
+  // Tabela C.4: a primeira linha é "Nenhuma providência, OU zona com risco de
+  // explosão", r_p = 1. Extintores e alarme não reduzem nada ali.
+  const explosivas = RISCO_RF.filter((r) => r.id.startsWith("explosao")).map((r) => r.id);
+
+  it("a fixture cobre todas as zonas de explosão da Tabela C.5", () => {
+    expect(explosivas).toEqual(["explosaoZ0", "explosaoZ1", "explosaoZ2"]);
+  });
+
+  it("trava o eixo de providências em toda zona de explosão", () => {
+    for (const id of explosivas) {
+      const e = galpao();
+      e.estrutura.riscoIncendio = id;
+      const eixo = montarEixos(e).find((x) => x.id === "providencias");
+      expect(eixo.opcoes.map((o) => o.id), id).toEqual(["manter"]);
+    }
+  });
+
+  it("continua oferecendo providências fora de zona de explosão", () => {
+    // Guarda contra a trava virar bloqueio geral e matar um eixo legítimo.
+    const e = galpao();
+    e.estrutura.riscoIncendio = "incendioAlto";
+    const eixo = montarEixos(e).find((x) => x.id === "providencias");
+    expect(eixo.opcoes.map((o) => o.id)).toEqual(["manter", "manuais", "automaticas"]);
+  });
+
+  it("não devolve recomendação que dependa de crédito por providências", () => {
+    // O caso medido: galpão padrão, N_G = 6, zona 1 de explosão, sem linhas
+    // externas. A busca devolvia "SPDA NP IV + extintores/alarme manual" a
+    // R1 = 9,44 × 10⁻⁶ e marcava como conforme; com o r_p = 1 que a norma
+    // exige, o mesmo projeto dá R1 ≈ 1,88 × 10⁻⁵, quase o dobro do limite.
+    const e = defaultEntrada();
+    e.estrutura.ng = 6;
+    e.estrutura.riscoIncendio = "explosaoZ1";
+    e.linhas = [];
+    e.protecoes.sistemas = [];
+
+    const r = buscarMedidas(e);
+    expect(r.combinacoes.length).toBeGreaterThan(0);
+    for (const c of r.combinacoes) {
+      expect(c.entrada.estrutura.providencias).toBe("nenhuma");
+      expect(c.escolhas.map((x) => x.eixo)).not.toContain("Providências contra incêndio");
+      // E o R1 prometido é o que a norma dá com r_p = 1.
+      expect(avaliarRisco(c.entrada).r1).toBeLessThanOrEqual(RISCO_TOLERAVEL.R1);
+    }
+  });
+});
+
+describe("o catálogo não é confundido com a norma", () => {
+  // Estrutura em que os degraus de SPDA que o catálogo omitia são a diferença
+  // entre "nenhuma combinação resolve" e resolver. Com o SPDA parando em NP I
+  // (P_B = 0,02), o melhor arranjo de toda a grade dava R1 = 1,19 × 10⁻⁵ e a
+  // busca varria tudo para responder que nada resolvia — sendo que a Tabela B.2
+  // ainda tem duas linhas mais fortes.
+  function galpaoQueExigeDescidaNatural() {
+    const e = defaultEntrada();
+    e.estrutura.ng = 32;
+    e.estrutura.L = 100;
+    e.estrutura.W = 60;
+    e.estrutura.H = 20;
+    e.estrutura.riscoIncendio = "incendioAlto";
+    e.protecoes.sistemas = [];
+    return e;
+  }
+
+  it("resolve o que o catálogo antigo declarava insolúvel", () => {
+    const e = galpaoQueExigeDescidaNatural();
+    const eixos = montarEixos(e);
+    const iSpda = eixos.findIndex((x) => x.id === "spdaNp");
+
+    // O topo do catálogo ANTIGO — SPDA em NP I, todo o resto no máximo — de
+    // fato não atende. Sem isto o teste abaixo não provaria que a fixture
+    // exercita a lacuna.
+    const topo = eixos.map((x) => x.opcoes.length - 1);
+    const comNpI = [...topo];
+    comNpI[iSpda] = eixos[iSpda].opcoes.findIndex((o) => o.id === "npI");
+    expect(atendeNorma(avaliarRisco(aplicarEscolhas(e, eixos, comNpI)))).toBe(false);
+
+    const r = buscarMedidas(e);
+    expect(r.combinacoes.length).toBeGreaterThan(0);
+    // E toda solução precisa de uma das duas linhas que faltavam.
+    for (const c of r.combinacoes) {
+      expect(["npIDescidaNatural", "coberturaMetalica"]).toContain(c.entrada.protecoes.spdaNp);
+      expect(atendeNorma(avaliarRisco(c.entrada))).toBe(true);
+    }
+  });
+
+  it("mantém o esforço não decrescente depois de ganhar degraus", () => {
+    // A otimalidade da busca depende disso, e os degraus novos entraram no meio
+    // e no fim das escadas.
+    for (const eixo of montarEixos(galpao())) {
+      const esforcos = eixo.opcoes.map((o) => o.esforco);
+      expect(esforcos, eixo.id).toEqual([...esforcos].sort((a, b) => a - b));
+    }
+  });
+});
 
 describe("busca de medidas de proteção", () => {
   it("monta os eixos fixos mais piso e providências", () => {
@@ -323,9 +582,14 @@ describe("busca de medidas de proteção", () => {
 
     expect(r.combinacoes).toHaveLength(0);
     expect(r.esgotou, "varreu tudo, então não foi truncada").toBe(false);
-    // A grade desta fixture tem 600 000 arranjos e nenhum atende, então a
-    // busca só para quando acaba a fila — ou seja, avalia todos.
-    expect(r.avaliadas).toBe(600000);
+    // Nenhum arranjo desta fixture atende, então a busca só para quando acaba a
+    // fila — ou seja, avalia a grade inteira. O tamanho é conferido contra os
+    // eixos de verdade em vez de escrito à mão: a grade muda quando o catálogo
+    // ganha degraus (SPDA e medidas de toque ganharam) e quando o estado
+    // declarado tira degraus da mesa (esta fixture é zona 0 de explosão, onde a
+    // Tabela C.4 proíbe crédito por providências contra incêndio).
+    const grade = montarEixos(e).reduce((acc, x) => acc * x.opcoes.length, 1);
+    expect(r.avaliadas).toBe(grade);
     expect(ms, `${r.avaliadas} avaliações em ${ms.toFixed(0)} ms`).toBeLessThan(6000);
   });
 

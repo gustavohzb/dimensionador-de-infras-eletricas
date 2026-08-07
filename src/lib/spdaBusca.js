@@ -1,28 +1,37 @@
 import { EIXOS_FIXOS } from "../data/spdaEsforco";
-import { PISO_RT, PROVIDENCIAS_RP, RISCO_TOLERAVEL } from "../data/spdaNBR5419";
-import { avaliarRisco } from "./spdaRisco";
+import {
+  PISO_RT, PROVIDENCIAS_RP, RISCO_TOLERAVEL, RISCO_RF,
+  SPDA_PB, DPS_PSPD, DPS_PEB, FIACAO_KS3, MEDIDAS_PTA, MEDIDAS_PTU,
+} from "../data/spdaNBR5419";
+import { avaliarRisco, fator, produtoMedidas } from "./spdaRisco";
+
+// Degrau zero de todo eixo montado: não mexer em nada. Patch vazio de
+// propósito — é ele que garante que a linha de partida da busca é a estrutura
+// que o engenheiro declarou, e não uma versão dela sem proteção.
+const MANTER = { id: "manter", label: "Manter como está", esforco: 0, patch: {} };
 
 // Piso e providências contra incêndio já têm um valor informado no painel
 // Estrutura, e trocar por um pior seria absurdo. O eixo é montado na hora, a
 // partir do estado: degrau zero é "manter como está" e os degraus seguintes
 // são só as opções da tabela com fator menor que o atual.
-function eixoQueMelhora({ id, label, campo, tabela, esforcos }, entrada) {
+function eixoQueMelhora({ id, label, campo, tabela, esforcos, travado = false }, entrada) {
   const atual = tabela.find((t) => t.id === entrada.estrutura[campo]);
   // Id fora da tabela (projeto salvo antes de o catálogo mudar, por exemplo):
   // não dá para saber o que é melhoria. Tratar o desconhecido como o pior
   // valor possível faria o eixo oferecer a tabela inteira como "melhora", e a
   // busca chegaria a recomendar uma troca que PIORA o risco. Sem referência,
   // o eixo só oferece "manter como está".
-  const melhores = atual
-    ? tabela.filter((t) => t.valor < atual.valor).sort((a, b) => b.valor - a.valor)
-    : [];
+  const melhores =
+    atual && !travado
+      ? tabela.filter((t) => t.valor < atual.valor).sort((a, b) => b.valor - a.valor)
+      : [];
 
   return {
     id,
     label,
     alvo: "estrutura",
     opcoes: [
-      { id: "manter", label: "Manter como está", esforco: 0, patch: {} },
+      MANTER,
       ...melhores.map((t, i) => ({
         id: t.id,
         label: t.label,
@@ -33,9 +42,67 @@ function eixoQueMelhora({ id, label, campo, tabela, esforcos }, entrada) {
   };
 }
 
+// Multiplicador normativo que cada eixo fixo controla, calculado a partir de um
+// objeto de proteções. É por ele que se decide o que é "melhor": em todos os
+// casos, menor é melhor.
+//
+// As tabelas ficam em data/; aqui só se lê delas com os mesmos ajudantes que o
+// motor usa, para que catálogo e cálculo nunca discordem sobre qual medida é
+// mais forte.
+const MULTIPLICADOR_DO_EIXO = {
+  spdaNp: (p) => fator(SPDA_PB, p.spdaNp),
+  dpsNp: (p) => fator(DPS_PSPD, p.dpsNp),
+  dpsClasseI: (p) => fator(DPS_PEB, p.dpsClasseI),
+  fiacao: (p) => fator(FIACAO_KS3, p.fiacao),
+  medidasPta: (p) => produtoMedidas(MEDIDAS_PTA, p.medidasPta),
+  medidasPtu: (p) => produtoMedidas(MEDIDAS_PTU, p.medidasPtu),
+  // Mesmo K_S que `probabilidades` calcula: blindagem contínua vale 10⁻⁴,
+  // malha vale 0,12 × largura, e o teto é 1.
+  blindagem: (p) =>
+    p.blindagemContinua ? 1e-4 : Math.min(1, p.larguraMalha ? 0.12 * Number(p.larguraMalha) : 1),
+};
+
+// Reconstrói um eixo do catálogo contra as proteções já declaradas.
+//
+// O catálogo é uma escada completa, e o degrau de baixo dela FORÇA a ausência
+// da medida. Aplicá-lo sem olhar o estado atual fazia a busca partir de uma
+// estrutura despida do que o engenheiro informou — SPDA, blindagem e restrições
+// físicas sumiam do projeto, a lista de escolhas não mencionava as remoções
+// (elas custam esforço zero) e a "recomendação" chegava a multiplicar R1 por
+// oito. É o mesmo erro que `eixoQueMelhora` já evitava no piso e nas
+// providências: uma sugestão nunca pode piorar o que existe.
+//
+// Regra, portanto: degrau zero é "manter como está", e sobrevivem só as opções
+// cujo multiplicador é ESTRITAMENTE menor que o do estado atual. Como a escada
+// do catálogo já vem com esforço não decrescente e multiplicador não crescente,
+// filtrar preserva as duas ordens — e com isso a otimalidade da busca.
+function eixoFixoQueMelhora(eixoFixo, entrada) {
+  const multiplicador = MULTIPLICADOR_DO_EIXO[eixoFixo.id];
+  if (!multiplicador) {
+    throw new Error(`montarEixos: eixo "${eixoFixo.id}" não tem regra de comparação`);
+  }
+  const protecoes = entrada.protecoes ?? {};
+  // Id desconhecido devolve 0 em `fator`, ou seja, o melhor valor possível, e
+  // nada fica estritamente melhor que ele: o eixo colapsa em "manter como
+  // está". É o mesmo desfecho conservador de `eixoQueMelhora` — sem referência
+  // confiável, não se recomenda troca.
+  const atual = multiplicador(protecoes);
+  const melhores = eixoFixo.opcoes.filter(
+    (o) => multiplicador({ ...protecoes, ...o.patch }) < atual
+  );
+  return { ...eixoFixo, opcoes: [MANTER, ...melhores] };
+}
+
+// Tabela C.4: r_p = 1 é obrigatório em zona com risco de explosão — o próprio
+// rótulo da primeira linha diz "Nenhuma providência, OU zona com risco de
+// explosão". Extintores e alarme não compram crédito nenhum ali, e oferecê-los
+// fazia a busca aprovar projeto que a norma reprova por quase o dobro do
+// limite.
+const ZONAS_EXPLOSIVAS = RISCO_RF.filter((r) => r.id.startsWith("explosao")).map((r) => r.id);
+
 export function montarEixos(entrada) {
   return [
-    ...EIXOS_FIXOS,
+    ...EIXOS_FIXOS.map((eixo) => eixoFixoQueMelhora(eixo, entrada)),
     eixoQueMelhora(
       { id: "piso", label: "Piso da zona", campo: "piso", tabela: PISO_RT, esforcos: [3, 4, 5] },
       entrada
@@ -47,6 +114,7 @@ export function montarEixos(entrada) {
         campo: "providencias",
         tabela: PROVIDENCIAS_RP,
         esforcos: [3, 6],
+        travado: ZONAS_EXPLOSIVAS.includes(entrada.estrutura?.riscoIncendio),
       },
       entrada
     ),
@@ -114,10 +182,14 @@ function excessoNormalizado(resultado) {
   return pior;
 }
 
+// Lista os eixos que saíram do degrau zero. O filtro é pelo ÍNDICE, e não pelo
+// esforço: degrau zero é sempre "manter como está", então índice > 0 quer dizer
+// "esta sugestão mexe aqui" — inclusive numa hipotética medida de esforço zero,
+// que a versão antiga omitiria da lista mesmo alterando o projeto.
 function descreverEscolhas(eixos, indices) {
   return eixos
-    .map((eixo, i) => ({ eixo: eixo.label, ...eixo.opcoes[indices[i]] }))
-    .filter((o) => o.esforco > 0)
+    .map((eixo, i) => ({ eixo: eixo.label, indice: indices[i], ...eixo.opcoes[indices[i]] }))
+    .filter((o) => o.indice > 0)
     .map((o) => ({ eixo: o.eixo, label: o.label, esforco: o.esforco }));
 }
 
@@ -160,14 +232,20 @@ function criarFilaPorCusto(custoMaximo) {
 
 // Busca melhor-primeiro sobre a grade de degraus dos eixos.
 //
-// Por que não força bruta: o produto cartesiano dos eixos chega a 600 000
-// arranjos. Varrer tudo leva ~2 s; a busca acha as três respostas do galpão
-// comum em 3 200 avaliações, uns 17 ms.
+// Por que não força bruta: o produto cartesiano dos eixos chega a 1 260 000
+// arranjos numa estrutura sem proteção nenhuma, onde todo degrau de todo eixo
+// ainda é uma melhoria. Varrer tudo leva alguns segundos; a busca acha as três
+// respostas do galpão comum em 3 622 avaliações, uns 13 ms.
+//
+// A grade ENCOLHE conforme o projeto já tem proteção: `montarEixos` descarta os
+// degraus que não melhoram o que foi declarado, e um eixo já no topo vira uma
+// opção só. Estrutura bem protegida é justamente a que a busca varre mais
+// rápido.
 //
 // Por que a primeira encontrada é a mais barata: a fila devolve sempre o nó de
 // menor esforço acumulado, e subir um degrau só soma esforço (nunca subtrai),
 // então nenhum arranjo mais barato pode aparecer depois. Conferido por força
-// bruta sobre as 600 000 combinações do galpão padrão: das 329 900 que
+// bruta sobre as 1 260 000 combinações do galpão padrão: das 726 300 que
 // atendem, a mais barata tem esforço 13, e é a que a busca devolve primeiro.
 //
 // Por que não expandir quem já atende: pela monotonicidade, todo filho de uma
@@ -188,7 +266,11 @@ function criarFilaPorCusto(custoMaximo) {
 // Truncar é pior do que demorar: "não existe solução" é uma afirmação forte,
 // e só pode ser feita depois de olhar tudo. O painel passou a rodar a busca
 // sob demanda, num botão, e com isso o orçamento deixou de ser o quadro de
-// render. Varrer as 600 000 combinações leva ~2 s no pior caso.
+// render. Varrer a grade inteira leva de 1 a 4 s, conforme o tamanho dela.
+//
+// Uma ressalva que a mensagem do painel precisa carregar: a varredura é
+// completa sobre o CATÁLOGO, não sobre a norma. "Nada resolve" quer dizer que
+// nenhuma combinação que este app sabe montar resolve.
 export function buscarMedidas(entrada, { maximo = 3, teto = null } = {}) {
   const ng = Number(entrada.estrutura?.ng);
   // Sem N_G (município ainda não escolhido) todo número de eventos é zero, e

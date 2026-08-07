@@ -97,6 +97,15 @@ export default function SugestaoMedidas({ entrada, resultado, onAplicar }) {
               : "A varredura é completa, então demora alguns segundos em casos difíceis."}
           </span>
         </div>
+      ) : vigente.semNg ? (
+        // Sem N_G todo número de eventos é zero, e com ele todo risco. A busca
+        // se recusa a rodar aí — dizer "não falta proteção nenhuma" seria a
+        // coisa mais perigosa que este painel poderia afirmar. O motivo é
+        // outro, e a saída também: escolher o município.
+        <div className="rounded-xs border border-slate-300 bg-slate-50 p-2.5 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+          <b>Ainda não há o que procurar.</b> O município não foi escolhido, então não existe N_G e
+          nenhum risco pode ser calculado. Escolha o município no painel Estrutura e procure de novo.
+        </div>
       ) : vigente.combinacoes.length === 0 ? (
         <div className="rounded-xs border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
           {/* Este painel chama a busca sem teto, e sem teto ela varre a grade
@@ -110,17 +119,44 @@ export default function SugestaoMedidas({ entrada, resultado, onAplicar }) {
               pode existir combinação que ela nem chegou a ver.
             </>
           ) : (
+            // O catálogo do app não é a norma: ele cobre as medidas que a aba
+            // sabe modelar, e um projeto real pode atender por um caminho que
+            // não está aqui. A mensagem afirma só o que foi de fato verificado
+            // — que nenhuma combinação DESTE catálogo resolve — e oferece as
+            // outras frentes como direções a estudar, não como o remédio.
             <>
-              <b>Nenhuma combinação de medidas resolve.</b> Foram avaliadas as{" "}
-              {vigente.avaliadas.toLocaleString("pt-BR")} combinações do catálogo e nenhuma traz os
-              três critérios para dentro do limite — o caminho aqui passa por reduzir a ocupação da
-              zona, dividir a estrutura em zonas ou rever a geometria.
+              <b>Nenhuma combinação do catálogo do app resolve.</b> Foram avaliadas as{" "}
+              {vigente.avaliadas.toLocaleString("pt-BR")} combinações que o app sabe montar e nenhuma
+              traz os três critérios para dentro do limite. Isso não esgota a norma: o catálogo cobre
+              as medidas modeladas nesta aba, e vale estudar também reduzir a ocupação da zona,
+              dividir a estrutura em zonas ou rever a geometria — além de conferir os dados de
+              entrada.
             </>
           )}
           {vigente.melhorParcial && (
-            <div className="mt-1 font-mono">
-              melhor encontrado: R1 = {cientifica(vigente.melhorParcial.r1)}
-              {vigente.melhorParcial.piorF && <> · F = {cientifica(vigente.melhorParcial.piorF.maior)}</>}
+            <div className="mt-1.5">
+              <div className="font-mono">
+                melhor encontrado: R1 = {cientifica(vigente.melhorParcial.r1)}
+                {vigente.melhorParcial.r3 !== null && (
+                  <> · R3 = {cientifica(vigente.melhorParcial.r3)}</>
+                )}
+                {vigente.melhorParcial.piorF && (
+                  <> · F = {cientifica(vigente.melhorParcial.piorF.maior)}</>
+                )}
+              </div>
+              {/* Sem as medidas, o bloco diz "cheguei até aqui" e esconde o
+                  como. São elas que dizem de que ponto vale a pena partir. */}
+              {vigente.melhorParcial.escolhas.length > 0 ? (
+                <ul className="mt-1 space-y-0.5">
+                  {vigente.melhorParcial.escolhas.map((e) => (
+                    <li key={e.eixo}>
+                      <span className="opacity-70">{e.eixo}:</span> {e.label}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="mt-1">com as medidas já declaradas, sem acrescentar nenhuma.</div>
+              )}
             </div>
           )}
         </div>
