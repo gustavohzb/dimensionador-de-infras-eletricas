@@ -13,6 +13,7 @@ import {
   TIPO_LINHA_CT, LINHA_CLD_CLI, BLINDAGEM_RS, SPDA_PB, DPS_PSPD, DPS_PEB,
   MEDIDAS_PTA, MEDIDAS_PTU, FIACAO_KS3,
 } from "../data/spdaNBR5419";
+import { cientifica } from "../components/spda/formato";
 
 export function rowsAreasExposicao(resultado) {
   const { eventos } = resultado;
@@ -185,4 +186,187 @@ export function linhasSistemaInterno(s) {
     ["Crítico (Seção 7)", s.critico ? "Sim" : "Não"],
     ["Em ZPR₀ᴬ (Seção 7)", s.zpr0a ? "Sim" : "Não"],
   ];
+}
+
+const DESCRICAO_COMPONENTE = {
+  RA: "Ferimentos por choque — descarga na estrutura",
+  RB: "Danos físicos — descarga na estrutura",
+  RC: "Falha de sistemas internos — descarga na estrutura",
+  RM: "Falha de sistemas internos — descarga perto da estrutura",
+  RU: "Ferimentos por choque — descarga na linha",
+  RV: "Danos físicos — descarga na linha",
+  RW: "Falha de sistemas internos — descarga na linha",
+  RZ: "Falha de sistemas internos — descarga perto da linha",
+};
+
+const COLS_EQUACAO = [
+  { t: "Parâmetro", w: 68 },
+  { t: "Equação", w: 92 },
+  { t: "Símbolo", w: 20 },
+  { t: "Resultado", w: 40 },
+  { t: "Ref.", w: 18 },
+];
+
+function novoDoc(jsPDF) {
+  const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 12;
+  const state = { doc, pageW, pageH, margin, contentW: pageW - margin * 2, y: margin };
+
+  state.ensureSpace = (needed) => {
+    if (state.y + needed > pageH - margin) {
+      doc.addPage();
+      state.y = margin;
+    }
+  };
+
+  state.sectionTitle = (text) => {
+    state.ensureSpace(12);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(30, 41, 59);
+    doc.text(text, margin, state.y);
+    state.y += 1.5;
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.3);
+    doc.line(margin, state.y, pageW - margin, state.y);
+    state.y += 5;
+  };
+
+  state.keyValue = (label, value) => {
+    state.ensureSpace(5);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text(label, margin, state.y);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30, 41, 59);
+    doc.text(String(value), margin + 90, state.y);
+    state.y += 4.8;
+  };
+
+  return state;
+}
+
+function tabelaEquacoes(state, titulo, linhas) {
+  const { doc, margin, pageW } = state;
+  state.sectionTitle(`${titulo} (${linhas.length})`);
+  let x = margin;
+  const xs = COLS_EQUACAO.map((c) => { const atual = x; x += c.w; return atual; });
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(100, 116, 139);
+  COLS_EQUACAO.forEach((c, i) => doc.text(c.t, xs[i], state.y));
+  state.y += 1.5;
+  doc.setDrawColor(226, 232, 240);
+  doc.line(margin, state.y, pageW - margin, state.y);
+  state.y += 4;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  linhas.forEach((l) => {
+    state.ensureSpace(4.8);
+    doc.setTextColor(30, 41, 59);
+    doc.text(l.parametro, xs[0], state.y);
+    doc.setTextColor(100, 116, 139);
+    doc.text(l.equacao, xs[1], state.y);
+    doc.setTextColor(30, 41, 59);
+    doc.text(l.simbolo, xs[2], state.y);
+    doc.text(cientifica(l.resultado), xs[3], state.y);
+    doc.setTextColor(148, 163, 184);
+    doc.text(l.ref, xs[4], state.y);
+    state.y += 4.8;
+  });
+  state.y += 2;
+}
+
+export async function exportSpdaPDF({ entrada, resultado }) {
+  // Import dinâmico: jspdf é pesado (~400 kB) e só é necessário na hora de
+  // gerar o relatório — não entra no bundle inicial do app.
+  const { jsPDF } = await import("jspdf");
+  const state = novoDoc(jsPDF);
+  const { doc, margin, pageW } = state;
+
+  // Cabeçalho
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  doc.setTextColor(30, 41, 59);
+  doc.text("Memorial de Cálculo — SPDA (ABNT NBR 5419-2:2026)", margin, state.y + 2);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.setTextColor(100, 116, 139);
+  const agora = new Date();
+  doc.text(
+    `Dimensionador do Gustavo — ${agora.toLocaleDateString("pt-BR")} ${agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`,
+    pageW - margin,
+    state.y + 2,
+    { align: "right" }
+  );
+  state.y += 9;
+
+  // Dados de entrada — Estrutura
+  state.sectionTitle("Dados de entrada — Estrutura");
+  linhasEstrutura(entrada.estrutura).forEach(([label, value]) => state.keyValue(label, value));
+  state.y += 2;
+
+  // Dados de entrada — Linhas elétricas
+  entrada.linhas.forEach((l) => {
+    state.sectionTitle(`Linha elétrica ${l.id.toUpperCase()}`);
+    linhasLinhaEletrica(l).forEach(([label, value]) => state.keyValue(label, value));
+    state.y += 2;
+  });
+
+  // Dados de entrada — Proteções
+  state.sectionTitle("Dados de entrada — Proteções");
+  linhasProtecoes(entrada.protecoes).forEach(([label, value]) => state.keyValue(label, value));
+  state.y += 2;
+  (entrada.protecoes.sistemas ?? []).forEach((s) => {
+    state.sectionTitle(`Sistema interno ${s.id.toUpperCase()}`);
+    linhasSistemaInterno(s).forEach(([label, value]) => state.keyValue(label, value));
+    state.y += 2;
+  });
+
+  // Anexo A
+  tabelaEquacoes(state, "Áreas de exposição equivalente (Anexo A)", rowsAreasExposicao(resultado));
+  tabelaEquacoes(state, "Número esperado de eventos perigosos (Anexo A)", rowsNumeroEventos(resultado));
+
+  // Anexo B
+  tabelaEquacoes(state, "Probabilidades (Anexo B)", rowsProbabilidades(resultado));
+
+  // Anexo C
+  tabelaEquacoes(state, "Perdas (Anexo C)", rowsPerdas(entrada, resultado));
+
+  // Componentes de risco
+  state.sectionTitle("Componentes de risco");
+  Object.keys(resultado.componentes).forEach((k) => {
+    const emR1 = resultado.chavesR1.includes(k);
+    const valor = resultado.componentes[k];
+    const pct = emR1 && resultado.r1 > 0 ? `${((valor / resultado.r1) * 100).toFixed(1).replace(".", ",")}%` : "—";
+    const marca = k === resultado.dominante ? " (dominante)" : "";
+    state.keyValue(`${k.replace("R", "R_")} — ${DESCRICAO_COMPONENTE[k]}${marca}`, `${cientifica(valor)} · ${pct} de R1`);
+  });
+  state.y += 2;
+
+  // Veredito R1 / R3
+  state.sectionTitle("Veredito");
+  state.keyValue("R1 — vida humana", `${cientifica(resultado.r1)}/ano (tolerável ${cientifica(resultado.rt.R1)}) — ${resultado.precisa.r1 ? "acima do tolerável" : "dentro do tolerável"}`);
+  if (resultado.r3 !== null) {
+    state.keyValue("R3 — patrimônio cultural", `${cientifica(resultado.r3)}/ano (tolerável ${cientifica(resultado.rt.R3)}) — ${resultado.precisa.r3 ? "acima do tolerável" : "dentro do tolerável"}`);
+  }
+  state.y += 2;
+
+  // Frequência de danos F
+  if (resultado.frequencias.length) {
+    state.sectionTitle(`Frequência de danos F — ${resultado.frequencias.length} sistema(s)`);
+    resultado.frequencias.forEach((f) => {
+      state.keyValue(
+        `Sistema ${f.id.toUpperCase()}`,
+        `maior fonte ${cientifica(f.maior)}/ano (tolerável ${cientifica(f.ft)}) — ${f.atende ? "atende" : "não atende"}`
+      );
+    });
+  }
+
+  const nomeMunicipio = (entrada.estrutura.municipio || "").replace(/[^\w\dÀ-ÿ -]+/g, "").trim();
+  const nome = nomeMunicipio ? `memorial-spda-${nomeMunicipio}` : "memorial-spda";
+  doc.save(`${nome}.pdf`);
 }
