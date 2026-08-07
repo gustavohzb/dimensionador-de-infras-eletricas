@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { defaultEntrada, avaliarRisco } from "../lib/spdaRisco";
 import { normalizarEntrada } from "../lib/spdaEntrada";
 import { exportSpdaPDF } from "../lib/spdaPdf";
+import { useSpdaProjects } from "../hooks/useSpdaProjects";
+import SpdaProjectsPanel from "./spda/SpdaProjectsPanel";
 import VereditoRisco from "./spda/VereditoRisco";
 import ResultadoRisco from "./spda/ResultadoRisco";
 import FrequenciaDanos from "./spda/FrequenciaDanos";
@@ -23,6 +25,61 @@ function carregar() {
 
 export default function SpdaTab() {
   const [entrada, setEntrada] = useState(carregar);
+
+  // Registro de projetos SPDA (Supabase): projeto = site/cliente, área =
+  // uma análise de risco completa dentro dele. O rascunho local acima
+  // continua funcionando independente de haver área carregada.
+  const projectsApi = useSpdaProjects();
+  const [projetoSelecionadoId, setProjetoSelecionadoId] = useState(null);
+  const [activeArea, setActiveArea] = useState(null);
+
+  useEffect(() => {
+    projectsApi.refreshProjetos();
+  }, [projectsApi.refreshProjetos]);
+
+  useEffect(() => {
+    projectsApi.refreshAreas(projetoSelecionadoId);
+  }, [projetoSelecionadoId, projectsApi.refreshAreas]);
+
+  const handleCriarProjeto = async (nome) => {
+    const criado = await projectsApi.createProjeto(nome);
+    setProjetoSelecionadoId(criado.id);
+  };
+
+  const handleApagarProjeto = async (id) => {
+    await projectsApi.deleteProjeto(id);
+    if (projetoSelecionadoId === id) setProjetoSelecionadoId(null);
+    if (activeArea?.projetoId === id) setActiveArea(null);
+  };
+
+  const handleCriarArea = async (nome) => {
+    const criado = await projectsApi.createArea(projetoSelecionadoId, nome, entrada);
+    const projeto = projectsApi.projetos.find((p) => p.id === projetoSelecionadoId);
+    setActiveArea({ id: criado.id, nome: criado.nome, projetoId: projetoSelecionadoId, projetoNome: projeto?.nome ?? "" });
+  };
+
+  const handleSalvarArea = async () => {
+    await projectsApi.updateArea(activeArea.id, entrada, activeArea.projetoId);
+  };
+
+  const handleCarregarArea = async (id) => {
+    const salvo = await projectsApi.loadArea(id);
+    setEntrada(normalizarEntrada(salvo.dados));
+    const projeto = projectsApi.projetos.find((p) => p.id === salvo.projeto_id);
+    setActiveArea({ id: salvo.id, nome: salvo.nome, projetoId: salvo.projeto_id, projetoNome: projeto?.nome ?? "" });
+    setProjetoSelecionadoId(salvo.projeto_id);
+  };
+
+  const handleApagarArea = async (id) => {
+    await projectsApi.deleteArea(id, projetoSelecionadoId);
+    if (activeArea?.id === id) setActiveArea(null);
+  };
+
+  const handleDesvincularArea = () => {
+    if (!window.confirm("Desvincular e zerar a aba (estrutura, linhas e proteções)?")) return;
+    setActiveArea(null);
+    setEntrada(defaultEntrada());
+  };
 
   useEffect(() => {
     try {
@@ -68,6 +125,24 @@ export default function SpdaTab() {
           )}
         </div>
       </div>
+
+      <SpdaProjectsPanel
+        projetos={projectsApi.projetos}
+        loadingProjetos={projectsApi.loading}
+        errorProjetos={projectsApi.error}
+        projetoSelecionadoId={projetoSelecionadoId}
+        onSelecionarProjeto={setProjetoSelecionadoId}
+        onCriarProjeto={handleCriarProjeto}
+        onApagarProjeto={handleApagarProjeto}
+        areas={projectsApi.areas}
+        loadingAreas={projectsApi.areasLoading}
+        activeArea={activeArea}
+        onCriarArea={handleCriarArea}
+        onSalvarArea={handleSalvarArea}
+        onCarregarArea={handleCarregarArea}
+        onApagarArea={handleApagarArea}
+        onDesvincular={handleDesvincularArea}
+      />
 
       {/* Sem município escolhido não há N_G, e sem N_G todas as componentes dão
           zero — o que a aba exibiria como "proteção não é necessária". */}
