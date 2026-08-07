@@ -8,7 +8,7 @@ export default function SpdaProjectsPanel({
   projetos, loadingProjetos, errorProjetos,
   projetoSelecionadoId, onSelecionarProjeto,
   onCriarProjeto, onApagarProjeto,
-  areas, loadingAreas,
+  areas, loadingAreas, errorAreas,
   activeArea,
   onCriarArea, onSalvarArea, onCarregarArea, onApagarArea, onDesvincular,
 }) {
@@ -44,7 +44,9 @@ export default function SpdaProjectsPanel({
 
   const handleApagarProjeto = async () => {
     if (!projetoAtual) return;
-    const aviso = areas.length
+    const aviso = errorAreas
+      ? `Apagar "${projetoAtual.nome}"? Não foi possível confirmar quantas áreas existem nele — todas serão apagadas junto.`
+      : areas.length
       ? `Apagar "${projetoAtual.nome}" e ${areas.length === 1 ? "a área" : `as ${areas.length} áreas`} dentro dele?`
       : `Apagar "${projetoAtual.nome}"?`;
     if (!window.confirm(aviso)) return;
@@ -224,7 +226,11 @@ export default function SpdaProjectsPanel({
 
           {loadingAreas && <p className="text-xs text-slate-400">Carregando áreas…</p>}
 
-          {!loadingAreas && areas.length === 0 && (
+          {errorAreas && (
+            <p className="text-xs text-red-600 dark:text-red-400">{errorAreas}</p>
+          )}
+
+          {!loadingAreas && !errorAreas && areas.length === 0 && (
             <p className="rounded-xs border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-center text-xs text-slate-400 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-500">
               Nenhuma área salva ainda neste projeto
             </p>

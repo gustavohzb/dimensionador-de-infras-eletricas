@@ -55,10 +55,24 @@ export function useSpdaProjects() {
       .select("id, nome, updated_at")
       .eq("projeto_id", projetoId)
       .order("updated_at", { ascending: false });
-    if (err) setAreasError(err.message);
-    else setAreas(data);
+    if (err) {
+      setAreasError(err.message);
+      setAreas([]);
+    } else {
+      setAreas(data);
+    }
     setAreasLoading(false);
   }, []);
+
+  // Best-effort: não deixa uma falha aqui (ex.: RLS, rede) derrubar a
+  // escrita da área, que já foi concluída com sucesso.
+  const tocarProjeto = async (projetoId) => {
+    try {
+      await supabase.from("projetos_spda").update({ updated_at: new Date().toISOString() }).eq("id", projetoId);
+    } catch (e) {
+      console.error("Falha ao atualizar updated_at do projeto:", e);
+    }
+  };
 
   const createArea = useCallback(async (projetoId, nome, entrada) => {
     const { data, error: err } = await supabase
@@ -67,6 +81,7 @@ export function useSpdaProjects() {
       .select()
       .single();
     if (err) throw new Error(err.message);
+    await tocarProjeto(projetoId);
     await refreshAreas(projetoId);
     return data;
   }, [refreshAreas]);
@@ -77,7 +92,10 @@ export function useSpdaProjects() {
       .update({ dados: entrada, updated_at: new Date().toISOString() })
       .eq("id", id);
     if (err) throw new Error(err.message);
-    if (projetoId) await refreshAreas(projetoId);
+    if (projetoId) {
+      await tocarProjeto(projetoId);
+      await refreshAreas(projetoId);
+    }
   }, [refreshAreas]);
 
   const loadArea = useCallback(async (id) => {

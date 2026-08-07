@@ -37,6 +37,8 @@ VITE_SUPABASE_URL=https://xxxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=xxxxx
 ```
 
+Antes de usar qualquer recurso de salvar/carregar, execute `supabase/schema.sql` no SQL Editor do Supabase para criar as tabelas necessárias.
+
 ## Estrutura do projeto
 
 ```

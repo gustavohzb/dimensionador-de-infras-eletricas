@@ -30,16 +30,17 @@ export default function SpdaTab() {
   // uma análise de risco completa dentro dele. O rascunho local acima
   // continua funcionando independente de haver área carregada.
   const projectsApi = useSpdaProjects();
+  const { refreshProjetos, refreshAreas } = projectsApi;
   const [projetoSelecionadoId, setProjetoSelecionadoId] = useState(null);
   const [activeArea, setActiveArea] = useState(null);
 
   useEffect(() => {
-    projectsApi.refreshProjetos();
-  }, [projectsApi.refreshProjetos]);
+    refreshProjetos();
+  }, [refreshProjetos]);
 
   useEffect(() => {
-    projectsApi.refreshAreas(projetoSelecionadoId);
-  }, [projetoSelecionadoId, projectsApi.refreshAreas]);
+    refreshAreas(projetoSelecionadoId);
+  }, [projetoSelecionadoId, refreshAreas]);
 
   const handleCriarProjeto = async (nome) => {
     const criado = await projectsApi.createProjeto(nome);
@@ -136,6 +137,7 @@ export default function SpdaTab() {
         onApagarProjeto={handleApagarProjeto}
         areas={projectsApi.areas}
         loadingAreas={projectsApi.areasLoading}
+        errorAreas={projectsApi.areasError}
         activeArea={activeArea}
         onCriarArea={handleCriarArea}
         onSalvarArea={handleSalvarArea}
