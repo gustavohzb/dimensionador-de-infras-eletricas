@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rowsAreasExposicao, rowsNumeroEventos } from "./spdaPdf";
+import { rowsAreasExposicao, rowsNumeroEventos, rowsProbabilidades } from "./spdaPdf";
 
 const resultadoBase = {
   eventos: {
@@ -46,5 +46,56 @@ describe("rowsNumeroEventos", () => {
     };
     const linha = rowsNumeroEventos(comNdj).find((l) => l.simbolo === "N_DJ");
     expect(linha).toMatchObject({ resultado: 0.05, ref: "A.4" });
+  });
+});
+
+describe("rowsProbabilidades", () => {
+  const resultado = {
+    probs: {
+      pa: 0.02, pb: 0.05, peb: 0.05,
+      pc: 0.031, pm: 0.0004,
+      porSistema: [{ id: "s1", pc: 0.02, pm: 0.0004 }],
+      porLinha: [{ id: "l1", pu: 0.0025, pv: 0.05, pw: 0.02, pz: 0.02 }],
+    },
+  };
+
+  it("inclui P_A, P_B e P_EB da estrutura com as refs corretas", () => {
+    const linhas = rowsProbabilidades(resultado);
+    expect(linhas.find((l) => l.simbolo === "P_A")).toMatchObject({ resultado: 0.02, ref: "B.1" });
+    expect(linhas.find((l) => l.simbolo === "P_B")).toMatchObject({ resultado: 0.05, ref: "B.2" });
+    expect(linhas.find((l) => l.simbolo === "P_EB")).toMatchObject({ resultado: 0.05, ref: "B.7" });
+  });
+
+  it("inclui P_C e P_M por sistema interno", () => {
+    const linhas = rowsProbabilidades(resultado);
+    const pc = linhas.find((l) => l.simbolo === "P_C" && l.parametro.includes("S1"));
+    const pm = linhas.find((l) => l.simbolo === "P_M" && l.parametro.includes("S1"));
+    expect(pc).toMatchObject({ resultado: 0.02, ref: "B.2" });
+    expect(pm).toMatchObject({ resultado: 0.0004, ref: "B.4" });
+  });
+
+  it("com um só sistema, não duplica com a linha composta", () => {
+    const linhas = rowsProbabilidades(resultado);
+    expect(linhas.filter((l) => l.parametro === "Composto (todos os sistemas)")).toHaveLength(0);
+  });
+
+  it("com mais de um sistema, inclui a linha composta (equações 12 e 13)", () => {
+    const doisSistemas = {
+      probs: {
+        ...resultado.probs,
+        porSistema: [{ id: "s1", pc: 0.02, pm: 0.0004 }, { id: "s2", pc: 0.01, pm: 0.0002 }],
+      },
+    };
+    const linhas = rowsProbabilidades(doisSistemas);
+    const compostoPc = linhas.find((l) => l.parametro === "Composto (todos os sistemas)" && l.simbolo === "P_C");
+    expect(compostoPc).toMatchObject({ resultado: 0.031, ref: "eq. 12" });
+  });
+
+  it("inclui P_U, P_V, P_W e P_Z por linha", () => {
+    const linhas = rowsProbabilidades(resultado);
+    expect(linhas.find((l) => l.simbolo === "P_U")).toMatchObject({ resultado: 0.0025, ref: "B.8" });
+    expect(linhas.find((l) => l.simbolo === "P_V")).toMatchObject({ resultado: 0.05, ref: "B.9" });
+    expect(linhas.find((l) => l.simbolo === "P_W")).toMatchObject({ resultado: 0.02, ref: "B.10" });
+    expect(linhas.find((l) => l.simbolo === "P_Z")).toMatchObject({ resultado: 0.02, ref: "B.11" });
   });
 });

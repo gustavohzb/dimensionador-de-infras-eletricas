@@ -51,3 +51,29 @@ export function rowsNumeroEventos(resultado) {
   });
   return linhas;
 }
+
+export function rowsProbabilidades(resultado) {
+  const { probs } = resultado;
+  const linhas = [
+    { parametro: "Estrutura", equacao: "P_TA×P_B", simbolo: "P_A", resultado: probs.pa, ref: "B.1" },
+    { parametro: "Estrutura (Tabela B.2)", equacao: "—", simbolo: "P_B", resultado: probs.pb, ref: "B.2" },
+    { parametro: "Estrutura (Tabela B.7)", equacao: "—", simbolo: "P_EB", resultado: probs.peb, ref: "B.7" },
+  ];
+  probs.porSistema.forEach((s) => {
+    const id = s.id.toUpperCase();
+    linhas.push({ parametro: `Sistema ${id}`, equacao: "P_SPD×C_LD", simbolo: "P_C", resultado: s.pc, ref: "B.2" });
+    linhas.push({ parametro: `Sistema ${id}`, equacao: "(K_S1×K_S2×K_S3×K_S4)²", simbolo: "P_M", resultado: s.pm, ref: "B.4" });
+  });
+  if (probs.porSistema.length > 1) {
+    linhas.push({ parametro: "Composto (todos os sistemas)", equacao: "1−∏(1−P_Ci)", simbolo: "P_C", resultado: probs.pc, ref: "eq. 12" });
+    linhas.push({ parametro: "Composto (todos os sistemas)", equacao: "1−∏(1−P_Mi)", simbolo: "P_M", resultado: probs.pm, ref: "eq. 13" });
+  }
+  probs.porLinha.forEach((p) => {
+    const id = p.id.toUpperCase();
+    linhas.push({ parametro: `Linha ${id}`, equacao: "P_TU×P_EB×P_LD×C_LD", simbolo: "P_U", resultado: p.pu, ref: "B.8" });
+    linhas.push({ parametro: `Linha ${id}`, equacao: "P_EB×P_LD×C_LD", simbolo: "P_V", resultado: p.pv, ref: "B.9" });
+    linhas.push({ parametro: `Linha ${id}`, equacao: "P_SPD×P_LD×C_LD", simbolo: "P_W", resultado: p.pw, ref: "B.10" });
+    linhas.push({ parametro: `Linha ${id}`, equacao: "P_SPD×P_LI×C_LI", simbolo: "P_Z", resultado: p.pz, ref: "B.11" });
+  });
+  return linhas;
+}
