@@ -709,6 +709,7 @@ export const CHANGELOG = [
       "Novo painel \"Como atender a norma\": quando algum critério reprova, o botão procura as combinações de medidas mais enxutas que trazem R1, R3 e F para dentro dos limites de uma vez, e aplica a escolhida nos campos.",
       "A busca varre o catálogo inteiro — até 600 mil combinações — em vez de parar cedo, para que \"nenhuma combinação resolve\" só apareça depois de olhar todas. Por isso ela roda num botão, e não a cada campo digitado.",
       "A ordem das sugestões usa um peso de esforço de obra definido no código, não valor normativo: mudá-lo muda só a ordem de apresentação, nunca se a combinação atende.",
+      "Correção encontrada no caminho: em zona com risco de explosão o app aceitava a redução por providências contra incêndio, que a Tabela C.4 não permite ali — o fator r_p é sempre 1 nesse caso. Um galpão em zona 1 com instalações automáticas aparecia com R1 = 4,29 × 10⁻⁶ e veredito verde quando o valor correto é 1,80 × 10⁻⁵, quase o dobro do tolerável.",
     ],
   },
 ];
