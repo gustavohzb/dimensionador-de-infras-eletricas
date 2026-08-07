@@ -712,6 +712,16 @@ export const CHANGELOG = [
       "Correção encontrada no caminho: em zona com risco de explosão o app aceitava a redução por providências contra incêndio, que a Tabela C.4 não permite ali — o fator r_p é sempre 1 nesse caso. Um galpão em zona 1 com instalações automáticas aparecia com R1 = 4,29 × 10⁻⁶ e veredito verde quando o valor correto é 1,80 × 10⁻⁵, quase o dobro do tolerável.",
     ],
   },
+  {
+    versao: "1.23.0",
+    data: "2026-08-07",
+    titulo: "Memorial de cálculo em PDF na aba SPDA",
+    tipo: "novo",
+    itens: [
+      "Botão \"Relatório PDF\" na aba SPDA: exporta o memorial completo — dados de entrada, áreas de exposição, número de eventos, probabilidades e perdas dos Anexos A, B e C, componentes de risco, veredito R1/R3 e frequência de danos F.",
+      "Fórmulas e números de equação conferidos diretamente contra o texto oficial da ABNT NBR 5419-2:2026 (2ª edição).",
+    ],
+  },
 ];
 
 // Ordena versões maior.menor.correção. Negativo se `a` vem antes de `b`.

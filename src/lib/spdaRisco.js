@@ -51,14 +51,19 @@ export function numeroEventos({ estrutura, linhas = [] }) {
     const ci = fator(INSTALACAO_CI, linha.ci);
     const ce = fator(AMBIENTE_CE, linha.ce);
     const ct = fator(TIPO_LINHA_CT, linha.ct);
+    // (A.1) — mesma fórmula de A_D, aplicada à estrutura adjacente. Exposta
+    // à parte (não só embutida em N_DJ) porque o memorial em PDF mostra a
+    // área junto com o número de eventos, como a norma faz no Anexo A.
+    const adj = linha.adjacente ? areaExposicaoEstrutura(linha.adjacente) : null;
     // (A.4) — só quando há estrutura adjacente na outra ponta da linha.
     const ndj = linha.adjacente
-      ? ng * areaExposicaoEstrutura(linha.adjacente) * fator(LOCALIZACAO_CD, linha.adjacente.cd) * ct * 1e-6
+      ? ng * adj * fator(LOCALIZACAO_CD, linha.adjacente.cd) * ct * 1e-6
       : 0;
     return {
       id: linha.id,
       al,
       ai,
+      adj,
       nl: ng * al * ci * ce * ct * 1e-6, // (A.7)
       ni: ng * ai * ci * ce * ct * 1e-6, // (A.9)
       ndj,
