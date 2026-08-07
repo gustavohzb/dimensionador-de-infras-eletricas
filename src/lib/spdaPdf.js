@@ -6,6 +6,8 @@
 // edição 2015 — o Anexo E dessa edição, que trazia tabelas de exemplo
 // numérico como E.5/E.6, está "Vago" (reservado, sem conteúdo).
 
+import { perdaL3 } from "./spdaRisco";
+
 export function rowsAreasExposicao(resultado) {
   const { eventos } = resultado;
   const linhas = [
@@ -75,5 +77,24 @@ export function rowsProbabilidades(resultado) {
     linhas.push({ parametro: `Linha ${id}`, equacao: "P_SPD×P_LD×C_LD", simbolo: "P_W", resultado: p.pw, ref: "B.10" });
     linhas.push({ parametro: `Linha ${id}`, equacao: "P_SPD×P_LI×C_LI", simbolo: "P_Z", resultado: p.pz, ref: "B.11" });
   });
+  return linhas;
+}
+
+export function rowsPerdas(entrada, resultado) {
+  const { perdas } = resultado;
+  const linhas = [
+    { parametro: "Choque elétrico (L1)", equacao: "r_t×L_T×(n_z/n_t)×(t_z/8760)×r_s", simbolo: "L_A", resultado: perdas.la, ref: "C.1/C.2" },
+    { parametro: "Danos físicos (L1)", equacao: "r_p×r_f×h_z×L_F×(n_z/n_t)×(t_z/8760)×r_s", simbolo: "L_B", resultado: perdas.lb, ref: "C.3" },
+    { parametro: "Falha de sistemas internos (L1)", equacao: "L_O×(n_z/n_t)×(t_z/8760)×r_s", simbolo: "L_C", resultado: perdas.lc, ref: "C.4" },
+  ];
+  if (entrada.estrutura.patrimonioCultural) {
+    linhas.push({
+      parametro: "Danos físicos (L3 — patrimônio cultural)",
+      equacao: "r_p×r_f×L_F×(c_z/c_t)",
+      simbolo: "L_B",
+      resultado: perdaL3(entrada.estrutura),
+      ref: "C.7",
+    });
+  }
   return linhas;
 }

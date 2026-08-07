@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { rowsAreasExposicao, rowsNumeroEventos, rowsProbabilidades } from "./spdaPdf";
+import { rowsAreasExposicao, rowsNumeroEventos, rowsProbabilidades, rowsPerdas } from "./spdaPdf";
+import { defaultEntrada } from "./spdaRisco";
 
 const resultadoBase = {
   eventos: {
@@ -97,5 +98,32 @@ describe("rowsProbabilidades", () => {
     expect(linhas.find((l) => l.simbolo === "P_V")).toMatchObject({ resultado: 0.05, ref: "B.9" });
     expect(linhas.find((l) => l.simbolo === "P_W")).toMatchObject({ resultado: 0.02, ref: "B.10" });
     expect(linhas.find((l) => l.simbolo === "P_Z")).toMatchObject({ resultado: 0.02, ref: "B.11" });
+  });
+});
+
+describe("rowsPerdas", () => {
+  const resultado = { perdas: { la: 0.0001, lb: 0.0002, lc: 0.00003 } };
+
+  it("inclui L_A, L_B e L_C do L1, sem L3 quando não há patrimônio cultural", () => {
+    const entrada = defaultEntrada();
+    const linhas = rowsPerdas(entrada, resultado);
+    expect(linhas.find((l) => l.simbolo === "L_A")).toMatchObject({ resultado: 0.0001, ref: "C.1/C.2" });
+    expect(linhas.find((l) => l.simbolo === "L_B" && l.parametro.includes("L1"))).toMatchObject({ resultado: 0.0002, ref: "C.3" });
+    expect(linhas.find((l) => l.simbolo === "L_C")).toMatchObject({ resultado: 0.00003, ref: "C.4" });
+    expect(linhas.filter((l) => l.parametro.includes("L3"))).toHaveLength(0);
+  });
+
+  it("com patrimônio cultural, inclui L_B do L3 pela equação C.7", () => {
+    const entrada = defaultEntrada();
+    entrada.estrutura.patrimonioCultural = true;
+    entrada.estrutura.providencias = "nenhuma";
+    entrada.estrutura.riscoIncendio = "incendioNormal";
+    entrada.estrutura.cz = 500000;
+    entrada.estrutura.ct = 2000000;
+    const linhas = rowsPerdas(entrada, resultado);
+    const l3 = linhas.find((l) => l.parametro.includes("L3"));
+    expect(l3).toMatchObject({ simbolo: "L_B", ref: "C.7" });
+    // r_p=1 (nenhuma providência) × r_f=0,01 (incêndio normal) × L_F=0,1 × (500000/2000000)
+    expect(l3.resultado).toBeCloseTo(1 * 0.01 * 0.1 * (500000 / 2000000), 8);
   });
 });
