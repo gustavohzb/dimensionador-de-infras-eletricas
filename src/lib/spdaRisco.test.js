@@ -87,6 +87,28 @@ describe("número de eventos perigosos (Anexo A)", () => {
     expect(linha.ndj).toBeCloseTo(8 * adj * 1 * 1 * 1e-6, 8);
   });
 
+  it("expõe a área da estrutura adjacente (adj) para a tabela E.5 do memorial", () => {
+    const comAdjacente = {
+      ...base,
+      linhas: [{
+        id: "l1", tipo: "energia", ll: 1000, ci: "aereo", ce: "rural", ct: "btOuSinal",
+        adjacente: { L: 20, W: 20, H: 5, cd: "isolada" },
+      }],
+    };
+    const [linha] = numeroEventos(comAdjacente).porLinha;
+    const esperado = 20 * 20 + 2 * 15 * 40 + Math.PI * 225; // A.1 com L=W=20, H=5
+    expect(linha.adj).toBeCloseTo(esperado, 8);
+  });
+
+  it("sem estrutura adjacente, adj é null", () => {
+    const semAdjacente = {
+      ...base,
+      linhas: [{ id: "l1", tipo: "energia", ll: 1000, ci: "aereo", ce: "rural", ct: "btOuSinal", adjacente: null }],
+    };
+    const [linha] = numeroEventos(semAdjacente).porLinha;
+    expect(linha.adj).toBeNull();
+  });
+
   it("sem linhas, a lista sai vazia", () => {
     expect(numeroEventos(base).porLinha).toEqual([]);
   });
