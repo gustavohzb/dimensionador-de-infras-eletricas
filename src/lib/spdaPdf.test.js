@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rowsAreasExposicao, rowsNumeroEventos, rowsProbabilidades, rowsPerdas, linhasEstrutura, linhasLinhaEletrica, linhasProtecoes, linhasSistemaInterno } from "./spdaPdf";
+import { rowsAreasExposicao, rowsNumeroEventos, rowsProbabilidades, rowsPerdas, rowsComponentes, rowsFrequencia, linhasEstrutura, linhasLinhaEletrica, linhasProtecoes, linhasSistemaInterno } from "./spdaPdf";
 import { defaultEntrada } from "./spdaRisco";
 
 const resultadoBase = {
@@ -13,8 +13,10 @@ const resultadoBase = {
 };
 
 describe("rowsAreasExposicao", () => {
+  const entradaBase = defaultEntrada();
+
   it("inclui A_D, A_M e A_L/A_I por linha, com as refs de equação corretas", () => {
-    const linhas = rowsAreasExposicao(resultadoBase);
+    const linhas = rowsAreasExposicao(entradaBase, resultadoBase);
     expect(linhas.find((l) => l.simbolo === "A_D")).toMatchObject({ resultado: 9127.43, ref: "A.1" });
     expect(linhas.find((l) => l.simbolo === "A_M")).toMatchObject({ resultado: 865398.16, ref: "A.6" });
     expect(linhas.find((l) => l.simbolo === "A_L")).toMatchObject({ resultado: 40000, ref: "A.8" });
@@ -26,8 +28,19 @@ describe("rowsAreasExposicao", () => {
     const comAdj = {
       eventos: { ...resultadoBase.eventos, porLinha: [{ ...resultadoBase.eventos.porLinha[0], adj: 1225 }] },
     };
-    const linha = rowsAreasExposicao(comAdj).find((l) => l.simbolo === "A_DJ");
+    const linha = rowsAreasExposicao(entradaBase, comAdj).find((l) => l.simbolo === "A_DJ");
     expect(linha).toMatchObject({ resultado: 1225, ref: "A.1" });
+  });
+
+  it("com H_P (saliência) definido, a ref de A_D avisa que A.2 pode se aplicar", () => {
+    const comHp = { estrutura: { ...entradaBase.estrutura, Hp: 15 } };
+    const linhas = rowsAreasExposicao(comHp, resultadoBase);
+    expect(linhas.find((l) => l.simbolo === "A_D")).toMatchObject({ ref: "A.1/A.2" });
+  });
+
+  it("sem H_P, a ref de A_D permanece só A.1", () => {
+    const linhas = rowsAreasExposicao(entradaBase, resultadoBase);
+    expect(linhas.find((l) => l.simbolo === "A_D")).toMatchObject({ ref: "A.1" });
   });
 });
 
@@ -43,10 +56,25 @@ describe("rowsNumeroEventos", () => {
 
   it("com N_DJ diferente de zero, inclui a linha N_DJ", () => {
     const comNdj = {
-      eventos: { ...resultadoBase.eventos, porLinha: [{ ...resultadoBase.eventos.porLinha[0], ndj: 0.05 }] },
+      eventos: { ...resultadoBase.eventos, porLinha: [{ ...resultadoBase.eventos.porLinha[0], adj: 1225, ndj: 0.05 }] },
     };
     const linha = rowsNumeroEventos(comNdj).find((l) => l.simbolo === "N_DJ");
     expect(linha).toMatchObject({ resultado: 0.05, ref: "A.4" });
+  });
+
+  it("com estrutura adjacente declarada (adj != null) mas N_DJ = 0, ainda inclui a linha N_DJ", () => {
+    const adjComNdjZero = {
+      eventos: { ...resultadoBase.eventos, porLinha: [{ ...resultadoBase.eventos.porLinha[0], adj: 1225, ndj: 0 }] },
+    };
+    const linha = rowsNumeroEventos(adjComNdjZero).find((l) => l.simbolo === "N_DJ");
+    expect(linha).toMatchObject({ resultado: 0, ref: "A.4" });
+  });
+
+  it("sem estrutura adjacente (adj == null), não inclui N_DJ mesmo que o campo ndj esteja ausente", () => {
+    const semAdj = {
+      eventos: { ...resultadoBase.eventos, porLinha: [{ ...resultadoBase.eventos.porLinha[0], adj: null }] },
+    };
+    expect(rowsNumeroEventos(semAdj).find((l) => l.simbolo === "N_DJ")).toBeUndefined();
   });
 });
 
@@ -59,16 +87,17 @@ describe("rowsProbabilidades", () => {
       porLinha: [{ id: "l1", pu: 0.0025, pv: 0.05, pw: 0.02, pz: 0.02 }],
     },
   };
+  const entradaSemDps = defaultEntrada(); // protecoes.dpsNp === "nenhum" por padrão
 
   it("inclui P_A, P_B e P_EB da estrutura com as refs corretas", () => {
-    const linhas = rowsProbabilidades(resultado);
+    const linhas = rowsProbabilidades(entradaSemDps, resultado);
     expect(linhas.find((l) => l.simbolo === "P_A")).toMatchObject({ resultado: 0.02, ref: "B.1" });
     expect(linhas.find((l) => l.simbolo === "P_B")).toMatchObject({ resultado: 0.05, ref: "B.2" });
     expect(linhas.find((l) => l.simbolo === "P_EB")).toMatchObject({ resultado: 0.05, ref: "B.7" });
   });
 
   it("inclui P_C e P_M por sistema interno", () => {
-    const linhas = rowsProbabilidades(resultado);
+    const linhas = rowsProbabilidades(entradaSemDps, resultado);
     const pc = linhas.find((l) => l.simbolo === "P_C" && l.parametro.includes("S1"));
     const pm = linhas.find((l) => l.simbolo === "P_M" && l.parametro.includes("S1"));
     expect(pc).toMatchObject({ resultado: 0.02, ref: "B.2" });
@@ -76,7 +105,7 @@ describe("rowsProbabilidades", () => {
   });
 
   it("com um só sistema, não duplica com a linha composta", () => {
-    const linhas = rowsProbabilidades(resultado);
+    const linhas = rowsProbabilidades(entradaSemDps, resultado);
     expect(linhas.filter((l) => l.parametro === "Composto (todos os sistemas)")).toHaveLength(0);
   });
 
@@ -87,17 +116,30 @@ describe("rowsProbabilidades", () => {
         porSistema: [{ id: "s1", pc: 0.02, pm: 0.0004 }, { id: "s2", pc: 0.01, pm: 0.0002 }],
       },
     };
-    const linhas = rowsProbabilidades(doisSistemas);
+    const linhas = rowsProbabilidades(entradaSemDps, doisSistemas);
     const compostoPc = linhas.find((l) => l.parametro === "Composto (todos os sistemas)" && l.simbolo === "P_C");
     expect(compostoPc).toMatchObject({ resultado: 0.031, ref: "eq. 12" });
   });
 
   it("inclui P_U, P_V, P_W e P_Z por linha", () => {
-    const linhas = rowsProbabilidades(resultado);
+    const linhas = rowsProbabilidades(entradaSemDps, resultado);
     expect(linhas.find((l) => l.simbolo === "P_U")).toMatchObject({ resultado: 0.0025, ref: "B.8" });
     expect(linhas.find((l) => l.simbolo === "P_V")).toMatchObject({ resultado: 0.05, ref: "B.9" });
     expect(linhas.find((l) => l.simbolo === "P_W")).toMatchObject({ resultado: 0.02, ref: "B.10" });
     expect(linhas.find((l) => l.simbolo === "P_Z")).toMatchObject({ resultado: 0.02, ref: "B.11" });
+  });
+
+  it("sem DPS coordenado (dpsNp = nenhum), a equação de P_M é só K_S1..K_S4 (B.4)", () => {
+    const linhas = rowsProbabilidades(entradaSemDps, resultado);
+    const pm = linhas.find((l) => l.simbolo === "P_M" && l.parametro.includes("S1"));
+    expect(pm).toMatchObject({ equacao: "(K_S1×K_S2×K_S3×K_S4)²", ref: "B.4" });
+  });
+
+  it("com DPS coordenado, a equação de P_M inclui P_SPD (B.3/B.4)", () => {
+    const entradaComDps = { ...entradaSemDps, protecoes: { ...entradaSemDps.protecoes, dpsNp: "npIIIIV" } };
+    const linhas = rowsProbabilidades(entradaComDps, resultado);
+    const pm = linhas.find((l) => l.simbolo === "P_M" && l.parametro.includes("S1"));
+    expect(pm).toMatchObject({ equacao: "P_SPD×(K_S1×K_S2×K_S3×K_S4)²", ref: "B.3/B.4" });
   });
 });
 
@@ -193,5 +235,62 @@ describe("linhasSistemaInterno", () => {
     const pares = linhasSistemaInterno(sistema);
     expect(pares.find(([label]) => label === "U_W")).toEqual(["U_W", "2,5 kV"]);
     expect(pares.find(([label]) => label === "Blindado")).toEqual(["Blindado", "Não"]);
+  });
+});
+
+describe("rowsComponentes", () => {
+  const resultado = {
+    componentes: { RA: 1e-6, RB: 2e-6, RC: 3e-7, RM: 4e-7, RU: 5e-8, RV: 6e-8, RW: 7e-9, RZ: 8e-9 },
+    chavesR1: ["RA", "RB", "RU", "RV"],
+    r1: 1e-6 + 2e-6 + 5e-8 + 6e-8,
+    dominante: "RB",
+  };
+
+  it("inclui as 8 componentes", () => {
+    const linhas = rowsComponentes(resultado);
+    expect(linhas).toHaveLength(8);
+  });
+
+  it("um componente em chavesR1 recebe ref com percentual de R1", () => {
+    const linhas = rowsComponentes(resultado);
+    const ra = linhas.find((l) => l.simbolo === "R_A");
+    expect(ra.ref).toMatch(/% de R1$/);
+  });
+
+  it("um componente fora de chavesR1 recebe ref 'fora de R1'", () => {
+    const linhas = rowsComponentes(resultado);
+    const rc = linhas.find((l) => l.simbolo === "R_C");
+    expect(rc.ref).toBe("fora de R1");
+  });
+
+  it("o componente dominante tem '(dominante)' no parametro", () => {
+    const linhas = rowsComponentes(resultado);
+    const rb = linhas.find((l) => l.simbolo === "R_B");
+    expect(rb.parametro).toContain("(dominante)");
+    const ra = linhas.find((l) => l.simbolo === "R_A");
+    expect(ra.parametro).not.toContain("(dominante)");
+  });
+});
+
+describe("rowsFrequencia", () => {
+  const resultado = {
+    frequencias: [
+      { id: "s1", fc: 1e-5, fm: 2e-5, fw: 3e-5, fv: 4e-5, fz: 5e-5, fb: 6e-5, maior: 6e-5, ft: 1e-3, atende: true },
+    ],
+  };
+
+  it("inclui as seis fontes por sistema (F_C, F_M, F_W, F_V, F_Z, F_B)", () => {
+    const linhas = rowsFrequencia(resultado);
+    ["F_C", "F_M", "F_W", "F_V", "F_Z", "F_B"].forEach((simbolo) => {
+      expect(linhas.find((l) => l.simbolo === simbolo && l.parametro.includes("S1"))).toBeDefined();
+    });
+  });
+
+  it("inclui F_T e o veredito por sistema", () => {
+    const linhas = rowsFrequencia(resultado);
+    const ft = linhas.find((l) => l.simbolo === "F_T" && l.parametro.includes("S1"));
+    expect(ft).toMatchObject({ resultado: 1e-3 });
+    const veredito = linhas.find((l) => l.parametro.includes("S1") && l.simbolo === "Veredito");
+    expect(veredito.resultado).toMatch(/atende/i);
   });
 });

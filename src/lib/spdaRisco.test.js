@@ -87,7 +87,7 @@ describe("número de eventos perigosos (Anexo A)", () => {
     expect(linha.ndj).toBeCloseTo(8 * adj * 1 * 1 * 1e-6, 8);
   });
 
-  it("expõe a área da estrutura adjacente (adj) para a tabela E.5 do memorial", () => {
+  it("expõe a área da estrutura adjacente (adj) para a tabela de áreas de exposição do memorial", () => {
     const comAdjacente = {
       ...base,
       linhas: [{

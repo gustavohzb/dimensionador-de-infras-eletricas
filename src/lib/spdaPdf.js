@@ -15,10 +15,11 @@ import {
 } from "../data/spdaNBR5419";
 import { cientifica } from "../components/spda/formato";
 
-export function rowsAreasExposicao(resultado) {
+export function rowsAreasExposicao(entrada, resultado) {
   const { eventos } = resultado;
+  const refAd = entrada?.estrutura?.Hp ? "A.1/A.2" : "A.1";
   const linhas = [
-    { parametro: "Estrutura", equacao: "L×W+2×(3H)×(L+W)+π×(3H)²", simbolo: "A_D", resultado: eventos.ad, ref: "A.1" },
+    { parametro: "Estrutura", equacao: "L×W+2×(3H)×(L+W)+π×(3H)²", simbolo: "A_D", resultado: eventos.ad, ref: refAd },
     { parametro: "Descargas próximas", equacao: "2×500×(L+W)+π×500²", simbolo: "A_M", resultado: eventos.am, ref: "A.6" },
   ];
   eventos.porLinha.forEach((ev) => {
@@ -48,7 +49,7 @@ export function rowsNumeroEventos(resultado) {
     const id = ev.id.toUpperCase();
     linhas.push({ parametro: `Linha ${id}`, equacao: "N_G×A_L×C_I×C_E×C_T×10⁻⁶", simbolo: "N_L", resultado: ev.nl, ref: "A.7" });
     linhas.push({ parametro: `Linha ${id}`, equacao: "N_G×A_I×C_I×C_E×C_T×10⁻⁶", simbolo: "N_I", resultado: ev.ni, ref: "A.9" });
-    if (ev.ndj) {
+    if (ev.adj != null) {
       linhas.push({
         parametro: `Estrutura adjacente à linha ${id}`,
         equacao: "N_G×A_DJ×C_DJ×C_T×10⁻⁶",
@@ -61,8 +62,12 @@ export function rowsNumeroEventos(resultado) {
   return linhas;
 }
 
-export function rowsProbabilidades(resultado) {
+export function rowsProbabilidades(entrada, resultado) {
   const { probs } = resultado;
+  const dpsCoordenado = entrada.protecoes.dpsNp !== "nenhum";
+  const pmEquacao = dpsCoordenado
+    ? { equacao: "P_SPD×(K_S1×K_S2×K_S3×K_S4)²", ref: "B.3/B.4" }
+    : { equacao: "(K_S1×K_S2×K_S3×K_S4)²", ref: "B.4" };
   const linhas = [
     { parametro: "Estrutura", equacao: "P_TA×P_B", simbolo: "P_A", resultado: probs.pa, ref: "B.1" },
     { parametro: "Estrutura (Tabela B.2)", equacao: "—", simbolo: "P_B", resultado: probs.pb, ref: "B.2" },
@@ -71,7 +76,7 @@ export function rowsProbabilidades(resultado) {
   probs.porSistema.forEach((s) => {
     const id = s.id.toUpperCase();
     linhas.push({ parametro: `Sistema ${id}`, equacao: "P_SPD×C_LD", simbolo: "P_C", resultado: s.pc, ref: "B.2" });
-    linhas.push({ parametro: `Sistema ${id}`, equacao: "(K_S1×K_S2×K_S3×K_S4)²", simbolo: "P_M", resultado: s.pm, ref: "B.4" });
+    linhas.push({ parametro: `Sistema ${id}`, simbolo: "P_M", resultado: s.pm, ...pmEquacao });
   });
   if (probs.porSistema.length > 1) {
     linhas.push({ parametro: "Composto (todos os sistemas)", equacao: "1−∏(1−P_Ci)", simbolo: "P_C", resultado: probs.pc, ref: "eq. 12" });
@@ -199,6 +204,48 @@ const DESCRICAO_COMPONENTE = {
   RZ: "Falha de sistemas internos — descarga perto da linha",
 };
 
+// Componentes de risco (Tabela 6) — mostra as 8, sinaliza a dominante e, na
+// coluna de referência, o percentual de R1 (ou "fora de R1" quando a nota
+// "a" da Tabela 2 deixa a componente fora da soma).
+export function rowsComponentes(resultado) {
+  return Object.keys(DESCRICAO_COMPONENTE).map((k) => {
+    const emR1 = resultado.chavesR1.includes(k);
+    const valor = resultado.componentes[k];
+    const marca = k === resultado.dominante ? " (dominante)" : "";
+    const ref = emR1
+      ? (resultado.r1 > 0 ? `${((valor / resultado.r1) * 100).toFixed(1).replace(".", ",")}% de R1` : "—")
+      : "fora de R1";
+    return {
+      parametro: `${DESCRICAO_COMPONENTE[k]}${marca}`,
+      equacao: "",
+      simbolo: k.replace("R", "R_"),
+      resultado: valor,
+      ref,
+    };
+  });
+}
+
+// Frequência de danos F (Seção 7) — uma linha por fonte (F_C, F_M, F_W, F_V,
+// F_Z, F_B) para cada sistema interno, seguida de F_T e do veredito. Nenhum
+// dos seis valores já calculados por frequenciaDanos() fica de fora, como no
+// quadro que ResultadoRisco.jsx mostra em tela.
+const FONTES_FREQUENCIA = [
+  ["fc", "F_C"], ["fm", "F_M"], ["fw", "F_W"], ["fv", "F_V"], ["fz", "F_Z"], ["fb", "F_B"],
+];
+
+export function rowsFrequencia(resultado) {
+  const linhas = [];
+  resultado.frequencias.forEach((f) => {
+    const parametro = `Sistema ${f.id.toUpperCase()}`;
+    FONTES_FREQUENCIA.forEach(([campo, simbolo]) => {
+      linhas.push({ parametro, equacao: "", simbolo, resultado: f[campo], ref: "Seção 7" });
+    });
+    linhas.push({ parametro, equacao: "", simbolo: "F_T", resultado: f.ft, ref: "Tabela 7" });
+    linhas.push({ parametro, equacao: "", simbolo: "Veredito", resultado: f.atende ? "Atende" : "Não atende", ref: "—" });
+  });
+  return linhas;
+}
+
 const COLS_EQUACAO = [
   { t: "Parâmetro", w: 68 },
   { t: "Equação", w: 92 },
@@ -212,7 +259,7 @@ function novoDoc(jsPDF) {
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 12;
-  const state = { doc, pageW, pageH, margin, contentW: pageW - margin * 2, y: margin };
+  const state = { doc, pageW, pageH, margin, y: margin };
 
   state.ensureSpace = (needed) => {
     if (state.y + needed > pageH - margin) {
@@ -272,7 +319,8 @@ function tabelaEquacoes(state, titulo, linhas) {
     doc.text(l.equacao, xs[1], state.y);
     doc.setTextColor(30, 41, 59);
     doc.text(l.simbolo, xs[2], state.y);
-    doc.text(cientifica(l.resultado), xs[3], state.y);
+    const valor = typeof l.resultado === "number" ? cientifica(l.resultado) : String(l.resultado);
+    doc.text(valor, xs[3], state.y);
     doc.setTextColor(148, 163, 184);
     doc.text(l.ref, xs[4], state.y);
     state.y += 4.8;
@@ -327,25 +375,17 @@ export async function exportSpdaPDF({ entrada, resultado }) {
   });
 
   // Anexo A
-  tabelaEquacoes(state, "Áreas de exposição equivalente (Anexo A)", rowsAreasExposicao(resultado));
+  tabelaEquacoes(state, "Áreas de exposição equivalente (Anexo A)", rowsAreasExposicao(entrada, resultado));
   tabelaEquacoes(state, "Número esperado de eventos perigosos (Anexo A)", rowsNumeroEventos(resultado));
 
   // Anexo B
-  tabelaEquacoes(state, "Probabilidades (Anexo B)", rowsProbabilidades(resultado));
+  tabelaEquacoes(state, "Probabilidades (Anexo B)", rowsProbabilidades(entrada, resultado));
 
   // Anexo C
   tabelaEquacoes(state, "Perdas (Anexo C)", rowsPerdas(entrada, resultado));
 
   // Componentes de risco
-  state.sectionTitle("Componentes de risco");
-  Object.keys(resultado.componentes).forEach((k) => {
-    const emR1 = resultado.chavesR1.includes(k);
-    const valor = resultado.componentes[k];
-    const pct = emR1 && resultado.r1 > 0 ? `${((valor / resultado.r1) * 100).toFixed(1).replace(".", ",")}%` : "—";
-    const marca = k === resultado.dominante ? " (dominante)" : "";
-    state.keyValue(`${k.replace("R", "R_")} — ${DESCRICAO_COMPONENTE[k]}${marca}`, `${cientifica(valor)} · ${pct} de R1`);
-  });
-  state.y += 2;
+  tabelaEquacoes(state, "Componentes de risco", rowsComponentes(resultado));
 
   // Veredito R1 / R3
   state.sectionTitle("Veredito");
@@ -357,13 +397,7 @@ export async function exportSpdaPDF({ entrada, resultado }) {
 
   // Frequência de danos F
   if (resultado.frequencias.length) {
-    state.sectionTitle(`Frequência de danos F — ${resultado.frequencias.length} sistema(s)`);
-    resultado.frequencias.forEach((f) => {
-      state.keyValue(
-        `Sistema ${f.id.toUpperCase()}`,
-        `maior fonte ${cientifica(f.maior)}/ano (tolerável ${cientifica(f.ft)}) — ${f.atende ? "atende" : "não atende"}`
-      );
-    });
+    tabelaEquacoes(state, "Frequência de danos F", rowsFrequencia(resultado));
   }
 
   const nomeMunicipio = (entrada.estrutura.municipio || "").replace(/[^\w\dÀ-ÿ -]+/g, "").trim();
