@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rowsAreasExposicao, rowsNumeroEventos, rowsProbabilidades, rowsPerdas } from "./spdaPdf";
+import { rowsAreasExposicao, rowsNumeroEventos, rowsProbabilidades, rowsPerdas, linhasEstrutura, linhasLinhaEletrica, linhasProtecoes, linhasSistemaInterno } from "./spdaPdf";
 import { defaultEntrada } from "./spdaRisco";
 
 const resultadoBase = {
@@ -125,5 +125,73 @@ describe("rowsPerdas", () => {
     expect(l3).toMatchObject({ simbolo: "L_B", ref: "C.7" });
     // r_p=1 (nenhuma providência) × r_f=0,01 (incêndio normal) × L_F=0,1 × (500000/2000000)
     expect(l3.resultado).toBeCloseTo(1 * 0.01 * 0.1 * (500000 / 2000000), 8);
+  });
+});
+
+describe("linhasEstrutura", () => {
+  it("traduz os ids da estrutura padrão em rótulos legíveis", () => {
+    const entrada = defaultEntrada();
+    entrada.estrutura.ng = 8;
+    entrada.estrutura.municipio = "Curitiba";
+    entrada.estrutura.uf = "PR";
+    const pares = linhasEstrutura(entrada.estrutura);
+    expect(pares.find(([label]) => label === "Município")).toEqual(["Município", "Curitiba/PR"]);
+    expect(pares.find(([label]) => label.includes("C_D"))?.[1]).toBe("Isolada: sem objetos nas vizinhanças");
+    expect(pares.find(([label]) => label.includes("r_S"))?.[1]).toBe("Robusta: estrutura metálica ou concreto armado");
+  });
+
+  it("omite os campos de patrimônio cultural quando a marcação está desligada", () => {
+    const entrada = defaultEntrada();
+    const pares = linhasEstrutura(entrada.estrutura);
+    expect(pares.some(([label]) => label.includes("acervo"))).toBe(false);
+  });
+
+  it("inclui c_z/c_t quando há patrimônio cultural", () => {
+    const entrada = defaultEntrada();
+    entrada.estrutura.patrimonioCultural = true;
+    entrada.estrutura.cz = 1;
+    entrada.estrutura.ct = 2;
+    const pares = linhasEstrutura(entrada.estrutura);
+    expect(pares.find(([label]) => label.includes("acervo"))).toEqual(["Valor do acervo / total (c_z / c_t)", "1 / 2"]);
+  });
+});
+
+describe("linhasLinhaEletrica", () => {
+  it("traduz os ids da linha em rótulos legíveis", () => {
+    const entrada = defaultEntrada();
+    const [linha] = entrada.linhas;
+    const pares = linhasLinhaEletrica(linha);
+    expect(pares.find(([label]) => label === "Tipo")).toEqual(["Tipo", "Energia"]);
+    expect(pares.find(([label]) => label.includes("Instalação"))?.[1]).toBe("Aéreo");
+  });
+
+  it("inclui a estrutura adjacente quando declarada", () => {
+    const linha = { ...defaultEntrada().linhas[0], adjacente: { L: 20, W: 20, H: 5, cd: "isolada" } };
+    const pares = linhasLinhaEletrica(linha);
+    expect(pares.find(([label]) => label === "Estrutura adjacente")?.[1]).toContain("20 × 20 × 5 m");
+  });
+});
+
+describe("linhasProtecoes", () => {
+  it("traduz as medidas marcáveis em lista de rótulos", () => {
+    const protecoes = { ...defaultEntrada().protecoes, medidasPta: ["avisos", "descidaNatural"] };
+    const pares = linhasProtecoes(protecoes);
+    expect(pares.find(([label]) => label.includes("P_TA"))?.[1]).toBe(
+      "Avisos de alerta; Estrutura metálica ou concreto armado como descida natural"
+    );
+  });
+
+  it("sem nenhuma medida marcada, mostra 'Nenhuma'", () => {
+    const pares = linhasProtecoes(defaultEntrada().protecoes);
+    expect(pares.find(([label]) => label.includes("P_TA"))?.[1]).toBe("Nenhuma");
+  });
+});
+
+describe("linhasSistemaInterno", () => {
+  it("traduz as marcações do sistema interno", () => {
+    const [sistema] = defaultEntrada().protecoes.sistemas;
+    const pares = linhasSistemaInterno(sistema);
+    expect(pares.find(([label]) => label === "U_W")).toEqual(["U_W", "2,5 kV"]);
+    expect(pares.find(([label]) => label === "Blindado")).toEqual(["Blindado", "Não"]);
   });
 });

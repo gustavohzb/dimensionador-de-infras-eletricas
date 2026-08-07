@@ -7,6 +7,12 @@
 // numérico como E.5/E.6, está "Vago" (reservado, sem conteúdo).
 
 import { perdaL3 } from "./spdaRisco";
+import {
+  LOCALIZACAO_CD, CONSTRUCAO_RS, TIPO_ESTRUTURA_LF, PISO_RT, RISCO_RF,
+  PROVIDENCIAS_RP, PERIGO_HZ, LO_POR_ESTRUTURA, INSTALACAO_CI, AMBIENTE_CE,
+  TIPO_LINHA_CT, LINHA_CLD_CLI, BLINDAGEM_RS, SPDA_PB, DPS_PSPD, DPS_PEB,
+  MEDIDAS_PTA, MEDIDAS_PTU, FIACAO_KS3,
+} from "../data/spdaNBR5419";
 
 export function rowsAreasExposicao(resultado) {
   const { eventos } = resultado;
@@ -97,4 +103,86 @@ export function rowsPerdas(entrada, resultado) {
     });
   }
   return linhas;
+}
+
+function rotulo(tabela, id) {
+  return tabela.find((t) => t.id === id)?.label ?? "—";
+}
+
+export function linhasEstrutura(e) {
+  const pares = [
+    ["Dimensões (L × W × H)", `${e.L} × ${e.W} × ${e.H} m`],
+  ];
+  if (e.Hp) pares.push(["Saliência H_P", `${e.Hp} m`]);
+  pares.push(["Município", e.municipio && e.uf ? `${e.municipio}/${e.uf}` : "—"]);
+  pares.push(["N_G", e.ng != null ? `${e.ng} raios/km²/ano` : "—"]);
+  pares.push(["Localização relativa (C_D)", rotulo(LOCALIZACAO_CD, e.cd)]);
+  pares.push(["Tipo de construção (r_S)", rotulo(CONSTRUCAO_RS, e.construcao)]);
+  pares.push(["Uso da edificação (L_F)", rotulo(TIPO_ESTRUTURA_LF, e.tipoEstrutura)]);
+  pares.push(["Piso da área ocupada (r_t)", rotulo(PISO_RT, e.piso)]);
+  pares.push(["Risco de incêndio/explosão (r_f)", rotulo(RISCO_RF, e.riscoIncendio)]);
+  pares.push(["Combate a incêndio (r_p)", rotulo(PROVIDENCIAS_RP, e.providencias)]);
+  pares.push(["Perigo especial (h_z)", rotulo(PERIGO_HZ, e.perigoEspecial)]);
+  pares.push(["Pessoas na zona / na estrutura (n_z / n_t)", `${e.nz} / ${e.nt}`]);
+  pares.push(["Ocupação", `${e.horasDia} h/dia, ${e.diasSemana} dias/semana`]);
+  pares.push(["Explosão ou risco imediato à vida", e.explosaoOuRiscoVida ? "Sim" : "Não"]);
+  if (e.explosaoOuRiscoVida) {
+    pares.push(["Consequência da falha dos sistemas internos (L_O)", rotulo(LO_POR_ESTRUTURA, e.loEstrutura)]);
+  }
+  pares.push(["Patrimônio cultural", e.patrimonioCultural ? "Sim" : "Não"]);
+  if (e.patrimonioCultural) {
+    pares.push(["Valor do acervo / total (c_z / c_t)", `${e.cz} / ${e.ct}`]);
+  }
+  return pares;
+}
+
+export function linhasLinhaEletrica(l) {
+  const pares = [
+    ["Tipo", l.tipo === "energia" ? "Energia" : "Sinal"],
+    ["Comprimento L_L", `${l.ll} m`],
+    ["Instalação (C_I)", rotulo(INSTALACAO_CI, l.ci)],
+    ["Ambiente (C_E)", rotulo(AMBIENTE_CE, l.ce)],
+    ["Tipo de linha (C_T)", rotulo(TIPO_LINHA_CT, l.ct)],
+    ["Blindagem (C_LD/C_LI)", rotulo(LINHA_CLD_CLI, l.blindagem)],
+    ["Resistência da blindagem (P_LD)", rotulo(BLINDAGEM_RS, l.rs)],
+  ];
+  if (l.adjacente) {
+    pares.push([
+      "Estrutura adjacente",
+      `${l.adjacente.L} × ${l.adjacente.W} × ${l.adjacente.H} m, ${rotulo(LOCALIZACAO_CD, l.adjacente.cd)}`,
+    ]);
+  }
+  return pares;
+}
+
+export function linhasProtecoes(p) {
+  const listaOuNenhuma = (tabela, ids) =>
+    ids.length ? ids.map((id) => rotulo(tabela, id)).join("; ") : "Nenhuma";
+  return [
+    ["SPDA (P_B)", rotulo(SPDA_PB, p.spdaNp)],
+    ["Sistema coordenado de DPS (P_SPD)", rotulo(DPS_PSPD, p.dpsNp)],
+    ["DPS classe I na entrada (P_EB)", rotulo(DPS_PEB, p.dpsClasseI)],
+    ["Medidas contra toque/passo na estrutura (P_TA)", listaOuNenhuma(MEDIDAS_PTA, p.medidasPta)],
+    ["Medidas contra toque vindo da linha (P_TU)", listaOuNenhuma(MEDIDAS_PTU, p.medidasPtu)],
+    ["Fiação interna (K_S3)", rotulo(FIACAO_KS3, p.fiacao)],
+    [
+      "Blindagem espacial",
+      p.blindagemContinua
+        ? "Contínua ≥ 0,1 mm (K_S1 = K_S2 = 10⁻⁴)"
+        : p.larguraMalha
+          ? `Malha, largura ${p.larguraMalha} m`
+          : "Nenhuma",
+    ],
+  ];
+}
+
+export function linhasSistemaInterno(s) {
+  return [
+    ["U_W", `${String(s.uw).replace(".", ",")} kV`],
+    ["Blindado", s.blindado ? "Sim" : "Não"],
+    ["Interface isolante", s.interfaceIsolante ? "Sim" : "Não"],
+    ["Linha associada", s.linhaId ? s.linhaId.toUpperCase() : "Nenhuma"],
+    ["Crítico (Seção 7)", s.critico ? "Sim" : "Não"],
+    ["Em ZPR₀ᴬ (Seção 7)", s.zpr0a ? "Sim" : "Não"],
+  ];
 }
