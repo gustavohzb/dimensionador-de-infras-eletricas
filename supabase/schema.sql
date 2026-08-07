@@ -41,3 +41,39 @@ create policy "allow all with anon key" on projetos_capacitores
   for all
   using (true)
   with check (true);
+
+-- Projeto SPDA (o site/cliente) — várias áreas dentro dele, cada uma com
+-- sua própria análise de risco (a norma trata cada estrutura como zona de
+-- estudo própria, então não faz sentido um estado salvo só por cliente).
+create table if not exists projetos_spda (
+  id uuid primary key default gen_random_uuid(),
+  nome text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table projetos_spda enable row level security;
+
+create policy "allow all with anon key" on projetos_spda
+  for all
+  using (true)
+  with check (true);
+
+-- Áreas dentro de um projeto SPDA. `dados` guarda a `entrada` inteira
+-- (estrutura, linhas, proteções) num jsonb, mesma razão de
+-- projetos_capacitores: evita migração de coluna a cada campo novo do motor.
+create table if not exists areas_spda (
+  id uuid primary key default gen_random_uuid(),
+  projeto_id uuid not null references projetos_spda(id) on delete cascade,
+  nome text not null,
+  dados jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table areas_spda enable row level security;
+
+create policy "allow all with anon key" on areas_spda
+  for all
+  using (true)
+  with check (true);
