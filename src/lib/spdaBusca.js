@@ -1,6 +1,6 @@
 import { EIXOS_FIXOS } from "../data/spdaEsforco";
 import {
-  PISO_RT, PROVIDENCIAS_RP, RISCO_TOLERAVEL, RISCO_RF,
+  PISO_RT, PROVIDENCIAS_RP, RISCO_TOLERAVEL, ZONAS_EXPLOSIVAS,
   SPDA_PB, DPS_PSPD, DPS_PEB, FIACAO_KS3, MEDIDAS_PTA, MEDIDAS_PTU,
 } from "../data/spdaNBR5419";
 import { avaliarRisco, fator, produtoMedidas } from "./spdaRisco";
@@ -93,13 +93,13 @@ function eixoFixoQueMelhora(eixoFixo, entrada) {
   return { ...eixoFixo, opcoes: [MANTER, ...melhores] };
 }
 
-// Tabela C.4: r_p = 1 é obrigatório em zona com risco de explosão — o próprio
-// rótulo da primeira linha diz "Nenhuma providência, OU zona com risco de
-// explosão". Extintores e alarme não compram crédito nenhum ali, e oferecê-los
-// fazia a busca aprovar projeto que a norma reprova por quase o dobro do
-// limite.
-const ZONAS_EXPLOSIVAS = RISCO_RF.filter((r) => r.id.startsWith("explosao")).map((r) => r.id);
-
+// O eixo de providências fica travado em zona com risco de explosão: a Tabela
+// C.4 põe esse caso na mesma linha de "nenhuma providência", com r_p = 1, e
+// extintores ou alarme não compram crédito nenhum ali. O motor já força esse
+// r_p, então travar aqui não muda conta — evita só oferecer uma medida que não
+// reduziria nada. `ZONAS_EXPLOSIVAS` vem de data/, ao lado da tabela de onde
+// sai, e é a mesma lista que o motor usa: busca e cálculo não podem divergir
+// sobre o que é zona explosiva.
 export function montarEixos(entrada) {
   return [
     ...EIXOS_FIXOS.map((eixo) => eixoFixoQueMelhora(eixo, entrada)),

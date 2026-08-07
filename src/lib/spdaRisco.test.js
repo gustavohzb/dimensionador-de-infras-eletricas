@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   areaExposicaoEstrutura, areaExposicaoProxima, areasLinha, numeroEventos,
-  probabilidades, produtoMedidas, perdasL1, perdaL3, avaliarRisco, defaultEntrada,
+  probabilidades, produtoMedidas, perdasL1, perdaL3, providenciasRP, avaliarRisco, defaultEntrada,
   horasPorAno,
 } from "./spdaRisco";
 import { MEDIDAS_PTA } from "../data/spdaNBR5419";
@@ -526,5 +526,34 @@ describe("avaliarRisco", () => {
     const [s] = defaultEntrada().protecoes.sistemas;
     expect(s.critico).toBe(false);
     expect(s.zpr0a).toBe(false);
+  });
+
+  it("ignora providências contra incêndio em zona com risco de explosão", () => {
+    // Tabela C.4: a primeira linha é "Nenhuma providência, OU zona com risco de
+    // explosão" — ali r_p vale 1 e nenhuma medida compra redução. O formulário
+    // deixa escolher "instalações fixas automáticas" junto com zona 1 de
+    // explosão, e honrar essa escolha fazia o app aprovar projeto que a norma
+    // reprova por quase o dobro do limite.
+    const base = defaultEntrada();
+    base.estrutura.ng = 6;
+    base.estrutura.riscoIncendio = "explosaoZ1";
+
+    const sem = { ...base, estrutura: { ...base.estrutura, providencias: "nenhuma" } };
+    const com = { ...base, estrutura: { ...base.estrutura, providencias: "automaticas" } };
+
+    expect(providenciasRP(com.estrutura)).toBe(1);
+    expect(avaliarRisco(com).r1).toBe(avaliarRisco(sem).r1);
+  });
+
+  it("aplica as providências normalmente fora de zona explosiva", () => {
+    const e = defaultEntrada();
+    e.estrutura.ng = 6;
+    e.estrutura.riscoIncendio = "incendioAlto";
+    e.estrutura.providencias = "automaticas";
+
+    expect(providenciasRP(e.estrutura)).toBe(0.2); // Tabela C.4
+    expect(avaliarRisco(e).r1).toBeLessThan(
+      avaliarRisco({ ...e, estrutura: { ...e.estrutura, providencias: "nenhuma" } }).r1
+    );
   });
 });

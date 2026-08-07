@@ -9,7 +9,7 @@ import {
   MEDIDAS_PTA, MEDIDAS_PTU, SPDA_PB, DPS_PSPD, DPS_PEB, FIACAO_KS3,
   LINHA_CLD_CLI, BLINDAGEM_RS, PLI_POR_TIPO, UW_VALORES,
   LT, LF_L3, TIPO_ESTRUTURA_LF, LO_POR_ESTRUTURA, PISO_RT,
-  PROVIDENCIAS_RP, RISCO_RF, PERIGO_HZ, CONSTRUCAO_RS, RISCO_TOLERAVEL,
+  PROVIDENCIAS_RP, RISCO_RF, PERIGO_HZ, CONSTRUCAO_RS, RISCO_TOLERAVEL, ZONAS_EXPLOSIVAS,
 } from "../data/spdaNBR5419";
 import { frequenciaDanos } from "./spdaFrequencia";
 
@@ -187,10 +187,23 @@ export function horasPorAno({ horasDia, diasSemana }) {
   return h * (d / 7) * 365;
 }
 
+// r_p da Tabela C.4, com a ressalva que a própria tabela faz: a primeira linha
+// é "Nenhuma providência, OU zona com risco de explosão", ou seja, em zona
+// explosiva r_p vale 1 e nenhuma medida contra incêndio compra redução.
+//
+// Sem esta trava o formulário aceitava "instalações fixas automáticas" junto
+// com zona 1 de explosão e o app aprovava o projeto: um caso de N_G 6 dava
+// R1 = 4,29 × 10⁻⁶, verde, quando o valor correto pela norma é 1,80 × 10⁻⁵ —
+// quase o dobro do tolerável.
+export function providenciasRP(estrutura) {
+  if (ZONAS_EXPLOSIVAS.includes(estrutura.riscoIncendio)) return 1;
+  return fator(PROVIDENCIAS_RP, estrutura.providencias);
+}
+
 // C.1 a C.4 — perdas de vida humana (L1) da zona de estudo.
 export function perdasL1(estrutura) {
   const rt = fator(PISO_RT, estrutura.piso);
-  const rp = fator(PROVIDENCIAS_RP, estrutura.providencias);
+  const rp = providenciasRP(estrutura);
   const rf = fator(RISCO_RF, estrutura.riscoIncendio);
   const hz = fator(PERIGO_HZ, estrutura.perigoEspecial);
   const rs = fator(CONSTRUCAO_RS, estrutura.construcao);
@@ -213,7 +226,7 @@ export function perdasL1(estrutura) {
 
 // C.7 — perda de patrimônio cultural (L3). Vale para L_B e L_V de R3.
 export function perdaL3(estrutura) {
-  const rp = fator(PROVIDENCIAS_RP, estrutura.providencias);
+  const rp = providenciasRP(estrutura);
   const rf = fator(RISCO_RF, estrutura.riscoIncendio);
   const ct = Number(estrutura.ct) || 1;
   return rp * rf * LF_L3 * ((Number(estrutura.cz) || 0) / ct);

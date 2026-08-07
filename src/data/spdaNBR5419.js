@@ -190,6 +190,11 @@ export const RISCO_RF = [
   { id: "nenhum", label: "Sem risco de incêndio ou explosão", valor: 0 },
 ];
 
+// Ids da Tabela C.5 que são zona com risco de explosão. A Tabela C.4 trata
+// esse caso junto com "nenhuma providência": nela, r_p = 1 obrigatoriamente,
+// e nenhuma medida contra incêndio compra redução.
+export const ZONAS_EXPLOSIVAS = RISCO_RF.filter((r) => r.id.startsWith("explosao")).map((r) => r.id);
+
 // Tabela C.6 — h_z conforme o perigo especial.
 export const PERIGO_HZ = [
   { id: "nenhum", label: "Sem perigo especial", valor: 1 },
