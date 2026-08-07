@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { buscarMedidas, atendeNorma } from "../../lib/spdaBusca";
 import { cientifica } from "./formato";
 
@@ -38,26 +38,32 @@ function Combinacao({ c, ordem, onAplicar }) {
 // Só aparece quando algum critério reprova: com tudo aprovado não há o que
 // recomendar, e um painel vazio na tela sugeriria que falta alguma coisa.
 export default function SugestaoMedidas({ entrada, resultado, onAplicar }) {
+  // Guarda junto o estado para o qual a busca foi feita. Um efeito que zerasse
+  // o resultado a cada mudança de `entrada` não bastaria: efeito roda depois da
+  // pintura, e por um quadro a tela mostraria a recomendação velha ao lado do
+  // risco novo. Comparando aqui, na renderização, o resultado envelhecido nunca
+  // chega a aparecer.
   const [busca, setBusca] = useState(null);
   const [buscando, setBuscando] = useState(false);
-
-  // O resultado vale para o estado em que foi calculado. Mexeu em qualquer
-  // campo, ele envelheceu: mostrar recomendação velha ao lado de risco novo é
-  // pior do que não mostrar nenhuma.
-  useEffect(() => {
-    setBusca(null);
-  }, [entrada]);
+  const vigente = busca && busca.paraEntrada === entrada ? busca.dados : null;
 
   const precisa = !atendeNorma(resultado);
   if (!precisa) return null;
 
   // A busca segura a thread por até ~2 s. Sem ceder um quadro antes, o
   // "procurando" só apareceria depois que ela terminasse — ou seja, nunca.
+  //
+  // O `finally` não é decoração: sem ele, uma exceção na busca deixaria
+  // `buscando` verdadeiro para sempre, com o botão desabilitado em
+  // "Procurando…" e sem saída a não ser recarregar a página.
   const procurar = () => {
     setBuscando(true);
     setTimeout(() => {
-      setBusca(buscarMedidas(entrada));
-      setBuscando(false);
+      try {
+        setBusca({ paraEntrada: entrada, dados: buscarMedidas(entrada) });
+      } finally {
+        setBuscando(false);
+      }
     }, 0);
   };
 
@@ -75,7 +81,7 @@ export default function SugestaoMedidas({ entrada, resultado, onAplicar }) {
         </b>
       </p>
 
-      {busca === null ? (
+      {vigente === null ? (
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -91,9 +97,14 @@ export default function SugestaoMedidas({ entrada, resultado, onAplicar }) {
               : "A varredura é completa, então demora alguns segundos em casos difíceis."}
           </span>
         </div>
-      ) : busca.combinacoes.length === 0 ? (
+      ) : vigente.combinacoes.length === 0 ? (
         <div className="rounded-xs border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
-          {busca.esgotou ? (
+          {/* Este painel chama a busca sem teto, e sem teto ela varre a grade
+              inteira — então hoje `esgotou` nunca vem verdadeiro por aqui. O
+              ramo fica porque a alternativa é pior: quem um dia passar um teto
+              faria a mensagem de baixo afirmar que nada resolve depois de uma
+              varredura que parou no meio. */}
+          {vigente.esgotou ? (
             <>
               <b>A busca foi interrompida antes do fim.</b> Ela parou no limite de avaliações, então
               pode existir combinação que ela nem chegou a ver.
@@ -101,25 +112,25 @@ export default function SugestaoMedidas({ entrada, resultado, onAplicar }) {
           ) : (
             <>
               <b>Nenhuma combinação de medidas resolve.</b> Foram avaliadas as{" "}
-              {busca.avaliadas.toLocaleString("pt-BR")} combinações do catálogo e nenhuma traz os
+              {vigente.avaliadas.toLocaleString("pt-BR")} combinações do catálogo e nenhuma traz os
               três critérios para dentro do limite — o caminho aqui passa por reduzir a ocupação da
               zona, dividir a estrutura em zonas ou rever a geometria.
             </>
           )}
-          {busca.melhorParcial && (
+          {vigente.melhorParcial && (
             <div className="mt-1 font-mono">
-              melhor encontrado: R1 = {cientifica(busca.melhorParcial.r1)}
-              {busca.melhorParcial.piorF && <> · F = {cientifica(busca.melhorParcial.piorF.maior)}</>}
+              melhor encontrado: R1 = {cientifica(vigente.melhorParcial.r1)}
+              {vigente.melhorParcial.piorF && <> · F = {cientifica(vigente.melhorParcial.piorF.maior)}</>}
             </div>
           )}
         </div>
       ) : (
         <div className="space-y-2">
-          {busca.combinacoes.map((c, i) => (
+          {vigente.combinacoes.map((c, i) => (
             <Combinacao key={c.indices.join(",")} c={c} ordem={i + 1} onAplicar={onAplicar} />
           ))}
           <p className="text-[11px] text-slate-400 dark:text-slate-500">
-            {busca.avaliadas.toLocaleString("pt-BR")} combinações avaliadas.
+            {vigente.avaliadas.toLocaleString("pt-BR")} combinações avaliadas.
           </p>
         </div>
       )}
