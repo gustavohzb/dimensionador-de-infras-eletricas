@@ -190,6 +190,11 @@ export const RISCO_RF = [
   { id: "nenhum", label: "Sem risco de incêndio ou explosão", valor: 0 },
 ];
 
+// Ids da Tabela C.5 que são zona com risco de explosão. A Tabela C.4 trata
+// esse caso junto com "nenhuma providência": nela, r_p = 1 obrigatoriamente,
+// e nenhuma medida contra incêndio compra redução.
+export const ZONAS_EXPLOSIVAS = RISCO_RF.filter((r) => r.id.startsWith("explosao")).map((r) => r.id);
+
 // Tabela C.6 — h_z conforme o perigo especial.
 export const PERIGO_HZ = [
   { id: "nenhum", label: "Sem perigo especial", valor: 1 },
@@ -210,3 +215,8 @@ export const LF_L3 = 0.1;
 
 // Tabela 4 — riscos toleráveis (1/ano).
 export const RISCO_TOLERAVEL = { R1: 1e-5, R3: 1e-4 };
+
+// Seção 7 — frequência de danos tolerável F_T (1/ano). O valor de sistema
+// crítico é máximo: só autoridade com jurisdição pode alterá-lo. O de não
+// crítico a norma dá como meramente representativo.
+export const FREQUENCIA_TOLERAVEL = { critico: 0.1, naoCritico: 1 };

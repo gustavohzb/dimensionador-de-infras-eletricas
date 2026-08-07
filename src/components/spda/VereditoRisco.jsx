@@ -45,6 +45,13 @@ export default function VereditoRisco({ resultado, pendente }) {
   const barra = useRef(null);
   const [grudado, setGrudado] = useState(false);
 
+  // Pior sistema pela Seção 7. Sem sistema interno não há o que avaliar, e o
+  // cartão não aparece — melhor do que exibir "0" e sugerir aprovação.
+  const { frequencias = [] } = resultado;
+  const piorF = frequencias.length
+    ? frequencias.reduce((a, b) => (a.maior / a.ft >= b.maior / b.ft ? a : b))
+    : null;
+
   // Truque padrão para saber se o sticky está ativo: com `top: -1px`, um pixel
   // sai da tela ao grudar, e a razão de interseção cai abaixo de 1. Serve só
   // para a sombra aparecer quando a barra está sobreposta ao conteúdo.
@@ -78,7 +85,7 @@ export default function VereditoRisco({ resultado, pendente }) {
           </span>
         </div>
       ) : (
-      <div className={`grid gap-2 ${r3 !== null ? "sm:grid-cols-2" : ""}`}>
+      <div className={`grid gap-2 ${r3 !== null || piorF ? "sm:grid-cols-2" : ""}`}>
         <Veredito
           titulo="R1 — vida humana"
           valor={r1}
@@ -91,6 +98,14 @@ export default function VereditoRisco({ resultado, pendente }) {
             valor={r3}
             tolerado={RISCO_TOLERAVEL.R3}
             precisa={precisa.r3}
+          />
+        )}
+        {piorF && (
+          <Veredito
+            titulo="F — frequência de danos"
+            valor={piorF.maior}
+            tolerado={piorF.ft}
+            precisa={precisa.f}
           />
         )}
       </div>

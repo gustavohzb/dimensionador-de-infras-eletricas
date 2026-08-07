@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { defaultEntrada, avaliarRisco } from "../lib/spdaRisco";
 import VereditoRisco from "./spda/VereditoRisco";
 import ResultadoRisco from "./spda/ResultadoRisco";
+import FrequenciaDanos from "./spda/FrequenciaDanos";
+import SugestaoMedidas from "./spda/SugestaoMedidas";
 import EstruturaForm from "./spda/EstruturaForm";
 import LinhasForm from "./spda/LinhasForm";
 import ProtecoesForm from "./spda/ProtecoesForm";
@@ -25,11 +27,13 @@ function carregar() {
         estrutura.diasSemana = 7;
       }
       delete estrutura.tz;
-      return {
-        estrutura,
-        linhas: salvo.linhas ?? base.linhas,
-        protecoes: { ...base.protecoes, ...salvo.protecoes },
-      };
+      // Sistemas salvos antes da Seção 7 não têm as marcações novas. Sem o
+      // padrão explícito o checkbox nasce não controlado e o React reclama.
+      const protecoes = { ...base.protecoes, ...salvo.protecoes };
+      protecoes.sistemas = (protecoes.sistemas ?? []).map((s) => ({
+        critico: false, zpr0a: false, ...s,
+      }));
+      return { estrutura, linhas: salvo.linhas ?? base.linhas, protecoes };
     }
   } catch { /* estado inicial */ }
   return defaultEntrada();
@@ -67,6 +71,14 @@ export default function SpdaTab() {
       <VereditoRisco resultado={resultado} pendente={entrada.estrutura.ng == null} />
 
       {entrada.estrutura.ng != null && <ResultadoRisco resultado={resultado} />}
+      {entrada.estrutura.ng != null && <FrequenciaDanos frequencias={resultado.frequencias} />}
+      {entrada.estrutura.ng != null && (
+        <SugestaoMedidas
+          entrada={entrada}
+          resultado={resultado}
+          onAplicar={(nova) => setEntrada(nova)}
+        />
+      )}
 
       <EstruturaForm value={entrada.estrutura} onChange={setParte("estrutura")} />
 

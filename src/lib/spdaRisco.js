@@ -9,8 +9,9 @@ import {
   MEDIDAS_PTA, MEDIDAS_PTU, SPDA_PB, DPS_PSPD, DPS_PEB, FIACAO_KS3,
   LINHA_CLD_CLI, BLINDAGEM_RS, PLI_POR_TIPO, UW_VALORES,
   LT, LF_L3, TIPO_ESTRUTURA_LF, LO_POR_ESTRUTURA, PISO_RT,
-  PROVIDENCIAS_RP, RISCO_RF, PERIGO_HZ, CONSTRUCAO_RS, RISCO_TOLERAVEL,
+  PROVIDENCIAS_RP, RISCO_RF, PERIGO_HZ, CONSTRUCAO_RS, RISCO_TOLERAVEL, ZONAS_EXPLOSIVAS,
 } from "../data/spdaNBR5419";
+import { frequenciaDanos } from "./spdaFrequencia";
 
 // Busca o valor de uma tabela pelo id. Id desconhecido devolve 0 em vez de
 // NaN: um fator ausente zera a componente, o que é visível no resultado, ao
@@ -163,7 +164,17 @@ export function probabilidades({ linhas = [], protecoes }) {
     };
   });
 
-  return { pa, pb, pc: composta(pcPorSistema), pm: composta(pmPorSistema), porLinha };
+  return {
+    pa,
+    pb,
+    peb,
+    pc: composta(pcPorSistema),
+    pm: composta(pmPorSistema),
+    // A Seção 7 compara equipamento a equipamento, então precisa do valor de
+    // cada sistema — o composto das equações 12 e 13 não serve para F.
+    porSistema: sistemas.map((s, i) => ({ id: s.id, pc: pcPorSistema[i], pm: pmPorSistema[i] })),
+    porLinha,
+  };
 }
 
 // Converte o turno de trabalho no t_z que a norma pede (horas por ano, C.3).
@@ -176,10 +187,23 @@ export function horasPorAno({ horasDia, diasSemana }) {
   return h * (d / 7) * 365;
 }
 
+// r_p da Tabela C.4, com a ressalva que a própria tabela faz: a primeira linha
+// é "Nenhuma providência, OU zona com risco de explosão", ou seja, em zona
+// explosiva r_p vale 1 e nenhuma medida contra incêndio compra redução.
+//
+// Sem esta trava o formulário aceitava "instalações fixas automáticas" junto
+// com zona 1 de explosão e o app aprovava o projeto: um caso de N_G 6 dava
+// R1 = 4,29 × 10⁻⁶, verde, quando o valor correto pela norma é 1,80 × 10⁻⁵ —
+// quase o dobro do tolerável.
+export function providenciasRP(estrutura) {
+  if (ZONAS_EXPLOSIVAS.includes(estrutura.riscoIncendio)) return 1;
+  return fator(PROVIDENCIAS_RP, estrutura.providencias);
+}
+
 // C.1 a C.4 — perdas de vida humana (L1) da zona de estudo.
 export function perdasL1(estrutura) {
   const rt = fator(PISO_RT, estrutura.piso);
-  const rp = fator(PROVIDENCIAS_RP, estrutura.providencias);
+  const rp = providenciasRP(estrutura);
   const rf = fator(RISCO_RF, estrutura.riscoIncendio);
   const hz = fator(PERIGO_HZ, estrutura.perigoEspecial);
   const rs = fator(CONSTRUCAO_RS, estrutura.construcao);
@@ -202,7 +226,7 @@ export function perdasL1(estrutura) {
 
 // C.7 — perda de patrimônio cultural (L3). Vale para L_B e L_V de R3.
 export function perdaL3(estrutura) {
-  const rp = fator(PROVIDENCIAS_RP, estrutura.providencias);
+  const rp = providenciasRP(estrutura);
   const rf = fator(RISCO_RF, estrutura.riscoIncendio);
   const ct = Number(estrutura.ct) || 1;
   return rp * rf * LF_L3 * ((Number(estrutura.cz) || 0) / ct);
@@ -234,7 +258,12 @@ export function defaultEntrada() {
       spdaNp: "nenhum", dpsNp: "nenhum", dpsClasseI: "nenhum",
       medidasPta: [], medidasPtu: [], fiacao: "semCuidado",
       larguraMalha: null, blindagemContinua: false,
-      sistemas: [{ id: "s1", uw: 2.5, blindado: false, interfaceIsolante: false, linhaId: "l1" }],
+      sistemas: [{
+        id: "s1", uw: 2.5, blindado: false, interfaceIsolante: false, linhaId: "l1",
+        // Seção 7: criticidade e posição do equipamento são declaração de quem
+        // projeta, e o caso comum é equipamento não crítico dentro da estrutura.
+        critico: false, zpr0a: false,
+      }],
     },
   };
 }
@@ -287,6 +316,8 @@ export function avaliarRisco(entrada) {
     ? chavesR1.reduce((a, b) => (componentes[a] >= componentes[b] ? a : b))
     : null;
 
+  const frequencias = frequenciaDanos({ eventos, probs, sistemas: entrada.protecoes.sistemas ?? [] });
+
   return {
     componentes,
     // Quais componentes a soma de R1 usou. A tabela de resultado precisa disso
@@ -296,9 +327,12 @@ export function avaliarRisco(entrada) {
     r1,
     r3,
     rt: RISCO_TOLERAVEL,
+    frequencias,
     precisa: {
       r1: r1 > RISCO_TOLERAVEL.R1,
       r3: r3 === null ? null : r3 > RISCO_TOLERAVEL.R3,
+      // Basta um sistema reprovar: F é avaliado equipamento a equipamento.
+      f: frequencias.some((x) => !x.atende),
     },
     dominante,
     eventos,
