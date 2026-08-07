@@ -161,36 +161,35 @@ function criarFilaPorCusto(custoMaximo) {
 // Busca melhor-primeiro sobre a grade de degraus dos eixos.
 //
 // Por que não força bruta: o produto cartesiano dos eixos chega a 600 000
-// arranjos, e avaliar todos travaria a tela.
+// arranjos. Varrer tudo leva ~2 s; a busca acha as três respostas do galpão
+// comum em 3 200 avaliações, uns 17 ms.
 //
 // Por que a primeira encontrada é a mais barata: a fila devolve sempre o nó de
 // menor esforço acumulado, e subir um degrau só soma esforço (nunca subtrai),
-// então nenhum arranjo mais barato pode aparecer depois.
+// então nenhum arranjo mais barato pode aparecer depois. Conferido por força
+// bruta sobre as 600 000 combinações do galpão padrão: das 329 900 que
+// atendem, a mais barata tem esforço 13, e é a que a busca devolve primeiro.
 //
 // Por que não expandir quem já atende: pela monotonicidade, todo filho de uma
 // combinação aprovada também é aprovado e custa mais. Expandir só produziria
 // variações redundantes da mesma resposta, e as três recomendações sairiam
 // praticamente iguais.
-// Teto de avaliações. É orçamento de tempo, não critério de engenharia: a
-// busca roda num useMemo, no mesmo quadro em que o usuário digita, e acima de
-// ~100 ms a digitação engasga.
-//
-// O valor saiu de medida, não de chute. Medindo a estrutura que a grade
-// inteira não resolve — o pior caso, em que a busca só para no teto —, já com
-// a fila por baldes: 20 000 avaliações levam 97 a 107 ms em processo frio e
-// 12 000 levam 69 a 93 ms isoladas, mas 112 ms com a máquina disputada pelo
-// resto da suíte. 6 000 ficam em 39 a 42 ms isoladas e 80 a 86 ms com a
-// máquina saturada — cabe no orçamento nos dois cenários. Antes da fila por
-// baldes eram 1 609 ms para 20 000 avaliações.
-//
-// O teto é orçamento de tempo, não julgamento de engenharia: baixá-lo não
-// muda nenhuma resposta que a busca dá, só a profundidade que ela alcança
-// antes de desistir — e ela avisa que desistiu em `esgotou`. O galpão típico
-// fecha as três recomendações em ~3 200 avaliações. Quem precisar varrer mais
-// fundo passa `teto` na chamada.
-const TETO_PADRAO = 6000;
 
-export function buscarMedidas(entrada, { maximo = 3, teto = TETO_PADRAO } = {}) {
+// Por padrão a busca varre a grade inteira, e `teto` existe só para quem quiser
+// truncá-la de propósito.
+//
+// Houve uma versão com teto baixo (6 000 avaliações) para caber num orçamento
+// de ~100 ms, porque o painel rodava a busca a cada tecla digitada. Medindo
+// estruturas reais, esse teto mentia: um galpão com N_G 32 precisa de ~30 000
+// avaliações para reunir as três recomendações, e um hospital com risco de
+// pânico só tem duas soluções em toda a grade — os dois voltavam com zero
+// recomendações, e o painel dizia "nenhuma combinação resolve" quando havia.
+//
+// Truncar é pior do que demorar: "não existe solução" é uma afirmação forte,
+// e só pode ser feita depois de olhar tudo. O painel passou a rodar a busca
+// sob demanda, num botão, e com isso o orçamento deixou de ser o quadro de
+// render. Varrer as 600 000 combinações leva ~2 s no pior caso.
+export function buscarMedidas(entrada, { maximo = 3, teto = null } = {}) {
   const ng = Number(entrada.estrutura?.ng);
   // Sem N_G (município ainda não escolhido) todo número de eventos é zero, e
   // com ele todas as componentes de risco e todas as frequências. O degrau
@@ -210,10 +209,16 @@ export function buscarMedidas(entrada, { maximo = 3, teto = TETO_PADRAO } = {}) 
   // máximo 600 000 arranjos, então cabe com folga num inteiro exato — e um Set
   // de números poupa as centenas de milhares de strings que a busca criava.
   const pesos = new Array(eixos.length);
-  for (let i = 0, base = 1; i < eixos.length; i++) {
+  let base = 1;
+  for (let i = 0; i < eixos.length; i++) {
     pesos[i] = base;
     base *= eixos[i].opcoes.length;
   }
+  // Sem teto explícito, o limite fica um passo ACIMA do tamanho da grade. Com
+  // isso uma varredura completa nunca marca `esgotou`, e o painel só diz que
+  // nada resolve depois de ter olhado cada arranjo — que é a única situação em
+  // que essa frase é verdadeira.
+  const limite = teto ?? base + 1;
   const chaveDe = (indices) => {
     let k = 0;
     for (let i = 0; i < indices.length; i++) k += indices[i] * pesos[i];
@@ -228,7 +233,7 @@ export function buscarMedidas(entrada, { maximo = 3, teto = TETO_PADRAO } = {}) 
   let avaliadas = 0;
   let melhorParcial = null;
 
-  while (!fila.vazia() && combinacoes.length < maximo && avaliadas < teto) {
+  while (!fila.vazia() && combinacoes.length < maximo && avaliadas < limite) {
     const no = fila.remover();
     const candidata = aplicarEscolhas(entrada, eixos, no.indices);
     const resultado = avaliarRisco(candidata);
@@ -298,7 +303,7 @@ export function buscarMedidas(entrada, { maximo = 3, teto = TETO_PADRAO } = {}) 
     // que varreu a grade inteira, ou que já entregou o número pedido de
     // recomendações, devolve falso — inclusive a estrutura que atende de
     // saída e por isso tem uma resposta só.
-    esgotou: avaliadas >= teto,
+    esgotou: avaliadas >= limite,
     melhorParcial,
     semNg: false,
   };

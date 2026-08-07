@@ -311,27 +311,50 @@ describe("busca de medidas de proteção", () => {
     expect(r.esgotou).toBe(true);
   });
 
-  it("termina dentro do orçamento de um render no pior caso", () => {
-    // O painel roda a busca dentro de um useMemo, no mesmo quadro em que o
-    // usuário digita. Acima de ~100 ms a digitação começa a engasgar. O caso
-    // que importa é o que vai até o teto: o galpão comum para muito antes.
+  it("varre a grade inteira no pior caso, sem se declarar truncada", () => {
+    // O painel roda a busca num botão, não a cada tecla, então o orçamento é o
+    // da espera de quem clicou — segundos, não milissegundos. O que precisa
+    // valer é que "nenhuma combinação resolve" só saia depois de olhar tudo:
+    // uma busca truncada não pode se passar por uma varredura completa.
     const e = inatendivel();
     const inicio = performance.now();
     const r = buscarMedidas(e);
     const ms = performance.now() - inicio;
 
-    expect(r.esgotou, "a fixture tem de bater no teto, senão não mede o pior caso").toBe(true);
-    expect(r.avaliadas).toBeGreaterThan(5000);
     expect(r.combinacoes).toHaveLength(0);
-    expect(ms, `${r.avaliadas} avaliações em ${ms.toFixed(1)} ms`).toBeLessThan(100);
+    expect(r.esgotou, "varreu tudo, então não foi truncada").toBe(false);
+    // A grade desta fixture tem 600 000 arranjos e nenhum atende, então a
+    // busca só para quando acaba a fila — ou seja, avalia todos.
+    expect(r.avaliadas).toBe(600000);
+    expect(ms, `${r.avaliadas} avaliações em ${ms.toFixed(0)} ms`).toBeLessThan(6000);
   });
 
-  it("termina dentro do orçamento de um render no caso comum", () => {
+  it("responde o caso comum em poucos milissegundos", () => {
+    // Continua importando: é o caminho que o usuário percorre quase sempre, e
+    // ele não pode ficar refém do custo do pior caso.
     const e = galpao();
     const inicio = performance.now();
     const r = buscarMedidas(e);
     const ms = performance.now() - inicio;
-    expect(r.esgotou).toBe(false); // achou as três sem esbarrar no teto
-    expect(ms, `${r.avaliadas} avaliações em ${ms.toFixed(1)} ms`).toBeLessThan(100);
+    expect(r.combinacoes).toHaveLength(3);
+    expect(r.esgotou).toBe(false);
+    expect(ms, `${r.avaliadas} avaliações em ${ms.toFixed(1)} ms`).toBeLessThan(200);
+  });
+
+  it("acha recomendações onde o teto baixo de antes não achava", () => {
+    // Caso real que motivou a mudança: com teto de 6 000 avaliações este
+    // galpão voltava com zero recomendações e o painel dizia que nada
+    // resolvia. Ele precisa de ~30 000 avaliações para reunir as três.
+    const e = galpao();
+    e.estrutura.ng = 32;
+    e.estrutura.L = 120;
+    e.estrutura.W = 80;
+    e.estrutura.H = 25;
+
+    expect(buscarMedidas(e, { teto: 6000 }).combinacoes).toHaveLength(0);
+
+    const r = buscarMedidas(e);
+    expect(r.combinacoes).toHaveLength(3);
+    expect(r.esgotou).toBe(false);
   });
 });
