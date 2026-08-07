@@ -3,6 +3,7 @@ import { defaultEntrada, avaliarRisco } from "../lib/spdaRisco";
 import VereditoRisco from "./spda/VereditoRisco";
 import ResultadoRisco from "./spda/ResultadoRisco";
 import FrequenciaDanos from "./spda/FrequenciaDanos";
+import SugestaoMedidas from "./spda/SugestaoMedidas";
 import EstruturaForm from "./spda/EstruturaForm";
 import LinhasForm from "./spda/LinhasForm";
 import ProtecoesForm from "./spda/ProtecoesForm";
@@ -71,6 +72,13 @@ export default function SpdaTab() {
 
       {entrada.estrutura.ng != null && <ResultadoRisco resultado={resultado} />}
       {entrada.estrutura.ng != null && <FrequenciaDanos frequencias={resultado.frequencias} />}
+      {entrada.estrutura.ng != null && (
+        <SugestaoMedidas
+          entrada={entrada}
+          resultado={resultado}
+          onAplicar={(nova) => setEntrada(nova)}
+        />
+      )}
 
       <EstruturaForm value={entrada.estrutura} onChange={setParte("estrutura")} />
 
