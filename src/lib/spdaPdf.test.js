@@ -286,11 +286,22 @@ describe("rowsFrequencia", () => {
     });
   });
 
-  it("inclui F_T e o veredito por sistema", () => {
+  it("inclui F_T e o veredito por sistema quando atende: true", () => {
     const linhas = rowsFrequencia(resultado);
     const ft = linhas.find((l) => l.simbolo === "F_T" && l.parametro.includes("S1"));
     expect(ft).toMatchObject({ resultado: 1e-3 });
     const veredito = linhas.find((l) => l.parametro.includes("S1") && l.simbolo === "Veredito");
-    expect(veredito.resultado).toMatch(/atende/i);
+    expect(veredito.resultado).toBe("Atende");
+  });
+
+  it("mostra veredito 'Não atende' quando atende: false", () => {
+    const resultadoNaoAtende = {
+      frequencias: [
+        { id: "s1", fc: 1e-5, fm: 2e-5, fw: 3e-5, fv: 4e-5, fz: 5e-5, fb: 6e-5, maior: 6e-5, ft: 1e-3, atende: false },
+      ],
+    };
+    const linhas = rowsFrequencia(resultadoNaoAtende);
+    const veredito = linhas.find((l) => l.parametro.includes("S1") && l.simbolo === "Veredito");
+    expect(veredito.resultado).toBe("Não atende");
   });
 });
