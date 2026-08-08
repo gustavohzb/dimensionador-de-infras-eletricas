@@ -199,6 +199,10 @@ export async function novoDocumento({ orientation = "portrait", titulo, subtitul
       s.y += ALTURA;
     };
 
+    // As linhas ganham a checagem de espaço dentro do laço, mas o cabeçalho
+    // não tinha nenhuma: uma tabela começando perto do fim da página
+    // desenhava a faixa por cima do rodapé.
+    s.ensureSpace(ALTURA * 2);
     cabecalho();
     linhas.forEach((linha, n) => {
       if (s.y + ALTURA > s.limiteY) {
