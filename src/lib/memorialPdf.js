@@ -18,14 +18,17 @@ function cargaLabel(c, preset) {
 
 const isolacaoLabel = (preset) => (preset?.condutorTemp === 70 ? "PVC 70°C" : "EPR/XLPE 90°C");
 
-// Cabe numa linha de rodapé, então é mais curto que o parágrafo que saía uma
-// vez só na última página do memorial antigo.
+// O rodapé repete em toda página, então carrega só a base de cálculo. As
+// ressalvas de projeto ficam numa nota no corpo, onde há largura para elas.
 function rodapeNorma(preset) {
   const tabs = preset?.condutorTemp === 70
     ? "36/38/40/42/45/46/48/58"
     : "37/39/40/42/45/46/48/58";
-  return `NBR 5410 (Tabelas ${tabs}) · isolação ${isolacaoLabel(preset)} · não substitui a coordenação com a proteção (Ib <= In <= Iz) nem a verificação de curto-circuito`;
+  return `NBR 5410 (Tabelas ${tabs}) · isolação ${isolacaoLabel(preset)}`;
 }
+
+const RESSALVAS =
+  "Queda de tensão calculada com a resistência do condutor na temperatura de operação e reatância típica de projeto. Não substitui a coordenação com a proteção (Ib <= In <= Iz) nem a verificação de curto-circuito.";
 
 function agora() {
   const d = new Date();
@@ -64,11 +67,15 @@ function fichaCircuito(s, c, r, preset) {
   if (partida && partida.fator > 1) {
     entrada.push(["Partida", `${partida.label} (Ip ~ ${partida.fator}×In)`]);
   }
+  // A string combinada (material + isolação + tipo de cabo + condutores por
+  // fase) não cabe no orçamento de ~49mm de uma coluna de valor da ficha e
+  // era truncada por ajustarLargura, perdendo o número de condutores por
+  // fase — informação essencial num memorial de cabos. Por isso vai em duas
+  // linhas.
+  entrada.push(["Condutor", `${material} ${isolacaoLabel(preset)}`]);
   entrada.push([
-    "Condutor",
-    `${material} ${isolacaoLabel(preset)} ${r.tipoCabo ?? ""} — ${c.porFase}× por fase`
-      .replace(/\s+/g, " ")
-      .trim(),
+    "Cabo",
+    r.tipoCabo ? `${r.tipoCabo} — ${c.porFase}× por fase` : `${c.porFase}× por fase`,
   ]);
 
   // No caminho de erro, cableSizingPro devolve `detalhesTrechos` cru — sem o
@@ -180,6 +187,7 @@ export async function exportMemorialPDF({ projectName, circuitos, resultados, pr
   s.y += 3;
   s.nota("%R: queda de tensão em regime (limite usual 4%). %P: queda de tensão na partida do motor, quando aplicável (limite usual 10%).");
   s.nota(`${CRITERIO_LEGENDA}.`);
+  s.nota(RESSALVAS);
 
   s.novaPagina({ orientation: "portrait" });
   s.secao("Detalhamento por circuito");
@@ -199,6 +207,7 @@ export async function exportCircuitoPDF({ circuito, result, preset }) {
     subtitulo: agora(),
   });
   fichaCircuito(s, circuito, result, preset);
+  s.nota(RESSALVAS);
   s.finalizar({
     rodape: rodapeNorma(preset),
     arquivo: nomeArquivo(circuito.tag, "circuito"),
