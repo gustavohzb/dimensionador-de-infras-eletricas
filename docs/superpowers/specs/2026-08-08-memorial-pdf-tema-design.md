@@ -188,6 +188,33 @@ erro de dimensionamento — e conferir faixa, tabela, quebra de página,
 orientação mista, numeração e as duas fichas por folha. Também gerar o PDF de
 circuito único, para confirmar que a ficha funciona sozinha.
 
+## Entrada para o segundo ciclo (levantado na revisão final)
+
+A revisão da branch conferiu a interface do `pdfTema.js` contra os quatro
+geradores que devem adotá-la depois, e o resultado é parcial. Migram limpo:
+`TEMA`, `ajustarLargura`, `distribuirColunas`, `novoDocumento`, `secao`,
+`par`, `nota`, `finalizar` e a máquina de cabeçalho/rodapé. **`tabela` não
+migra para nenhum dos quatro sem ser estendida antes** — registrar isto como
+requisito de entrada do próximo spec, em vez de descobrir no meio da
+migração:
+
+- **Cor por célula.** `tabela` fixa `TEMA.tinta` na linha inteira.
+  `capacitorPdf` pinta uma coluna de slate-400 e troca outra para vermelho
+  quando o disjuntor não é comercial, e usa âmbar em seis avisos de "fora do
+  catálogo"; `spdaPdf` alterna três cores entre as cinco colunas de cada
+  linha de equação. Nenhuma das duas cores que eles precisam
+  (slate-400 `148,163,184` e âmbar `180,120,10`) existe no `TEMA`.
+- **Linha de altura variável.** `celula` só sabe truncar. `capacitorPdf`
+  empilha vários códigos dentro de uma linha; as fórmulas do `spdaPdf`
+  virariam reticências inúteis.
+- **Linha de total.** `iluminacaoPdf` fecha a tabela com um fio e uma linha
+  "Total" em negrito. Não há gancho, e o chamador não alcança as posições
+  `xs` porque o `distribuirColunas` é interno.
+- **Título sem guarda de largura** em `desenharFaixa`: o subtítulo é
+  alinhado à direita na mesma linha de base, e um título longo como o do
+  SPDA colide com ele em retrato. O `ficha` já resolve isso para o subtítulo
+  dele; o cabeçalho precisa do mesmo tratamento.
+
 ## Fora de escopo
 
 - Migrar `spdaPdf`, `capacitorPdf`, `iluminacaoPdf` e `reportPdf` para o
