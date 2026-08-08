@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { defaultEntrada, avaliarRisco } from "../lib/spdaRisco";
+import { normalizarEntrada } from "../lib/spdaEntrada";
 import { exportSpdaPDF } from "../lib/spdaPdf";
+import { useSpdaProjects } from "../hooks/useSpdaProjects";
+import SpdaProjectsPanel from "./spda/SpdaProjectsPanel";
 import VereditoRisco from "./spda/VereditoRisco";
 import ResultadoRisco from "./spda/ResultadoRisco";
 import FrequenciaDanos from "./spda/FrequenciaDanos";
@@ -15,33 +18,69 @@ const STORAGE_KEY = "spdaRisco.v1";
 function carregar() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const salvo = JSON.parse(raw);
-      // Espalha sobre o padrão para não quebrar se um campo novo entrar depois.
-      const base = defaultEntrada();
-      const estrutura = { ...base.estrutura, ...salvo.estrutura };
-      // A ocupação era guardada em horas por ano; virou horas por dia mais dias
-      // por semana. Converte o que estiver salvo assumindo semana cheia, que é
-      // como o valor antigo tinha sido informado.
-      if (salvo.estrutura?.tz != null && salvo.estrutura.horasDia == null) {
-        estrutura.horasDia = Math.min(24, +(salvo.estrutura.tz / 365).toFixed(2));
-        estrutura.diasSemana = 7;
-      }
-      delete estrutura.tz;
-      // Sistemas salvos antes da Seção 7 não têm as marcações novas. Sem o
-      // padrão explícito o checkbox nasce não controlado e o React reclama.
-      const protecoes = { ...base.protecoes, ...salvo.protecoes };
-      protecoes.sistemas = (protecoes.sistemas ?? []).map((s) => ({
-        critico: false, zpr0a: false, ...s,
-      }));
-      return { estrutura, linhas: salvo.linhas ?? base.linhas, protecoes };
-    }
+    if (raw) return normalizarEntrada(JSON.parse(raw));
   } catch { /* estado inicial */ }
   return defaultEntrada();
 }
 
 export default function SpdaTab() {
   const [entrada, setEntrada] = useState(carregar);
+
+  // Registro de projetos SPDA (Supabase): projeto = site/cliente, área =
+  // uma análise de risco completa dentro dele. O rascunho local acima
+  // continua funcionando independente de haver área carregada.
+  const projectsApi = useSpdaProjects();
+  const { refreshProjetos, refreshAreas } = projectsApi;
+  const [projetoSelecionadoId, setProjetoSelecionadoId] = useState(null);
+  const [activeArea, setActiveArea] = useState(null);
+
+  useEffect(() => {
+    refreshProjetos();
+  }, [refreshProjetos]);
+
+  useEffect(() => {
+    refreshAreas(projetoSelecionadoId);
+  }, [projetoSelecionadoId, refreshAreas]);
+
+  const handleCriarProjeto = async (nome) => {
+    const criado = await projectsApi.createProjeto(nome);
+    setProjetoSelecionadoId(criado.id);
+  };
+
+  const handleApagarProjeto = async (id) => {
+    await projectsApi.deleteProjeto(id);
+    if (projetoSelecionadoId === id) setProjetoSelecionadoId(null);
+    if (activeArea?.projetoId === id) setActiveArea(null);
+  };
+
+  const handleCriarArea = async (nome) => {
+    const criado = await projectsApi.createArea(projetoSelecionadoId, nome, entrada);
+    const projeto = projectsApi.projetos.find((p) => p.id === projetoSelecionadoId);
+    setActiveArea({ id: criado.id, nome: criado.nome, projetoId: projetoSelecionadoId, projetoNome: projeto?.nome ?? "" });
+  };
+
+  const handleSalvarArea = async () => {
+    await projectsApi.updateArea(activeArea.id, entrada, activeArea.projetoId);
+  };
+
+  const handleCarregarArea = async (id) => {
+    const salvo = await projectsApi.loadArea(id);
+    setEntrada(normalizarEntrada(salvo.dados));
+    const projeto = projectsApi.projetos.find((p) => p.id === salvo.projeto_id);
+    setActiveArea({ id: salvo.id, nome: salvo.nome, projetoId: salvo.projeto_id, projetoNome: projeto?.nome ?? "" });
+    setProjetoSelecionadoId(salvo.projeto_id);
+  };
+
+  const handleApagarArea = async (id) => {
+    await projectsApi.deleteArea(id, projetoSelecionadoId);
+    if (activeArea?.id === id) setActiveArea(null);
+  };
+
+  const handleDesvincularArea = () => {
+    if (!window.confirm("Desvincular e zerar a aba (estrutura, linhas e proteções)?")) return;
+    setActiveArea(null);
+    setEntrada(defaultEntrada());
+  };
 
   useEffect(() => {
     try {
@@ -87,6 +126,25 @@ export default function SpdaTab() {
           )}
         </div>
       </div>
+
+      <SpdaProjectsPanel
+        projetos={projectsApi.projetos}
+        loadingProjetos={projectsApi.loading}
+        errorProjetos={projectsApi.error}
+        projetoSelecionadoId={projetoSelecionadoId}
+        onSelecionarProjeto={setProjetoSelecionadoId}
+        onCriarProjeto={handleCriarProjeto}
+        onApagarProjeto={handleApagarProjeto}
+        areas={projectsApi.areas}
+        loadingAreas={projectsApi.areasLoading}
+        errorAreas={projectsApi.areasError}
+        activeArea={activeArea}
+        onCriarArea={handleCriarArea}
+        onSalvarArea={handleSalvarArea}
+        onCarregarArea={handleCarregarArea}
+        onApagarArea={handleApagarArea}
+        onDesvincular={handleDesvincularArea}
+      />
 
       {/* Sem município escolhido não há N_G, e sem N_G todas as componentes dão
           zero — o que a aba exibiria como "proteção não é necessária". */}

@@ -722,6 +722,16 @@ export const CHANGELOG = [
       "Fórmulas e números de equação conferidos diretamente contra o texto oficial da ABNT NBR 5419-2:2026 (2ª edição).",
     ],
   },
+  {
+    versao: "1.24.0",
+    data: "2026-08-07",
+    titulo: "Projeto SPDA na nuvem, com áreas por estrutura",
+    tipo: "novo",
+    itens: [
+      "A aba SPDA passa a salvar projetos na nuvem: um projeto (o site ou cliente) agrupa várias áreas, cada uma com sua própria análise de risco completa — diferente do salvamento único das outras abas, porque a norma trata cada estrutura como zona de estudo própria.",
+      "Painel \"Projeto\" no topo da aba: criar/apagar projeto, criar/carregar/apagar área, e uma barra de edição mostrando projeto e área atuais.",
+    ],
+  },
 ];
 
 // Ordena versões maior.menor.correção. Negativo se `a` vem antes de `b`.
