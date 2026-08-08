@@ -59,11 +59,18 @@ function fichaCircuito(s, c, r, preset) {
   const partida = FORMAS_PARTIDA.find((f) => f.id === c.formaPartidaId);
   const material = preset?.material === "aluminio" ? "Alumínio" : "Cobre";
 
+  // O rótulo de esquema com "(Harm. >15%)" passa de 40 caracteres e não cabe
+  // no valor de uma coluna da ficha — o qualificador saía truncado, e ele
+  // muda o número de condutores carregados. Vai numa linha própria.
+  const rotuloEsquema = esquema?.label ?? "—";
+  const marcaHarm = " (Harm. >15%)";
+  const temHarm = rotuloEsquema.endsWith(marcaHarm);
   const entrada = [
     ["Carga", cargaLabel(c, preset)],
-    ["Condutores", esquema?.label ?? "—"],
-    ["Tensão", `${c.tensao} V`],
+    ["Condutores", temHarm ? rotuloEsquema.slice(0, -marcaHarm.length) : rotuloEsquema],
   ];
+  if (temHarm) entrada.push(["Harmônicas", "> 15% — neutro carregado"]);
+  entrada.push(["Tensão", `${c.tensao} V`]);
   if (partida && partida.fator > 1) {
     entrada.push(["Partida", `${partida.label} (Ip ~ ${partida.fator}×In)`]);
   }

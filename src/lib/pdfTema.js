@@ -10,14 +10,14 @@ import emblemaUrl from "../assets/emblema.png";
 // Congelado: são espalhadas por spread em dezenas de chamadas, e uma mutação
 // acidental valeria pelo resto da sessão.
 export const TEMA = Object.freeze({
-  copper: [180, 98, 42],
-  copperClaro: [243, 227, 214],
-  tinta: [30, 41, 59],
-  suave: [100, 116, 139],
-  linha: [203, 213, 225],
-  zebra: [248, 250, 252],
-  ok: [5, 150, 105],
-  erro: [220, 38, 38],
+  copper: Object.freeze([180, 98, 42]),
+  copperClaro: Object.freeze([243, 227, 214]),
+  tinta: Object.freeze([30, 41, 59]),
+  suave: Object.freeze([100, 116, 139]),
+  linha: Object.freeze([203, 213, 225]),
+  zebra: Object.freeze([248, 250, 252]),
+  ok: Object.freeze([5, 150, 105]),
+  erro: Object.freeze([220, 38, 38]),
 });
 
 // Corta o texto pela largura real disponível (mm). Truncar por número fixo de
@@ -139,6 +139,9 @@ export async function novoDocumento({ orientation = "portrait", titulo, subtitul
     if (s.y + mm > s.limiteY) s.novaPagina();
   };
 
+  // Contrato das primitivas abaixo: novaPagina redesenha a faixa e deixa o
+  // estado gráfico do jsPDF em negrito 11. Toda primitiva precisa, portanto,
+  // pôr a própria fonte e cor DEPOIS de chamar ensureSpace — não antes.
   s.secao = (texto) => {
     s.ensureSpace(12);
     doc.setFont("helvetica", "bold");
@@ -165,10 +168,15 @@ export async function novoDocumento({ orientation = "portrait", titulo, subtitul
   };
 
   s.nota = (texto) => {
+    // A fonte precisa estar posta ANTES do splitTextToSize, que mede com a
+    // fonte corrente. E precisa ser posta DE NOVO depois do ensureSpace: se
+    // ele virar a página, desenharFaixa deixa o estado em negrito 11.
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     const linhas = doc.splitTextToSize(texto, s.contentW);
     s.ensureSpace(linhas.length * 3.4 + 2);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
     doc.setTextColor(...TEMA.suave);
     doc.text(linhas, MARGEM, s.y);
     s.y += linhas.length * 3.4 + 2;
@@ -178,7 +186,12 @@ export async function novoDocumento({ orientation = "portrait", titulo, subtitul
   // domínio, só desenha. O cabeçalho é redesenhado a cada quebra de página.
   s.tabela = ({ cols, linhas, fontSize = 8 }) => {
     const ALTURA = 5.2;
-    const { xs, total } = distribuirColunas(cols.map((c) => c.w), MARGEM, s.contentW);
+    const { xs, total, sobra } = distribuirColunas(cols.map((c) => c.w), MARGEM, s.contentW);
+    // O helper calcula a sobra justamente para isto; sem alguém olhando, uma
+    // tabela larga demais desenha para fora do papel em silêncio.
+    if (sobra < 0) {
+      console.warn(`pdfTema.tabela: as colunas somam ${total}mm e a largura útil é ${s.contentW}mm.`);
+    }
 
     const celula = (texto, i) => {
       const t = ajustarLargura(String(texto), cols[i].w - 2, (x) => doc.getTextWidth(x));
@@ -232,7 +245,7 @@ export async function novoDocumento({ orientation = "portrait", titulo, subtitul
   // caiba na página: uma ficha partida ao meio, com o resultado numa folha e
   // a entrada em outra, é pior que uma folha com sobra.
   s.ficha = ({ titulo, subtitulo = "", colunas, trechos = null, destaque = null }) => {
-    const [esq, dir] = colunas;
+    const [esq = [], dir = []] = colunas ?? [];
     const BARRA = 7;
     const PAD = 3;
     const LINHA = 4.6;
@@ -354,7 +367,10 @@ export async function novoDocumento({ orientation = "portrait", titulo, subtitul
     const total = doc.getNumberOfPages();
     for (let i = 1; i <= total; i++) {
       doc.setPage(i);
-      const { w, h } = paginas[i - 1];
+      // Uma página criada fora de novaPagina não entra em `paginas`. Cair na
+      // dimensão corrente desalinha o rodapé, mas é melhor que perder o
+      // documento inteiro num TypeError depois de tudo desenhado.
+      const { w, h } = paginas[i - 1] ?? { w: s.pageW, h: s.pageH };
       const base = h - MARGEM;
       doc.setDrawColor(...TEMA.linha);
       doc.setLineWidth(0.3);
