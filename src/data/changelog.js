@@ -732,6 +732,20 @@ export const CHANGELOG = [
       "Painel \"Projeto\" no topo da aba: criar/apagar projeto, criar/carregar/apagar área, e uma barra de edição mostrando projeto e área atuais.",
     ],
   },
+  {
+    versao: "1.25.0",
+    data: "2026-08-08",
+    titulo: "Memorial de cabos com apresentação nova",
+    tipo: "melhoria",
+    itens: [
+      "O Memorial PDF do quadro de cargas ganha cabeçalho com o emblema, tabela com bordas de célula e numeração de página em todas as folhas.",
+      "O detalhamento de cada circuito virou uma ficha fechada em página retrato — entrada e resultado lado a lado, trechos numa minitabela e os cabos numa faixa destacada. Antes era texto corrido numa página deitada quase vazia.",
+      "Uma ficha nunca é dividida entre duas folhas: a altura é medida antes de desenhar.",
+      "O PDF de um circuito só usa a mesma ficha, então os dois documentos ficam visualmente iguais.",
+      "As ressalvas de cálculo saíram do rodapé, onde vinham cortadas no meio, para uma nota no corpo do documento.",
+      "As cores, o cabeçalho e a tabela saíram para um módulo de tema compartilhado, primeiro passo para os outros PDFs do app usarem a mesma cara.",
+    ],
+  },
 ];
 
 // Ordena versões maior.menor.correção. Negativo se `a` vem antes de `b`.
