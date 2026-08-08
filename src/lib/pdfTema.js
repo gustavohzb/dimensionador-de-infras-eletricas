@@ -139,6 +139,88 @@ export async function novoDocumento({ orientation = "portrait", titulo, subtitul
     if (s.y + mm > s.limiteY) s.novaPagina();
   };
 
+  s.secao = (texto) => {
+    s.ensureSpace(12);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(...TEMA.tinta);
+    doc.text(texto, MARGEM, s.y);
+    s.y += 1.5;
+    doc.setDrawColor(...TEMA.linha);
+    doc.setLineWidth(0.3);
+    doc.line(MARGEM, s.y, s.pageW - MARGEM, s.y);
+    s.y += 5;
+  };
+
+  s.par = (rotulo, valor, x = MARGEM, larguraRotulo = 62) => {
+    s.ensureSpace(6);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...TEMA.suave);
+    doc.text(rotulo, x, s.y);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...TEMA.tinta);
+    doc.text(String(valor), x + larguraRotulo, s.y);
+    s.y += 5.5;
+  };
+
+  s.nota = (texto) => {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    const linhas = doc.splitTextToSize(texto, s.contentW);
+    s.ensureSpace(linhas.length * 3.4 + 2);
+    doc.setTextColor(...TEMA.suave);
+    doc.text(linhas, MARGEM, s.y);
+    s.y += linhas.length * 3.4 + 2;
+  };
+
+  // `linhas` é uma matriz de strings já formatadas: o módulo não conhece o
+  // domínio, só desenha. O cabeçalho é redesenhado a cada quebra de página.
+  s.tabela = ({ cols, linhas, fontSize = 8 }) => {
+    const ALTURA = 5.2;
+    const { xs, total } = distribuirColunas(cols.map((c) => c.w), MARGEM, s.contentW);
+
+    const celula = (texto, i) => {
+      const t = ajustarLargura(String(texto), cols[i].w - 2, (x) => doc.getTextWidth(x));
+      if (cols[i].align === "right") {
+        doc.text(t, xs[i] + cols[i].w - 1, s.y + 3.6, { align: "right" });
+      } else {
+        doc.text(t, xs[i] + 1, s.y + 3.6);
+      }
+    };
+
+    const cabecalho = () => {
+      doc.setFillColor(...TEMA.copper);
+      doc.rect(MARGEM, s.y, total, ALTURA, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(fontSize);
+      doc.setTextColor(255, 255, 255);
+      cols.forEach((c, i) => celula(c.label, i));
+      s.y += ALTURA;
+    };
+
+    cabecalho();
+    linhas.forEach((linha, n) => {
+      if (s.y + ALTURA > s.limiteY) {
+        s.novaPagina();
+        cabecalho();
+      }
+      if (n % 2 === 1) {
+        doc.setFillColor(...TEMA.zebra);
+        doc.rect(MARGEM, s.y, total, ALTURA, "F");
+      }
+      // Bordas depois do preenchimento: na ordem inversa a zebra as cobriria.
+      doc.setDrawColor(...TEMA.linha);
+      doc.setLineWidth(0.2);
+      cols.forEach((c, i) => doc.rect(xs[i], s.y, c.w, ALTURA, "S"));
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(fontSize);
+      doc.setTextColor(...TEMA.tinta);
+      linha.forEach((v, i) => celula(v, i));
+      s.y += ALTURA;
+    });
+  };
+
   // A numeração só pode ser escrita agora: "1 / 6" exige saber que são 6. É o
   // que obriga o módulo a ter um `finalizar`, em vez de cada gerador chamar
   // `doc.save()` por conta própria.
