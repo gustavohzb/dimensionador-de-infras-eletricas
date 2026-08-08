@@ -36,68 +36,93 @@ function agora() {
 const nomeArquivo = (base, alternativa) =>
   `memorial-${(base || alternativa).replace(/[^\w\dÀ-ÿ -]+/g, "").trim() || alternativa}.pdf`;
 
-// Bloco de detalhamento de um circuito (compartilhado pelos dois relatórios).
-// `preset` fornece material e temperatura (globais do quadro); o tipo de cabo
-// vem do resultado (decidido automaticamente pela seção máxima multipolar).
-function blocoCircuito(s, c, r, preset) {
+// Colunas da minitabela de trechos: somam 132 mm, e a largura útil em retrato
+// é 186 mm (210 - 2×12), com 6 mm de recuo dentro da ficha.
+const COLS_TRECHO = [
+  { w: 10, label: "Nº" },
+  { w: 34, label: "Conduto" },
+  { w: 16, label: "Método" },
+  { w: 18, label: "Dist.", align: "right" },
+  { w: 16, label: "FCT", align: "right" },
+  { w: 16, label: "FCA", align: "right" },
+  { w: 22, label: "I' (A)", align: "right" },
+];
+
+// Uma ficha de circuito. `preset` fornece material e temperatura (globais do
+// quadro); o tipo de cabo vem do resultado, decidido pela seção máxima
+// multipolar.
+function fichaCircuito(s, c, r, preset) {
   const esquema = ESQUEMAS.find((e) => e.id === c.esquemaId);
   const partida = FORMAS_PARTIDA.find((f) => f.id === c.formaPartidaId);
   const material = preset?.material === "aluminio" ? "Alumínio" : "Cobre";
-  const isolacao = preset?.condutorTemp === 70 ? "PVC 70°C" : "EPR/XLPE 90°C";
 
-  s.secao(`${c.tag}${c.descricao ? ` — ${c.descricao}` : ""}`);
-  s.par("Carga", cargaLabel(c, preset));
-  s.par("Condutores carregados", esquema?.label ?? "—");
-  s.par("Tensão", `${c.tensao} V`);
-  if (partida && partida.fator > 1) s.par("Forma de partida", `${partida.label} (Ip ~ ${partida.fator}×In)`);
-  s.par("Condutor", `${material} ${isolacao} ${r.tipoCabo ?? ""} — ${c.porFase}× por fase`.replace(/\s+/g, " ").trim());
+  const entrada = [
+    ["Carga", cargaLabel(c, preset)],
+    ["Condutores", esquema?.label ?? "—"],
+    ["Tensão", `${c.tensao} V`],
+  ];
+  if (partida && partida.fator > 1) {
+    entrada.push(["Partida", `${partida.label} (Ip ~ ${partida.fator}×In)`]);
+  }
+  entrada.push([
+    "Condutor",
+    `${material} ${isolacaoLabel(preset)} ${r.tipoCabo ?? ""} — ${c.porFase}× por fase`
+      .replace(/\s+/g, " ")
+      .trim(),
+  ]);
 
+  // No caminho de erro, cableSizingPro devolve `detalhesTrechos` cru — sem o
+  // `condutoLabel`, que só é montado no retorno de sucesso. Por isso a ficha
+  // com erro não desenha a minitabela: não há o que desenhar.
   if (r.error) {
-    s.ensureSpace(8);
-    s.doc.setFont("helvetica", "bold");
-    s.doc.setFontSize(10);
-    s.doc.setTextColor(...TEMA.erro);
-    s.doc.text(r.error, s.margin, s.y);
-    s.y += 8;
+    s.ficha({
+      titulo: c.tag,
+      subtitulo: c.descricao || "",
+      colunas: [entrada, []],
+      destaque: { texto: r.error, cor: TEMA.erro },
+    });
     return;
   }
 
-  s.par("Corrente de projeto Ib", `${fmt(r.corrente, 1)} A${r.porFase > 1 ? ` (${fmt(r.correntePorCabo, 1)} A por cabo)` : ""}`);
-  if (r.correntePartida != null) s.par("Corrente de partida Ip", `${fmt(r.correntePartida, 1)} A`);
-
-  s.y += 1;
-  r.detalhesTrechos.forEach((t, i) => {
-    s.ensureSpace(5.5);
-    s.doc.setFont("helvetica", "normal");
-    s.doc.setFontSize(9);
-    s.doc.setTextColor(...TEMA.tinta);
-    s.doc.text(
-      `Trecho ${String(i + 1).padStart(2, "0")}: ${t.condutoLabel} (método ${t.metodo}) — ${fmt(t.distancia, 0)}m · FCT ${fmt(t.fct)} · FCA ${fmt(t.fca)} · I' = ${fmt(t.iCorrigida, 1)} A`,
-      s.margin + 2,
-      s.y
-    );
-    s.y += 5;
-  });
-  s.y += 1;
-
-  s.par("Seção por capacidade", `${r.secaoCapacidade} mm²`);
-  s.par("Seção por queda em regime", r.secaoQuedaRegime ? `${r.secaoQuedaRegime} mm²` : "não verificada");
-  s.par("Seção por queda na partida", r.secaoQuedaPartida ? `${r.secaoQuedaPartida} mm²` : "não verificada");
-  s.par("Critério dominante", CRITERIO_LABEL[r.criterio]);
-  s.par("Capacidade corrigida", `${fmt(r.capacidadeCorrigida, 1)} A`);
-  if (r.quedaRegime != null) s.par(`Queda em regime (${fmt(r.comprimentoTotal, 0)}m)`, `${fmt(r.quedaRegime)}%`);
-  if (r.quedaPartida != null) s.par(`Queda na partida (lim. ${fmt(c.quedaMaxPartida ?? 10, 1)}%)`, `${fmt(r.quedaPartida)}%`);
-
-  s.ensureSpace(10);
-  s.doc.setFont("helvetica", "bold");
-  s.doc.setFontSize(11);
-  s.doc.setTextColor(...TEMA.ok);
-  s.doc.text(
-    `CABOS: ${designacaoCabos({ esquemaId: c.esquemaId, tipoCabo: r.tipoCabo, result: r })}`,
-    s.margin,
-    s.y
+  const resultado = [
+    ["Ib", `${fmt(r.corrente, 1)} A${r.porFase > 1 ? ` (${fmt(r.correntePorCabo, 1)} A/cabo)` : ""}`],
+  ];
+  if (r.correntePartida != null) resultado.push(["Ip", `${fmt(r.correntePartida, 1)} A`]);
+  resultado.push(
+    ["Capacidade corrigida", `${fmt(r.capacidadeCorrigida, 1)} A`],
+    ["Seção por capacidade", `${r.secaoCapacidade} mm²`],
+    ["Por queda em regime", r.secaoQuedaRegime ? `${r.secaoQuedaRegime} mm²` : "não verificada"],
+    ["Por queda na partida", r.secaoQuedaPartida ? `${r.secaoQuedaPartida} mm²` : "não verificada"],
+    ["Critério dominante", CRITERIO_LABEL[r.criterio]]
   );
-  s.y += 9;
+  if (r.quedaRegime != null) {
+    resultado.push([`Queda regime (${fmt(r.comprimentoTotal, 0)}m)`, `${fmt(r.quedaRegime)}%`]);
+  }
+  if (r.quedaPartida != null) {
+    resultado.push([`Queda partida (lim. ${fmt(c.quedaMaxPartida ?? 10, 1)}%)`, `${fmt(r.quedaPartida)}%`]);
+  }
+
+  s.ficha({
+    titulo: c.tag,
+    subtitulo: c.descricao || "",
+    colunas: [entrada, resultado],
+    trechos: {
+      cols: COLS_TRECHO,
+      linhas: r.detalhesTrechos.map((t, i) => [
+        String(i + 1).padStart(2, "0"),
+        t.condutoLabel,
+        t.metodo,
+        `${fmt(t.distancia, 0)} m`,
+        fmt(t.fct),
+        fmt(t.fca),
+        fmt(t.iCorrigida, 1),
+      ]),
+    },
+    destaque: {
+      texto: `CABOS: ${designacaoCabos({ esquemaId: c.esquemaId, tipoCabo: r.tipoCabo, result: r })}`,
+      cor: TEMA.ok,
+    },
+  });
 }
 
 // Memorial do quadro de cargas: resumo tabular em paisagem + uma ficha por
@@ -158,7 +183,7 @@ export async function exportMemorialPDF({ projectName, circuitos, resultados, pr
 
   s.novaPagina({ orientation: "portrait" });
   s.secao("Detalhamento por circuito");
-  circuitos.forEach((c, i) => blocoCircuito(s, c, resultados[i], preset));
+  circuitos.forEach((c, i) => fichaCircuito(s, c, resultados[i], preset));
 
   s.finalizar({
     rodape: rodapeNorma(preset),
@@ -173,7 +198,7 @@ export async function exportCircuitoPDF({ circuito, result, preset }) {
     titulo: "Memorial de dimensionamento de cabo",
     subtitulo: agora(),
   });
-  blocoCircuito(s, circuito, result, preset);
+  fichaCircuito(s, circuito, result, preset);
   s.finalizar({
     rodape: rodapeNorma(preset),
     arquivo: nomeArquivo(circuito.tag, "circuito"),
