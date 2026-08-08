@@ -237,13 +237,18 @@ export async function novoDocumento({ orientation = "portrait", titulo, subtitul
     const PAD = 3;
     const LINHA = 4.6;
     const ALTURA_TRECHO = 4.4;
+    // Deslocamento da primeira linha de base das colunas em relação à barra
+    // de título. Entra na conta da altura: sem ele a estimativa fica 3 mm
+    // curta e só não estoura por causa da folga do ensureSpace — folga que
+    // some se alguém mexer nos espaçamentos.
+    const BASE_COLUNAS = 3;
 
     const linhasPares = Math.max(esq.length, dir.length);
     const alturaTrechos = trechos && trechos.linhas.length
       ? (trechos.linhas.length + 1) * ALTURA_TRECHO + 3
       : 0;
     const alturaDestaque = destaque ? 8 : 0;
-    const altura = BARRA + PAD + linhasPares * LINHA + alturaTrechos + alturaDestaque + PAD;
+    const altura = BARRA + PAD + BASE_COLUNAS + linhasPares * LINHA + alturaTrechos + alturaDestaque + PAD;
 
     s.ensureSpace(altura + 4);
     const topo = s.y;
@@ -267,13 +272,13 @@ export async function novoDocumento({ orientation = "portrait", titulo, subtitul
     }
 
     const bloco = (pares, x) => {
-      let yy = topo + BARRA + PAD + 3;
+      let yy = topo + BARRA + PAD + BASE_COLUNAS;
       pares.forEach(([rotulo, valor]) => {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(7.5);
         doc.setTextColor(...TEMA.suave);
-        doc.text(rotulo, x, yy);
         const recuo = larguraCol * 0.45;
+        doc.text(ajustarLargura(rotulo, recuo - 1, (t) => doc.getTextWidth(t)), x, yy);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(...TEMA.tinta);
         doc.text(
@@ -288,10 +293,10 @@ export async function novoDocumento({ orientation = "portrait", titulo, subtitul
     bloco(esq, MARGEM + PAD);
     bloco(dir, MARGEM + PAD * 2 + larguraCol);
 
-    let yy = topo + BARRA + PAD + linhasPares * LINHA + 3;
+    let yy = topo + BARRA + PAD + linhasPares * LINHA + BASE_COLUNAS;
 
     if (alturaTrechos) {
-      const { xs } = distribuirColunas(trechos.cols.map((c) => c.w), MARGEM + PAD, s.contentW);
+      const { xs } = distribuirColunas(trechos.cols.map((c) => c.w), MARGEM + PAD, s.contentW - PAD * 2);
       const escrever = (valor, i, y) => {
         const t = ajustarLargura(String(valor), trechos.cols[i].w - 2, (x) => doc.getTextWidth(x));
         if (trechos.cols[i].align === "right") doc.text(t, xs[i] + trechos.cols[i].w - 1, y, { align: "right" });
@@ -329,9 +334,11 @@ export async function novoDocumento({ orientation = "portrait", titulo, subtitul
       yy += alturaDestaque;
     }
 
-    // A borda fecha por cima do que já foi desenhado, então usa a altura
-    // realmente consumida — não a estimada, que só serviu para reservar
-    // espaço e pode sobrar alguns décimos de milímetro.
+    // `altura` já reserva o espaço certo, então normalmente é ela quem
+    // vence aqui. O Math.max fica como rede de segurança: se algum ajuste
+    // futuro nos espaçamentos fizer o desenho passar da estimativa, a
+    // borda ainda fecha sobre o que foi realmente desenhado, em vez de
+    // cortar conteúdo.
     const alturaReal = Math.max(altura, yy + PAD - topo);
     doc.setDrawColor(...TEMA.linha);
     doc.setLineWidth(0.3);
