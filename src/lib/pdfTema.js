@@ -225,6 +225,121 @@ export async function novoDocumento({ orientation = "portrait", titulo, subtitul
     });
   };
 
+  // Caixa fechada de um item: barra de título, dois blocos de pares lado a
+  // lado, uma minitabela opcional e uma faixa de destaque no rodapé.
+  //
+  // A altura é calculada antes de qualquer traço para que a ficha inteira
+  // caiba na página: uma ficha partida ao meio, com o resultado numa folha e
+  // a entrada em outra, é pior que uma folha com sobra.
+  s.ficha = ({ titulo, subtitulo = "", colunas, trechos = null, destaque = null }) => {
+    const [esq, dir] = colunas;
+    const BARRA = 7;
+    const PAD = 3;
+    const LINHA = 4.6;
+    const ALTURA_TRECHO = 4.4;
+
+    const linhasPares = Math.max(esq.length, dir.length);
+    const alturaTrechos = trechos && trechos.linhas.length
+      ? (trechos.linhas.length + 1) * ALTURA_TRECHO + 3
+      : 0;
+    const alturaDestaque = destaque ? 8 : 0;
+    const altura = BARRA + PAD + linhasPares * LINHA + alturaTrechos + alturaDestaque + PAD;
+
+    s.ensureSpace(altura + 4);
+    const topo = s.y;
+    const larguraCol = (s.contentW - PAD * 3) / 2;
+
+    doc.setFillColor(...TEMA.copperClaro);
+    doc.rect(MARGEM, topo, s.contentW, BARRA, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.setTextColor(...TEMA.tinta);
+    doc.text(titulo, MARGEM + PAD, topo + 5);
+    if (subtitulo) {
+      const usado = doc.getTextWidth(titulo) + PAD * 2;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.text(
+        ajustarLargura(subtitulo, s.contentW - usado - PAD * 2, (t) => doc.getTextWidth(t)),
+        MARGEM + usado + PAD,
+        topo + 5
+      );
+    }
+
+    const bloco = (pares, x) => {
+      let yy = topo + BARRA + PAD + 3;
+      pares.forEach(([rotulo, valor]) => {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(...TEMA.suave);
+        doc.text(rotulo, x, yy);
+        const recuo = larguraCol * 0.45;
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...TEMA.tinta);
+        doc.text(
+          ajustarLargura(String(valor), larguraCol - recuo, (t) => doc.getTextWidth(t)),
+          x + recuo,
+          yy
+        );
+        yy += LINHA;
+      });
+    };
+
+    bloco(esq, MARGEM + PAD);
+    bloco(dir, MARGEM + PAD * 2 + larguraCol);
+
+    let yy = topo + BARRA + PAD + linhasPares * LINHA + 3;
+
+    if (alturaTrechos) {
+      const { xs } = distribuirColunas(trechos.cols.map((c) => c.w), MARGEM + PAD, s.contentW);
+      const escrever = (valor, i, y) => {
+        const t = ajustarLargura(String(valor), trechos.cols[i].w - 2, (x) => doc.getTextWidth(x));
+        if (trechos.cols[i].align === "right") doc.text(t, xs[i] + trechos.cols[i].w - 1, y, { align: "right" });
+        else doc.text(t, xs[i], y);
+      };
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.setTextColor(...TEMA.suave);
+      trechos.cols.forEach((c, i) => escrever(c.label, i, yy));
+      yy += 1.5;
+      doc.setDrawColor(...TEMA.linha);
+      doc.setLineWidth(0.2);
+      doc.line(MARGEM + PAD, yy, MARGEM + s.contentW - PAD, yy);
+      yy += 3;
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...TEMA.tinta);
+      trechos.linhas.forEach((linha) => {
+        linha.forEach((v, i) => escrever(v, i, yy));
+        yy += ALTURA_TRECHO;
+      });
+      yy += 1;
+    }
+
+    if (destaque) {
+      doc.setFillColor(...destaque.cor);
+      doc.rect(MARGEM + PAD, yy - 3.5, s.contentW - PAD * 2, 6.5, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(255, 255, 255);
+      doc.text(
+        ajustarLargura(destaque.texto, s.contentW - PAD * 4, (t) => doc.getTextWidth(t)),
+        MARGEM + PAD * 2,
+        yy + 1
+      );
+      yy += alturaDestaque;
+    }
+
+    // A borda fecha por cima do que já foi desenhado, então usa a altura
+    // realmente consumida — não a estimada, que só serviu para reservar
+    // espaço e pode sobrar alguns décimos de milímetro.
+    const alturaReal = Math.max(altura, yy + PAD - topo);
+    doc.setDrawColor(...TEMA.linha);
+    doc.setLineWidth(0.3);
+    doc.rect(MARGEM, topo, s.contentW, alturaReal, "S");
+
+    s.y = topo + alturaReal + 5;
+  };
+
   // A numeração só pode ser escrita agora: "1 / 6" exige saber que são 6. É o
   // que obriga o módulo a ter um `finalizar`, em vez de cada gerador chamar
   // `doc.save()` por conta própria.
