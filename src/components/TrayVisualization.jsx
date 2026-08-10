@@ -35,7 +35,7 @@ const alturaLegenda = (itens) => LEGENDA_TOPO + itens.length * LEGENDA_LINHA;
 // embaixo. Sem marcação sobre os cabos: o desenho responde "cabe?" e a lista
 // responde "o que tem aqui?".
 function LegendaCircuitos({ itens, dark }) {
-  const corSuave = "#94a3b8";
+  const corSuave = dark ? "#94a3b8" : "#64748b";
   const corTag = dark ? "#e2e8f0" : "#334155";
   const corDesc = dark ? "#94a3b8" : "#64748b";
   const corDesig = dark ? "#34d399" : "#059669";
@@ -50,14 +50,18 @@ function LegendaCircuitos({ itens, dark }) {
       <line x1={0} y1={6} x2={util} y2={6} stroke={corLinha} strokeWidth={1} />
       {itens.map((it, i) => {
         const y = LEGENDA_TOPO + i * LEGENDA_LINHA;
-        const xDesc = 18 + it.tag.length * CHAR_W_BOLD + 8;
+        // Normaliza antes de medir: um item sem tag ou sem designação
+        // derrubaria o componente inteiro no `.length`, não só a legenda.
+        const tag = it.tag ?? "";
+        const designacao = it.designacao ?? "";
+        const xDesc = 18 + tag.length * CHAR_W_BOLD + 8;
         return (
-          <g key={`${it.numero}-${it.tag}`}>
+          <g key={`${it.numero}-${tag}`}>
             <text x={0} y={y} fontSize={9} fontFamily="ui-monospace, monospace" fill={corSuave}>
               {it.numero}
             </text>
             <text x={18} y={y} fontSize={9} fontWeight="700" fill={corTag}>
-              {it.tag}
+              {tag}
             </text>
             {it.descricao && (
               <text x={xDesc} y={y} fontSize={9} fill={corDesc}>
@@ -65,7 +69,7 @@ function LegendaCircuitos({ itens, dark }) {
               </text>
             )}
             <text x={18} y={y + 11} fontSize={8.5} fontFamily="ui-monospace, monospace" fill={corDesig}>
-              {truncar(it.designacao, Math.floor((util - 18) / CHAR_W_MONO))}
+              {truncar(designacao, Math.floor((util - 18) / CHAR_W_MONO))}
             </text>
           </g>
         );
@@ -449,7 +453,7 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
         >
           <SharedDefs uid={uid} />
           <rect x={0} y={0} width={larguraSvg} height={alturaSvg} fill={bgFill} />
-          <g transform={`translate(${c0}, ${c0})`}>
+          <g transform={`translate(${c0}, ${alturaSvg / 2})`}>
             <ellipse cx={0} cy={outerR + 5} rx={outerR * 0.85} ry={3.5} fill="#000000" opacity="0.12" />
             <Eletroduto R={R} uid={uid} />
             <g filter={`url(#cableShadow-${uid})`}>
