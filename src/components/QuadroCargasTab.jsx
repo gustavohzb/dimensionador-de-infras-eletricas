@@ -4,6 +4,7 @@ import {
 } from "./cabos/CircuitoForm";
 import PresetPanel from "./cabos/PresetPanel";
 import ImportarCargas from "./cabos/ImportarCargas";
+import SimulacaoTrecho from "./cabos/SimulacaoTrecho";
 import ProjectsPanel from "./ProjectsPanel";
 import { useCabosProjects } from "../hooks/useCabosProjects";
 import { ESQUEMAS } from "../data/cabosNBR5410";
@@ -65,7 +66,7 @@ function carregarEstado() {
 // Quadro de cargas: uma linha por circuito, com o memorial resumido. O preset
 // (material, temperatura, quedas, seções) vale para todos os circuitos; os
 // projetos ficam no Supabase (tabela projetos_cabos).
-export default function QuadroCargasTab({ onEnviarParaInfra }) {
+export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
   // Lazy: sem a função, carregarEstado() rodava (lendo e parseando o
   // localStorage inteiro) a cada render — inclusive a cada tecla digitada.
   const [circuitos, setCircuitos] = useState(() => carregarEstado().circuitos);
@@ -75,6 +76,7 @@ export default function QuadroCargasTab({ onEnviarParaInfra }) {
   const [selecionadosEnvio, setSelecionadosEnvio] = useState(() => new Set());
   const formRef = useRef(null);
   const [importando, setImportando] = useState(false);
+  const [simulando, setSimulando] = useState(false);
 
   const projectsApi = useCabosProjects();
   const [activeProject, setActiveProject] = useState(null);
@@ -143,6 +145,13 @@ export default function QuadroCargasTab({ onEnviarParaInfra }) {
   const idxEnviaveis = enviaveis.reduce((acc, ok, i) => (ok ? [...acc, i] : acc), []);
   const selEnvio = [...selecionadosEnvio].filter((i) => enviaveis[i]);
   const todosMarcados = idxEnviaveis.length > 0 && selEnvio.length === idxEnviaveis.length;
+
+  // Sem circuitos marcados não há trecho para simular — o painel se fecha
+  // sozinho, senão o botão ficaria preso em "Fechar simulação".
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- selEnvio é recalculado a cada render; usamos .length para não recriar o efeito a cada render
+  useEffect(() => {
+    if (selEnvio.length === 0) setSimulando(false);
+  }, [selEnvio.length]);
 
   const toggleEnvio = (i) => {
     setSelecionadosEnvio((prev) => {
@@ -223,12 +232,16 @@ export default function QuadroCargasTab({ onEnviarParaInfra }) {
           <div className="flex gap-1.5">
             <button
               type="button"
-              onClick={enviarSelecionados}
+              onClick={() => setSimulando((v) => !v)}
               disabled={selEnvio.length === 0}
-              title="Envia os circuitos marcados para a aba Infraestrutura (modo Auto) e busca a melhor infraestrutura para esses cabos."
+              title="Busca aqui mesmo a melhor infraestrutura para os cabos dos circuitos marcados, com o desenho do trecho e a lista dos circuitos."
               className="rounded-xs border border-copper-600 px-3 py-1.5 text-xs font-medium text-copper-600 hover:bg-copper-50 disabled:opacity-40 disabled:hover:bg-transparent dark:border-copper-500 dark:text-copper-300 dark:hover:bg-copper-500/10"
             >
-              {selEnvio.length > 0 ? `Enviar ${selEnvio.length} p/ Infra (Auto)` : "Enviar p/ Infra (Auto)"}
+              {simulando
+                ? "Fechar simulação"
+                : selEnvio.length > 0
+                  ? `Simular ${selEnvio.length} circuito${selEnvio.length > 1 ? "s" : ""}`
+                  : "Simular infraestrutura"}
             </button>
             <button
               type="button"
@@ -390,6 +403,17 @@ export default function QuadroCargasTab({ onEnviarParaInfra }) {
         </div>
         <p className="mt-1.5 font-mono text-[10.5px] text-slate-400 dark:text-slate-500">{CRITERIO_LEGENDA}</p>
       </div>
+
+      {simulando && selEnvio.length > 0 && (
+        <SimulacaoTrecho
+          circuitos={circuitos}
+          resultados={resultados}
+          selecionados={selEnvio}
+          preset={preset}
+          dark={dark}
+          onAbrirNaInfra={enviarSelecionados}
+        />
+      )}
 
       {importando && (
         <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">

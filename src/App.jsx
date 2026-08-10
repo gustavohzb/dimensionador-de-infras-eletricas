@@ -112,7 +112,7 @@ export default function App() {
         </div>
 
         <div className={activeTab === "quadroCargas" ? "" : "hidden"}>
-          <QuadroCargasTab onEnviarParaInfra={enviarParaInfra} />
+          <QuadroCargasTab dark={dark} onEnviarParaInfra={enviarParaInfra} />
         </div>
 
         <div className={activeTab === "iluminacao" ? "" : "hidden"}>
