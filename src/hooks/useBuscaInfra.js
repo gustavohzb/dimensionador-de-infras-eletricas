@@ -22,6 +22,9 @@ export function useBuscaInfra({ infraTypeInicial = null, autoAplicar = false } =
   const [infraTypeRaw, setInfraTypeRaw] = useState(infraTypeInicial);
   const [applied, setApplied] = useState(null);
 
+  // `maxLayers` e `infraType` são lidos do escopo do render: quem chamar
+  // setMaxLayers e buscar no mesmo handler veria o valor antigo. Dispare a
+  // busca de um efeito que dependa deles, não em seguida ao setState.
   const buscar = (cables) => {
     if (!cables || cables.length === 0) return;
     setSearching(true);
@@ -62,10 +65,16 @@ export function useBuscaInfra({ infraTypeInicial = null, autoAplicar = false } =
   // Com autoAplicar, a menor opção entra sozinha assim que a lista aparece —
   // o desenho fica pronto sem clique. A aba Infra não usa: lá o usuário
   // escolhe clicando em "Ver".
+  //
+  // O `searching` no guard não é decoração: `buscar` zera o `applied` na hora,
+  // mas só troca o `results` 10 ms depois. Sem ele, o efeito rodaria no render
+  // do meio e aplicaria a primeira opção da lista ANTERIOR — e nunca mais se
+  // corrigiria, porque na chegada dos resultados novos o `applied` já não
+  // estaria nulo.
   useEffect(() => {
-    if (!autoAplicar || applied) return;
+    if (!autoAplicar || applied || searching) return;
     if (displayResults && displayResults.length > 0) setApplied(displayResults[0]);
-  }, [autoAplicar, applied, displayResults]);
+  }, [autoAplicar, applied, displayResults, searching]);
 
   return {
     results,
