@@ -27,7 +27,8 @@ describe("circuitosParaCabos", () => {
     // 3#25 (trifólio, 1 entrada) + 1#25 (neutro) + 1#16 (terra)
     expect(cabos).toHaveLength(3);
     expect(cabos[0]).toMatchObject({ section: 25, type: "unipolar", vias: 1, trifolio: true });
-    expect(cabos[1]).toMatchObject({ section: 25, trifolio: undefined });
+    expect(cabos[1]).toMatchObject({ section: 25 });
+    expect(cabos[1].trifolio).toBeUndefined();
     expect(cabos[2]).toMatchObject({ section: 16 });
   });
 
@@ -68,10 +69,11 @@ describe("circuitosParaCabos", () => {
 
   it("marca podeTrifolio só quando há um grupo de 3 unipolares iguais", () => {
     expect(chamar().itens[0].podeTrifolio).toBe(true);
-    // porFase 2 → 6 fases soltas, não é feixe de trifólio
-    const seis = chamar({ resultados: [res({ porFase: 2, neutro: null })] });
-    expect(seis.itens[0].podeTrifolio).toBe(false);
-    expect(seis.cabos.filter((c) => c.section === 25)).toHaveLength(6); // 6 fases
+    // porFase 2 → 6 fases + 2 neutros: designacaoCabos paraleliza o neutro junto com as
+    // fases (n#neutro, com n = porFase), não só as fases.
+    const paralelo = chamar({ resultados: [res({ porFase: 2 })] });
+    expect(paralelo.itens[0].podeTrifolio).toBe(false);
+    expect(paralelo.cabos.filter((c) => c.section === 25)).toHaveLength(8);
   });
 
   it("deixa fora da simulação o circuito com erro de cálculo, e avisa", () => {

@@ -79,7 +79,6 @@ export function circuitosParaCabos({ circuitos, resultados, selecionados, materi
           vias: spec.cableType === "multipolar" ? spec.vias : 1,
           material,
           groupId,
-          trifolio: undefined,
         });
       }
     });
