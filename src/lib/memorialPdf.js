@@ -144,7 +144,7 @@ function fichaCircuito(s, c, r, preset) {
 export async function exportMemorialPDF({ projectName, circuitos, resultados, preset }) {
   const s = await novoDocumento({
     orientation: "landscape",
-    titulo: "Memorial de cálculo — quadro de cargas",
+    titulo: "MEMORIAL DE CÁLCULO — QUADRO DE CARGAS",
     subtitulo: [projectName, agora()].filter(Boolean).join(" · "),
   });
 
