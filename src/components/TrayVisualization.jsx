@@ -6,6 +6,74 @@ const PADDING = 64;
 const WALL = 6; // espessura da chapa da eletrocalha (visual)
 const SEPTUM_HIGHLIGHT = "#f59e0b"; // cor de destaque da indicação do septo divisor (âmbar, visível em claro e escuro)
 
+// ---- Legenda de circuitos (opcional) ---------------------------------------
+// Desenhada DENTRO do SVG, não em HTML ao lado: o exportarSvgPng serializa só
+// o elemento <svg>, então uma legenda em HTML não sairia na imagem (é o que
+// acontece com a CableLegend de vias, logo abaixo).
+const LEGENDA_W = 250;     // largura reservada à direita, em unidades do viewBox
+const LEGENDA_LINHA = 26;  // altura de cada circuito (duas linhas de texto)
+const LEGENDA_TOPO = 20;   // do título até o primeiro circuito
+const LEGENDA_GAP = 50;    // do desenho até a legenda (passa a cota de altura)
+
+// Larguras médias de caractere, medidas a olho nas fontes usadas abaixo. SVG
+// não quebra texto sozinho e não dá para medir fonte sem DOM, então a
+// truncagem é por contagem de caracteres. A fonte não é monoespaçada, então
+// isto erra por sobra — que é o lado seguro: texto cortado cedo demais é
+// melhor do que texto vazando por cima do vizinho.
+const CHAR_W = 5.0;        // 9px, normal
+const CHAR_W_BOLD = 5.6;   // 9px, bold
+const CHAR_W_MONO = 5.1;   // 8.5px, monoespaçada
+
+function truncar(texto, maxChars) {
+  if (maxChars < 2) return "…";
+  return texto.length <= maxChars ? texto : `${texto.slice(0, maxChars - 1)}…`;
+}
+
+const alturaLegenda = (itens) => LEGENDA_TOPO + itens.length * LEGENDA_LINHA;
+
+// Uma linha por circuito: "NN TAG — descrição" em cima, a designação de cabos
+// embaixo. Sem marcação sobre os cabos: o desenho responde "cabe?" e a lista
+// responde "o que tem aqui?".
+function LegendaCircuitos({ itens, dark }) {
+  const corSuave = "#94a3b8";
+  const corTag = dark ? "#e2e8f0" : "#334155";
+  const corDesc = dark ? "#94a3b8" : "#64748b";
+  const corDesig = dark ? "#34d399" : "#059669";
+  const corLinha = dark ? "#334155" : "#e2e8f0";
+  const util = LEGENDA_W - 12;
+
+  return (
+    <g fontFamily="system-ui, sans-serif">
+      <text x={0} y={0} fontSize={8} fontWeight="700" letterSpacing="1" fill={corSuave}>
+        CIRCUITOS NO TRECHO
+      </text>
+      <line x1={0} y1={6} x2={util} y2={6} stroke={corLinha} strokeWidth={1} />
+      {itens.map((it, i) => {
+        const y = LEGENDA_TOPO + i * LEGENDA_LINHA;
+        const xDesc = 18 + it.tag.length * CHAR_W_BOLD + 8;
+        return (
+          <g key={`${it.numero}-${it.tag}`}>
+            <text x={0} y={y} fontSize={9} fontFamily="ui-monospace, monospace" fill={corSuave}>
+              {it.numero}
+            </text>
+            <text x={18} y={y} fontSize={9} fontWeight="700" fill={corTag}>
+              {it.tag}
+            </text>
+            {it.descricao && (
+              <text x={xDesc} y={y} fontSize={9} fill={corDesc}>
+                {truncar(it.descricao, Math.floor((util - xDesc) / CHAR_W))}
+              </text>
+            )}
+            <text x={18} y={y + 11} fontSize={8.5} fontFamily="ui-monospace, monospace" fill={corDesig}>
+              {truncar(it.designacao, Math.floor((util - 18) / CHAR_W_MONO))}
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
 // Disposição dos condutores internos de um cabo multipolar,
 // em fatores do raio externo R (aparência de corte real).
 function innerConductors(n) {
@@ -345,8 +413,9 @@ function CableLegend({ legendItems }) {
   );
 }
 
-const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWidth, trayHeight, dark = false, infraType = "eletrocalha", leitoFlange = "interna", eletrodutoNorma = "nbr5624" }, svgRef) {
+const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWidth, trayHeight, dark = false, infraType = "eletrocalha", leitoFlange = "interna", eletrodutoNorma = "nbr5624", legenda = null }, svgRef) {
   const uid = useId().replace(/:/g, "");
+  const temLegenda = Array.isArray(legenda) && legenda.length > 0;
   const legendItems = [...new Map(cables.map((c) => [`${c.type}-${c.vias}`, { type: c.type, vias: c.vias }])).values()].sort(
     (a, b) => a.vias - b.vias
   );
@@ -362,6 +431,9 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
     const items = layoutCablesCircular(cables, R);
     const size = (outerR + PADDING) * 2;
     const c0 = size / 2;
+    const legendaX = size + 6;
+    const larguraSvg = temLegenda ? legendaX + LEGENDA_W : size;
+    const alturaSvg = temLegenda ? Math.max(size, alturaLegenda(legenda) + PADDING) : size;
     const bitola = ductDim.sizes.find((s) => s.value === trayWidth)?.label;
     const normaLabel = ELETRODUTO_NORMAS.find((n) => n.id === eletrodutoNorma)?.label;
 
@@ -369,14 +441,14 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
       <div className="flex w-full flex-col items-center">
         <svg
           ref={svgRef}
-          viewBox={`0 0 ${size} ${size}`}
-          width={size}
-          height={size}
+          viewBox={`0 0 ${larguraSvg} ${alturaSvg}`}
+          width={larguraSvg}
+          height={alturaSvg}
           className="max-w-full"
-          style={{ width: 420, height: "auto" }}
+          style={{ width: temLegenda ? 760 : 420, height: "auto" }}
         >
           <SharedDefs uid={uid} />
-          <rect x={0} y={0} width={size} height={size} fill={bgFill} />
+          <rect x={0} y={0} width={larguraSvg} height={alturaSvg} fill={bgFill} />
           <g transform={`translate(${c0}, ${c0})`}>
             <ellipse cx={0} cy={outerR + 5} rx={outerR * 0.85} ry={3.5} fill="#000000" opacity="0.12" />
             <Eletroduto R={R} uid={uid} />
@@ -394,6 +466,11 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
               {bitola ? `${bitola} — ` : ""}Ø int. {trayWidth} mm
             </text>
           </g>
+          {temLegenda && (
+            <g transform={`translate(${legendaX}, ${PADDING / 2})`}>
+              <LegendaCircuitos itens={legenda} dark={dark} />
+            </g>
+          )}
         </svg>
         <CableLegend legendItems={legendItems} />
       </div>
@@ -407,8 +484,11 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
   const hasForca = cables.some((c) => c.type !== "comando");
   const split = hasComando && hasForca ? layoutCablesSplit(cables, trayWidth, trayHeight) : null;
   const items = split ? split.items : layoutCables(cables, trayWidth, trayHeight);
-  const width = trayWidth + PADDING * 2;
-  const height = trayHeight + PADDING * 1.5;
+  const legendaX = PADDING / 2 + trayWidth + LEGENDA_GAP;
+  const width = temLegenda ? legendaX + LEGENDA_W : trayWidth + PADDING * 2;
+  const height = temLegenda
+    ? Math.max(trayHeight + PADDING * 1.5, alturaLegenda(legenda) + PADDING)
+    : trayHeight + PADDING * 1.5;
 
   const svg = (
     <svg
@@ -417,7 +497,7 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
       width={width}
       height={height}
       className="max-w-full"
-      style={{ width: 520, height: "auto" }}
+      style={{ width: temLegenda ? 780 : 520, height: "auto" }}
     >
       <SharedDefs uid={uid} />
 
@@ -513,6 +593,11 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
           {trayHeight} mm
         </text>
       </g>
+      {temLegenda && (
+        <g transform={`translate(${legendaX}, ${PADDING / 2})`}>
+          <LegendaCircuitos itens={legenda} dark={dark} />
+        </g>
+      )}
     </svg>
   );
 
