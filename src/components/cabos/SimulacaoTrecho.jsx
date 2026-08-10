@@ -132,12 +132,16 @@ export default function SimulacaoTrecho({ circuitos, resultados, selecionados, p
         </div>
       </div>
 
+      {/* O filtro nasce do conduto declarado, mas só na montagem: realinhar o
+          seletor enquanto o usuário mexe na seleção mudaria a busca por baixo
+          dele. Por isso o aviso aponta para o seletor em vez de afirmar em que
+          tipo a busca está. */}
       {condutoInicial === null && circuitosSel.length > 0 && (
         <p className="text-[11px] text-slate-400 dark:text-slate-500">
           Os circuitos marcados declaram condutos diferentes (ou um conduto sem equivalente aqui),
-          então a busca abriu em <b>Todos</b> os tipos. Escolher um tipo que não bate com o conduto
-          usado no dimensionamento contradiz o método de referência e o fator de agrupamento que
-          definiram a bitola.
+          então não dá para escolher o tipo por eles — confira o <b>Tipo</b> acima. Simular um tipo
+          que não bate com o conduto usado no dimensionamento contradiz o método de referência e o
+          fator de agrupamento que definiram a bitola.
         </p>
       )}
 
