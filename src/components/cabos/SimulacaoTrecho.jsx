@@ -32,7 +32,9 @@ export default function SimulacaoTrecho({ circuitos, resultados, selecionados, p
 
   const circuitosSel = useMemo(
     () => selecionados.map((i) => circuitos[i]).filter(Boolean),
-    // selKey no lugar de selecionados: o array é novo a cada render do pai.
+    // selKey no lugar de `selecionados`: o pai devolve um array novo a cada
+    // render, e depender dele refaria a conta sem parar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [selKey, circuitos]
   );
   const condutoInicial = useMemo(() => condutoPredominante(circuitosSel), [circuitosSel]);
@@ -44,7 +46,9 @@ export default function SimulacaoTrecho({ circuitos, resultados, selecionados, p
 
   const { cabos, itens, avisos } = useMemo(
     () => circuitosParaCabos({ circuitos, resultados, selecionados, material: preset.material, semTrifolio }),
-    // selKey no lugar de selecionados: o array é novo a cada render do pai.
+    // selKey no lugar de `selecionados`: o pai devolve um array novo a cada
+    // render, e depender dele refaria a conta sem parar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [circuitos, resultados, selKey, preset.material, semTrifolio]
   );
 
@@ -58,8 +62,11 @@ export default function SimulacaoTrecho({ circuitos, resultados, selecionados, p
   useEffect(() => {
     setAssinBuscada(assinatura(cabosRef.current));
     buscar(cabosRef.current);
-    // cabos fica de fora de propósito: uma mudança nos cabos só deve marcar
-    // "desatualizado", não re-rodar a busca sozinha (ver comentário acima).
+    // `buscar` fica de fora de propósito: o hook o recria a cada render, e
+    // incluí-lo poria a busca em laço. `cabos` também fica de fora — uma
+    // mudança nos cabos só deve marcar "desatualizado", não re-rodar a busca
+    // sozinha (ver comentário acima).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [infraType, maxLayers, semTrifolio, selKey]);
 
   const desatualizado = !searching && assinBuscada !== null && assinBuscada !== assinatura(cabos);
