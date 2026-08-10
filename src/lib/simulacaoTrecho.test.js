@@ -3,8 +3,9 @@
 // — se designacaoCabos ou parseSecao mudarem de formato, estes testes quebram.
 
 import { describe, it, expect } from "vitest";
-import { circuitosParaCabos } from "./simulacaoTrecho";
+import { circuitosParaCabos, condutoPredominante, ocupacaoAplicada } from "./simulacaoTrecho";
 import { getDiameter } from "../data/corfioHEPR";
+import { computeOccupancy } from "./occupancy";
 
 // Circuito mínimo + resultado que designacaoCabos consome. Valores à mão, não
 // vindos do motor real — o que se testa aqui é a conversão, não a conta.
@@ -119,5 +120,96 @@ describe("circuitosParaCabos", () => {
     });
     expect(cabos.filter((c) => c.section === 25)).toHaveLength(2);
     expect(cabos.every((c) => !c.trifolio)).toBe(true);
+  });
+});
+
+const trecho = (condutoId) => ({ condutoId, distancia: 30, temperatura: 30, circuitos: 1, camadas: 1 });
+
+describe("condutoPredominante", () => {
+  it("devolve o conduto quando todos os trechos de todos os circuitos concordam", () => {
+    const cs = [
+      { trechos: [trecho("eletrocalha"), trecho("eletrocalha")] },
+      { trechos: [trecho("eletrocalha")] },
+    ];
+    expect(condutoPredominante(cs)).toBe("eletrocalha");
+  });
+
+  it("devolve null quando trechos do mesmo circuito divergem", () => {
+    const cs = [{ trechos: [trecho("eletrocalha"), trecho("leito")] }];
+    expect(condutoPredominante(cs)).toBe(null);
+  });
+
+  it("devolve null quando circuitos diferentes divergem entre si", () => {
+    const cs = [{ trechos: [trecho("perfilado")] }, { trechos: [trecho("eletroduto")] }];
+    expect(condutoPredominante(cs)).toBe(null);
+  });
+
+  it("devolve null para conduto sem equivalente na simulação", () => {
+    // dutoSubt existe em CONDUTOS mas não em INFRA_TYPES
+    expect(condutoPredominante([{ trechos: [trecho("dutoSubt")] }])).toBe(null);
+    expect(condutoPredominante([{ trechos: [trecho("canaletaEmb")] }])).toBe(null);
+  });
+
+  it("não estoura com lista vazia ou circuito sem trechos", () => {
+    expect(condutoPredominante([])).toBe(null);
+    expect(condutoPredominante([{}])).toBe(null);
+    expect(condutoPredominante(undefined)).toBe(null);
+  });
+});
+
+describe("ocupacaoAplicada", () => {
+  const cabos = [
+    { d: 10, type: "unipolar", vias: 1 },
+    { d: 10, type: "unipolar", vias: 1 },
+    { d: 10, type: "unipolar", vias: 1 },
+  ];
+
+  it("devolve null sem resultado aplicado", () => {
+    expect(ocupacaoAplicada(cabos, null)).toBe(null);
+  });
+
+  it("calha retangular: usa a área do resultado e o limite de 40% (3 condutores)", () => {
+    const applied = { infraType: "eletrocalha", eletrodutoNorma: null, trayWidth: 100, trayHeight: 50, trayArea: 5000 };
+    const oc = ocupacaoAplicada(cabos, applied);
+    expect(oc.trayArea).toBe(5000);
+    expect(oc.limite).toBe(40);
+    expect(oc.cableArea).toBeCloseTo(3 * Math.PI * 25, 6);
+    expect(oc.dentroLimite).toBe(true);
+  });
+
+  it("eletroduto: cobra o limite da seção circular", () => {
+    const R = 20;
+    const applied = {
+      infraType: "eletroduto", eletrodutoNorma: "nbr5624",
+      trayWidth: 2 * R, trayHeight: 2 * R, trayArea: Math.PI * R * R,
+    };
+    const oc = ocupacaoAplicada(cabos, applied);
+    // 3 condutores num duto → 40%, igual ao computeOccupancy com isDuct
+    expect(oc.limite).toBe(computeOccupancy(cabos, Math.PI * R * R, true).limite);
+    expect(oc.ocupacao).toBeCloseTo(computeOccupancy(cabos, Math.PI * R * R, true).ocupacao, 6);
+  });
+
+  it("com septo: soma as áreas, pega a pior ocupação e o menor limite", () => {
+    const mistos = [
+      { d: 10, type: "unipolar", vias: 1 },
+      { d: 6, type: "comando", vias: 7 },
+      { d: 6, type: "comando", vias: 7 },
+    ];
+    const applied = {
+      infraType: "eletrocalha", eletrodutoNorma: null, hasSeptum: true,
+      trayWidth: 100, trayHeight: 50, trayArea: 5000, septum: 2, splitX: 60,
+    };
+    const oc = ocupacaoAplicada(mistos, applied);
+    const forca = computeOccupancy([mistos[0]], 60 * 50, false);
+    const comando = computeOccupancy(mistos.slice(1), 38 * 50, false);
+    expect(oc.cableArea).toBeCloseTo(forca.cableArea + comando.cableArea, 6);
+    expect(oc.ocupacao).toBeCloseTo(Math.max(forca.ocupacao, comando.ocupacao), 6);
+    expect(oc.limite).toBe(Math.min(forca.limite, comando.limite));
+  });
+
+  it("trifólio conta como 3 condutores na área", () => {
+    const trif = [{ d: 10, type: "unipolar", vias: 1, trifolio: true }];
+    const applied = { infraType: "eletrocalha", eletrodutoNorma: null, trayWidth: 100, trayHeight: 50, trayArea: 5000 };
+    expect(ocupacaoAplicada(trif, applied).cableArea).toBeCloseTo(3 * Math.PI * 25, 6);
   });
 });

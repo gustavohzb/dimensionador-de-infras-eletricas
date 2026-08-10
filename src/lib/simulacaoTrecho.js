@@ -7,9 +7,10 @@
 // reparsear em seguida. Aquele caminho continua, porque a importação da aba
 // Infra é feita de texto colado. Aqui, com os circuitos em mãos, o desvio pelo
 // texto não faz sentido: vai direto de designacaoCabos para parseSecao.
-import { getDiameter } from "../data/corfioHEPR";
+import { INFRA_TYPES, getDimensions, getDiameter } from "../data/corfioHEPR";
 import { designacaoCabos } from "./cableSizingPro";
 import { parseSecao } from "./importCables";
+import { computeOccupancy } from "./occupancy";
 
 // `circuitos` e `resultados` são os arrays COMPLETOS do quadro; `selecionados`
 // traz os índices marcados. Receber tudo e filtrar aqui dentro é o que permite
@@ -89,4 +90,58 @@ export function circuitosParaCabos({ circuitos, resultados, selecionados, materi
   }
 
   return { cabos, itens, avisos };
+}
+
+// Ids que a simulação sabe desenhar. CONDUTOS (cabosNBR5410) e INFRA_TYPES
+// (corfioHEPR) coincidem em eletrocalha, perfilado, leito e eletroduto; os
+// demais condutos (canaleta embutida, duto e canaleta subterrâneos) não têm
+// equivalente aqui, e o aramado existe só do lado da infraestrutura.
+const IDS_INFRA = new Set(INFRA_TYPES.map((t) => t.id));
+
+// O conduto que os circuitos declaram, quando declaram um só. É o que definiu
+// o método de referência (B1/B2/E/F) e o fator de agrupamento que
+// dimensionaram aqueles cabos — simular outro tipo contradiz a própria conta
+// que gerou a bitola, então ele é o padrão do filtro do painel.
+//
+// Basta um trecho divergente, ou um conduto sem equivalente, para devolver
+// null: aí o painel abre em "todos os tipos" e avisa.
+export function condutoPredominante(circuitos) {
+  let unico = null;
+  for (const c of circuitos ?? []) {
+    for (const t of c?.trechos ?? []) {
+      if (!IDS_INFRA.has(t.condutoId)) return null;
+      if (unico === null) unico = t.condutoId;
+      else if (unico !== t.condutoId) return null;
+    }
+  }
+  return unico;
+}
+
+// Ocupação recalculada a partir dos cabos ATUAIS contra a infraestrutura
+// aplicada. O objeto `applied` congela os números do momento da busca, e os
+// cabos podem ter mudado desde então — é essa diferença que faz aparecer o
+// aviso de "já não cabem".
+export function ocupacaoAplicada(cables, applied) {
+  if (!applied) return null;
+
+  if (applied.hasSeptum) {
+    // Dois compartimentos independentes: o trecho só está dentro do limite se
+    // os dois estiverem, então vale a pior ocupação contra o menor limite.
+    const forca = cables.filter((c) => c.type !== "comando");
+    const comando = cables.filter((c) => c.type === "comando");
+    const w1 = applied.splitX;
+    const w2 = applied.trayWidth - applied.septum - applied.splitX;
+    const forcaOcc = computeOccupancy(forca, w1 * applied.trayHeight, false);
+    const comandoOcc = computeOccupancy(comando, w2 * applied.trayHeight, false);
+    return {
+      trayArea: applied.trayArea,
+      cableArea: forcaOcc.cableArea + comandoOcc.cableArea,
+      ocupacao: Math.max(forcaOcc.ocupacao, comandoOcc.ocupacao),
+      limite: Math.min(forcaOcc.limite, comandoOcc.limite),
+      dentroLimite: forcaOcc.dentroLimite && comandoOcc.dentroLimite,
+    };
+  }
+
+  const isDuct = getDimensions(applied.infraType, applied.eletrodutoNorma).kind === "duct";
+  return { trayArea: applied.trayArea, ...computeOccupancy(cables, applied.trayArea, isDuct) };
 }
