@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import logo from "./assets/logo.png";
 import { useDarkMode } from "./hooks/useDarkMode";
 import InfraTab from "./components/InfraTab";
@@ -34,12 +34,23 @@ function ThemeToggle({ dark, onToggle }) {
   );
 }
 
+const TAB_IDS = ["infra", "quadroCargas", "iluminacao", "capacitores", "spda", "atualizacoes", "sobre"];
+const ABA_ATIVA_KEY = "abaAtiva";
+
 export default function App() {
   const [dark, setDark] = useDarkMode();
-  const [activeTab, setActiveTab] = useState("infra"); // "infra" | "quadroCargas"
+  // Persistida para o F5 voltar na mesma aba em vez de sempre cair em Infra.
+  const [activeTab, setActiveTab] = useState(() => {
+    const salva = localStorage.getItem(ABA_ATIVA_KEY);
+    return TAB_IDS.includes(salva) ? salva : "infra";
+  });
   // Ponte "enviar cabos do Quadro de Cargas → aba Infraestrutura (Auto)".
   // { linhas, material } enquanto há um envio a consumir; null caso contrário.
   const [pendingImport, setPendingImport] = useState(null);
+
+  useEffect(() => {
+    localStorage.setItem(ABA_ATIVA_KEY, activeTab);
+  }, [activeTab]);
 
   const enviarParaInfra = (payload) => {
     setPendingImport(payload);
