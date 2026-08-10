@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useCableTray } from "../hooks/useCableTray";
 import { useProjects } from "../hooks/useProjects";
 import { getDimensions, INFRA_TYPES, ELETRODUTO_NORMAS } from "../data/corfioHEPR";
-import { findBestFits, selectDiverseResults } from "../lib/reverseSearch";
-import { computeOccupancy } from "../lib/occupancy";
+import { useBuscaInfra } from "../hooks/useBuscaInfra";
+import { ocupacaoAplicada } from "../lib/simulacaoTrecho";
+import { exportarSvgPng } from "../lib/exportarSvgPng";
 import { exportReportPDF } from "../lib/reportPdf";
 import { ARRANJOS, defaultArranjo, estimateCircuits, getFator } from "../lib/derating";
 import DeratingPanel from "./DeratingPanel";
@@ -75,64 +76,23 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
   const circuitos = circuitosOverride ?? circuitosAuto;
 
   // ---- Modo Buscar ----
-  const [results, setResults] = useState(null); // null = ainda não buscou
-  const [layerHint, setLayerHint] = useState(null);
-  const [searching, setSearching] = useState(false);
-  const [maxLayers, setMaxLayers] = useState(""); // "" = sem limite
-  const [applied, setApplied] = useState(null);
+  const { results, displayResults, applied, searching, layerHint, maxLayers, setMaxLayers, buscar, aplicar } =
+    useBuscaInfra();
 
   const arranjo =
     arranjoOverride ?? defaultArranjo(mode === "buscar" ? applied?.infraType : infraType);
 
   const applyResult = (r) => {
-    setApplied(r);
+    aplicar(r);
     setArranjoOverride(null);
     setCircuitosOverride(null);
   };
 
-  const handleSearch = () => {
-    if (cables.length === 0) return;
-    setSearching(true);
-    setApplied(null);
-    // Adia um tick pro botão re-renderizar em "Buscando…" antes do cálculo síncrono.
-    setTimeout(() => {
-      const numLayers = maxLayers ? Number(maxLayers) : undefined;
-      const found = findBestFits(cables, { maxLayers: numLayers });
-      let hint = null;
-      if (found.length === 0 && numLayers) {
-        const unrestricted = findBestFits(cables, {});
-        if (unrestricted.length > 0) hint = Math.min(...unrestricted.map((r) => r.camadas));
-      }
-      setResults(found);
-      setLayerHint(hint);
-      setSearching(false);
-    }, 10);
-  };
-
-  const displayResults = useMemo(() => (results ? selectDiverseResults(results, 2) : null), [results]);
+  const handleSearch = () => buscar(cables);
 
   // Ocupação sempre recalculada a partir do trecho corrente (a opção "applied"
   // congela os números do momento da busca — cabos podem ter mudado depois).
-  const liveOccupancy = useMemo(() => {
-    if (!applied) return null;
-    if (applied.hasSeptum) {
-      const forca = cables.filter((c) => c.type !== "comando");
-      const comando = cables.filter((c) => c.type === "comando");
-      const w1 = applied.splitX;
-      const w2 = applied.trayWidth - applied.septum - applied.splitX;
-      const forcaOcc = computeOccupancy(forca, w1 * applied.trayHeight, false);
-      const comandoOcc = computeOccupancy(comando, w2 * applied.trayHeight, false);
-      return {
-        trayArea: applied.trayArea,
-        cableArea: forcaOcc.cableArea + comandoOcc.cableArea,
-        ocupacao: Math.max(forcaOcc.ocupacao, comandoOcc.ocupacao),
-        limite: Math.min(forcaOcc.limite, comandoOcc.limite),
-        dentroLimite: forcaOcc.dentroLimite && comandoOcc.dentroLimite,
-      };
-    }
-    const isDuct = getDimensions(applied.infraType, applied.eletrodutoNorma).kind === "duct";
-    return { trayArea: applied.trayArea, ...computeOccupancy(cables, applied.trayArea, isDuct) };
-  }, [cables, applied]);
+  const liveOccupancy = useMemo(() => ocupacaoAplicada(cables, applied), [cables, applied]);
 
   const isApplied = (r) =>
     applied && applied.label === r.label && applied.trayWidth === r.trayWidth && applied.trayHeight === r.trayHeight;
@@ -172,28 +132,6 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
   };
 
   // ---- Exportações ----
-  const exportPNG = (svg, filename) => {
-    if (!svg) return;
-    const serializer = new XMLSerializer();
-    const source = serializer.serializeToString(svg);
-    const img = new Image();
-    img.src = "data:image/svg+xml;base64," + window.btoa(unescape(encodeURIComponent(source)));
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      const scale = 2;
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = dark ? "#14181c" : "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      const link = document.createElement("a");
-      link.download = filename;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-    };
-  };
-
   const exportPDFVerificar = async () => {
     const svg = svgRefVerificar.current;
     if (!svg) return;
@@ -420,7 +358,7 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
                 <h2 className="font-display text-[11px] font-bold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">Visualização</h2>
                 <div className="flex gap-1.5">
                   <button
-                    onClick={() => exportPNG(svgRefVerificar.current, "eletrocalha.png")}
+                    onClick={() => exportarSvgPng(svgRefVerificar.current, "eletrocalha.png", dark)}
                     className="rounded-xs border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                   >
                     Exportar PNG
@@ -554,7 +492,7 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
                     </h2>
                     <div className="flex gap-1.5">
                       <button
-                        onClick={() => exportPNG(svgRefBuscar.current, "infraestrutura-recomendada.png")}
+                        onClick={() => exportarSvgPng(svgRefBuscar.current, "infraestrutura-recomendada.png", dark)}
                         className="rounded-xs border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                       >
                         Exportar PNG
