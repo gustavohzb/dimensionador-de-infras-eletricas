@@ -71,20 +71,6 @@ export function circuitosParaCabos({ circuitos, resultados, selecionados, materi
         doCircuito.push({ section: spec.section, d, type: "unipolar", vias: 1, trifolio: true, material, groupId });
         return;
       }
-      // Condutores em paralelo (quantity > 1 mas <= 3, como neutros/terras): consolidar em 1 cabo com vias = quantity
-      if (spec.cableType === "unipolar" && spec.quantity > 1 && spec.quantity <= 3 && !trifoliavel) {
-        doCircuito.push({
-          section: spec.section,
-          d,
-          type: spec.cableType,
-          vias: spec.quantity,
-          material,
-          groupId,
-          trifolio: undefined,
-        });
-        return;
-      }
-      // Múltiplos condutores soltos (quantity > 3): adicionar um por um
       for (let k = 0; k < spec.quantity; k++) {
         doCircuito.push({
           section: spec.section,

@@ -69,9 +69,9 @@ describe("circuitosParaCabos", () => {
   it("marca podeTrifolio só quando há um grupo de 3 unipolares iguais", () => {
     expect(chamar().itens[0].podeTrifolio).toBe(true);
     // porFase 2 → 6 fases soltas, não é feixe de trifólio
-    const seis = chamar({ resultados: [res({ porFase: 2 })] });
+    const seis = chamar({ resultados: [res({ porFase: 2, neutro: null })] });
     expect(seis.itens[0].podeTrifolio).toBe(false);
-    expect(seis.cabos.filter((c) => c.section === 25)).toHaveLength(7); // 6 fases + neutro
+    expect(seis.cabos.filter((c) => c.section === 25)).toHaveLength(6); // 6 fases
   });
 
   it("deixa fora da simulação o circuito com erro de cálculo, e avisa", () => {
@@ -104,5 +104,18 @@ describe("circuitosParaCabos", () => {
     });
     const grupos = new Set(cabos.map((c) => c.groupId));
     expect(grupos.size).toBe(6); // 3 specs × 2 circuitos
+  });
+
+  it("mantém um cabo por condutor num circuito bifásico — 2 fases não viram um cabo só", () => {
+    // bifSnCt: 2 fases + terra, sem neutro. As 2 fases são "2#25mm²" — quantity
+    // 2 não é feixe de trifólio, e cada condutor precisa continuar sendo uma
+    // entrada própria: no packing cada entrada é um círculo, e na ocupação cada
+    // entrada é a área de UM condutor.
+    const { cabos } = chamar({
+      circuitos: [circ({ esquemaId: "bifSnCt" })],
+      resultados: [res({ neutro: null })],
+    });
+    expect(cabos.filter((c) => c.section === 25)).toHaveLength(2);
+    expect(cabos.every((c) => !c.trifolio)).toBe(true);
   });
 });
