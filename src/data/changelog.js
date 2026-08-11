@@ -746,6 +746,20 @@ export const CHANGELOG = [
       "As cores, o cabeçalho e a tabela saíram para um módulo de tema compartilhado, primeiro passo para os outros PDFs do app usarem a mesma cara.",
     ],
   },
+  {
+    versao: "1.26.0",
+    data: "2026-08-10",
+    titulo: "Simulação de infraestrutura sem sair do quadro de cargas",
+    tipo: "novo",
+    itens: [
+      "Marque os circuitos no quadro de cargas e clique em Simular: a busca da melhor infraestrutura roda ali mesmo, com o desenho do trecho pronto de primeira — sem trocar de aba e sem clique extra.",
+      "O desenho agora vem com a lista dos circuitos ao lado (número, TAG, descrição e designação de cabos), desenhada dentro da imagem, então ela sai também no PNG exportado.",
+      "O filtro de tipo de infraestrutura já abre no conduto que os próprios circuitos declaram — simular um eletroduto para um circuito dimensionado como eletrocalha contradiz o método de referência e o fator de agrupamento que definiram a bitola.",
+      "Caixinha de trifólio por circuito no painel: desmarque quando as três fases correrem soltas em vez de amarradas em feixe, e a simulação refaz o empacotamento.",
+      "A ocupação é recalculada ao vivo conforme você mexe nos circuitos; se a bitola mudar, o painel avisa que os cabos mudaram e oferece re-simular.",
+      "O caminho antigo continua: o link Abrir na aba Infraestrutura leva os mesmos cabos para lá, onde ficam Projetos, cabos avulsos, derating e o Relatório PDF.",
+    ],
+  },
 ];
 
 // Ordena versões maior.menor.correção. Negativo se `a` vem antes de `b`.
