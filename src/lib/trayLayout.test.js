@@ -1,25 +1,25 @@
 // Geometria do desenho do trecho.
 //
-// Dois grupos de teste com propósitos diferentes:
+// O teste central é o de CONTENÇÃO: o canvas contém todos os blocos, em
+// qualquer combinação de entrada. É o invariante que teria pego os dois bugs
+// de corte que já apareceram no desenho, e vale para qualquer layout futuro —
+// não depende de como as posições são calculadas hoje.
 //
-// 1. CONTENÇÃO — o canvas contém todos os blocos. É o invariante que teria
-//    pego os dois bugs de corte que já apareceram no desenho. Vale para
-//    qualquer combinação de entrada, não para casos escolhidos a dedo.
-//
-// 2. EQUIVALÊNCIA — a extração para este módulo não mudou nenhum número. As
-//    fórmulas antigas, que viviam dentro do TrayVisualization, estão
-//    transcritas aqui como oráculo. Elas podem (e devem) ser apagadas quando
-//    alguém deliberadamente mudar o layout; até lá, provam que a refatoração
-//    foi de estrutura, não de comportamento.
+// (Houve aqui um bloco de equivalência com as fórmulas anteriores à extração
+// deste módulo, para provar que aquela refatoração não mudou nenhum número.
+// Cumpriu o papel e saiu quando o layout mudou de propósito, movendo a lista
+// de circuitos da coluna lateral para baixo do desenho.)
 
 import { describe, it, expect } from "vitest";
 import {
-  PADDING,
-  WALL,
   LEGENDA_W,
-  LEGENDA_GAP,
+  LEGENDA_LINHA,
   RESUMO_LINHA,
+  CIRCUITOS_POR_COLUNA,
   alturaLegenda,
+  larguraLegenda,
+  colunasDeCircuitos,
+  posicaoCircuito,
   alturaResumo,
   truncar,
   cabemEm,
@@ -39,6 +39,13 @@ for (const [trayWidth, trayHeight] of [[100, 50], [50, 100], [300, 50], [50, 300
   }
 }
 
+// As medidas dos eletrodutos não são redondas (Ø22,4 vira raio 13,7; Ø62,7
+// vira 35,112), então somar na ordem A+(B+C) ou (A+B)+C dá resultados que
+// diferem no último bit. Contenção é geometria, não aritmética exata: a
+// tolerância separa esse ruído de um corte de verdade, que é de dezenas de
+// unidades.
+const EPS = 1e-6;
+
 const CASOS_CIRC = [];
 for (const outerR of [13.7, 20, 35.112, 60]) {
   for (const circuitos of [0, 1, 3, 18, 40]) {
@@ -57,7 +64,7 @@ describe("contenção — nada é desenhado fora do canvas", () => {
       const L = layoutRetangular(c);
       if (!L.resumo) continue;
       const fundo = L.desenho.y + L.resumo.y + alturaResumo(c.bitolas);
-      if (fundo > L.altura) falhas.push(`${c.trayWidth}×${c.trayHeight} ${c.bitolas} bitolas: ${fundo} > ${L.altura}`);
+      if (fundo > L.altura + EPS) falhas.push(`${c.trayWidth}×${c.trayHeight} ${c.bitolas} bitolas: ${fundo} > ${L.altura}`);
     }
     expect(falhas).toEqual([]);
   });
@@ -65,33 +72,44 @@ describe("contenção — nada é desenhado fora do canvas", () => {
   it("calha: a cota de largura cabe na altura do SVG", () => {
     for (const c of CASOS_RET) {
       const L = layoutRetangular(c);
-      expect(L.desenho.y + L.cota.textoY).toBeLessThanOrEqual(L.altura);
+      expect(L.desenho.y + L.cota.textoY).toBeLessThanOrEqual(L.altura + EPS);
     }
   });
 
-  it("calha: a legenda de circuitos cabe inteira, por mais longa que seja", () => {
+  it("calha: a lista de circuitos cabe inteira, por mais longa que seja", () => {
     const falhas = [];
     for (const c of CASOS_RET) {
       const L = layoutRetangular(c);
-      if (!L.legenda) continue;
-      const fundo = L.legenda.y + alturaLegenda(c.circuitos);
-      if (fundo > L.altura) falhas.push(`${c.trayWidth}×${c.trayHeight} ${c.circuitos} circuitos`);
+      if (!L.circuitos) continue;
+      const fundo = L.desenho.y + L.circuitos.y + alturaLegenda(c.circuitos);
+      if (fundo > L.altura + EPS) falhas.push(`${c.trayWidth}×${c.trayHeight} ${c.circuitos} circuitos`);
     }
     expect(falhas).toEqual([]);
   });
 
-  it("calha: a coluna da legenda cabe na largura do SVG", () => {
+  it("calha: todas as colunas de circuitos cabem na largura do SVG", () => {
+    const falhas = [];
     for (const c of CASOS_RET) {
       const L = layoutRetangular(c);
-      if (!L.legenda) continue;
-      expect(L.legenda.x + LEGENDA_W).toBeLessThanOrEqual(L.largura);
+      if (!L.circuitos) continue;
+      const direita = L.desenho.x + larguraLegenda(c.circuitos);
+      if (direita > L.largura + EPS) falhas.push(`${c.circuitos} circuitos: ${direita} > ${L.largura}`);
+    }
+    expect(falhas).toEqual([]);
+  });
+
+  it("calha: a lista de circuitos vem ANTES do resumo, sem sobrepor", () => {
+    for (const c of CASOS_RET) {
+      const L = layoutRetangular(c);
+      if (!L.circuitos || !L.resumo) continue;
+      expect(L.circuitos.y + alturaLegenda(c.circuitos)).toBeLessThanOrEqual(L.resumo.y + EPS);
     }
   });
 
   it("calha: a cota de altura cabe na largura, mesmo sem legenda", () => {
     for (const c of CASOS_RET) {
       const L = layoutRetangular(c);
-      expect(L.desenho.x + L.cotaAltura.textoX).toBeLessThanOrEqual(L.largura);
+      expect(L.desenho.x + L.cotaAltura.textoX).toBeLessThanOrEqual(L.largura + EPS);
     }
   });
 
@@ -99,9 +117,9 @@ describe("contenção — nada é desenhado fora do canvas", () => {
     const falhas = [];
     for (const c of CASOS_CIRC) {
       const L = layoutCircular(c);
-      if (L.centro.y - c.outerR < 0) falhas.push(`R=${c.outerR}: topo cortado`);
-      if (L.centro.y + c.outerR > L.altura) falhas.push(`R=${c.outerR}: base cortada`);
-      if (L.centro.x - c.outerR < 0 || L.centro.x + c.outerR > L.largura) falhas.push(`R=${c.outerR}: lateral`);
+      if (L.centro.y - c.outerR < -EPS) falhas.push(`R=${c.outerR}: topo cortado`);
+      if (L.centro.y + c.outerR > L.altura + EPS) falhas.push(`R=${c.outerR}: base cortada`);
+      if (L.centro.x - c.outerR < -EPS || L.centro.x + c.outerR > L.largura + EPS) falhas.push(`R=${c.outerR}: lateral`);
     }
     expect(falhas).toEqual([]);
   });
@@ -112,17 +130,29 @@ describe("contenção — nada é desenhado fora do canvas", () => {
       const L = layoutCircular(c);
       if (!L.resumo) continue;
       const fundo = L.centro.y + L.resumo.y + alturaResumo(c.bitolas);
-      if (fundo > L.altura) falhas.push(`R=${c.outerR} ${c.bitolas} bitolas: ${fundo} > ${L.altura}`);
+      if (fundo > L.altura + EPS) falhas.push(`R=${c.outerR} ${c.bitolas} bitolas: ${fundo} > ${L.altura}`);
     }
     expect(falhas).toEqual([]);
   });
 
-  it("eletroduto: a legenda cabe inteira, em altura e em largura", () => {
+  it("eletroduto: a lista de circuitos cabe inteira, em altura e em largura", () => {
+    const falhas = [];
     for (const c of CASOS_CIRC) {
       const L = layoutCircular(c);
-      if (!L.legenda) continue;
-      expect(L.legenda.y + alturaLegenda(c.circuitos)).toBeLessThanOrEqual(L.altura);
-      expect(L.legenda.x + LEGENDA_W).toBeLessThanOrEqual(L.largura);
+      if (!L.circuitos) continue;
+      const fundo = L.centro.y + L.circuitos.y + alturaLegenda(c.circuitos);
+      if (fundo > L.altura + EPS) falhas.push(`R=${c.outerR}: altura ${fundo} > ${L.altura}`);
+      const direita = L.centro.x + L.circuitos.x + larguraLegenda(c.circuitos);
+      if (direita > L.largura + EPS) falhas.push(`R=${c.outerR}: largura ${direita} > ${L.largura}`);
+    }
+    expect(falhas).toEqual([]);
+  });
+
+  it("eletroduto: a lista de circuitos vem ANTES do resumo, sem sobrepor", () => {
+    for (const c of CASOS_CIRC) {
+      const L = layoutCircular(c);
+      if (!L.circuitos || !L.resumo) continue;
+      expect(L.circuitos.y + alturaLegenda(c.circuitos)).toBeLessThanOrEqual(L.resumo.y);
     }
   });
 
@@ -134,7 +164,7 @@ describe("contenção — nada é desenhado fora do canvas", () => {
       for (const bitolas of [1, 2, 5, 10, 30]) {
         const L = layoutRetangular({ trayWidth: 100, trayHeight, circuitos: 0, bitolas });
         const fundo = L.desenho.y + L.resumo.y + alturaResumo(bitolas);
-        expect(fundo).toBeLessThanOrEqual(L.altura);
+        expect(fundo).toBeLessThanOrEqual(L.altura + EPS);
         expect(L.altura).toBeGreaterThanOrEqual(anterior);
         anterior = L.altura;
       }
@@ -142,115 +172,147 @@ describe("contenção — nada é desenhado fora do canvas", () => {
   });
 });
 
-// Fórmulas antigas, copiadas do TrayVisualization antes da extração.
-const legado = {
-  ret: ({ trayWidth, trayHeight, circuitos, bitolas }) => {
-    const temLegenda = circuitos > 0;
-    const temResumo = bitolas > 0;
-    const legendaX = PADDING / 2 + trayWidth + LEGENDA_GAP;
-    const width = temLegenda ? legendaX + LEGENDA_W : trayWidth + PADDING * 2;
-    const alturaSemResumo = trayHeight + PADDING * 1.5;
-    const alturaComResumo = temResumo
-      ? Math.max(alturaSemResumo, PADDING / 2 + trayHeight + WALL + 46 + alturaResumo(bitolas))
-      : alturaSemResumo;
-    const height = temLegenda
-      ? Math.max(alturaComResumo, alturaLegenda(circuitos) + PADDING)
-      : alturaComResumo;
-    return {
-      largura: width,
-      altura: height,
-      larguraCss: temLegenda ? 780 : 520,
-      desenhoY: PADDING / 2,
-      resumoY: temResumo ? trayHeight + WALL + 46 : null,
-      legendaX: temLegenda ? legendaX : null,
-      cotaLinhaY: trayHeight + WALL + 14,
-      cotaTextoY: trayHeight + WALL + 30,
-    };
-  },
-  circ: ({ outerR, circuitos, bitolas }) => {
-    const temLegenda = circuitos > 0;
-    const temResumo = bitolas > 0;
-    const size = (outerR + PADDING) * 2;
-    const c0 = size / 2;
-    const legendaX = size + 6;
-    const alturaBase = temResumo ? PADDING / 2 + 2 * outerR + 16 + alturaResumo(bitolas) : size;
-    const larguraSvg = temLegenda ? legendaX + LEGENDA_W : size;
-    const alturaSvg = temLegenda ? Math.max(alturaBase, alturaLegenda(circuitos) + PADDING) : alturaBase;
-    const centroY = temResumo ? PADDING / 2 + outerR : alturaSvg / 2;
-    return {
-      largura: larguraSvg,
-      altura: alturaSvg,
-      larguraCss: temLegenda ? 760 : 420,
-      centroX: c0,
-      centroY,
-      resumoX: temResumo ? -outerR : null,
-      resumoY: temResumo ? outerR + 16 : null,
-      legendaX: temLegenda ? legendaX : null,
-    };
-  },
-};
+// A largura em px vem com `height: auto`, então a altura renderizada é
+// consequência da proporção. Com largura fixa, um desenho estreito e alto era
+// ampliado até virar uma parede de pixels — não adianta encurtar o viewBox se
+// a escala desfaz o ganho na tela.
+describe("tamanho na tela", () => {
+  const alturaRenderizada = (L) => (L.larguraCss * L.altura) / L.largura;
 
-describe("equivalência com o layout anterior à extração", () => {
-  it("calha: mesmos números em todas as combinações", () => {
+  it("calha: a imagem nunca passa de 780×700px, por mais circuitos que tenha", () => {
+    const falhas = [];
     for (const c of CASOS_RET) {
-      const novo = layoutRetangular(c);
-      const velho = legado.ret(c);
-      expect({
-        largura: novo.largura,
-        altura: novo.altura,
-        larguraCss: novo.larguraCss,
-        desenhoY: novo.desenho.y,
-        resumoY: novo.resumo?.y ?? null,
-        legendaX: novo.legenda?.x ?? null,
-        cotaLinhaY: novo.cota.linhaY,
-        cotaTextoY: novo.cota.textoY,
-      }).toEqual(velho);
+      const L = layoutRetangular(c);
+      if (!L.circuitos && !L.resumo) continue; // a aba Infra tem largura própria
+      const h = alturaRenderizada(L);
+      if (L.larguraCss > 780 + EPS || h > 700 + EPS)
+        falhas.push(`${c.circuitos} circuitos, ${c.bitolas} bitolas: ${L.larguraCss.toFixed(0)}×${h.toFixed(0)}px`);
     }
+    expect(falhas).toEqual([]);
   });
 
-  it("eletroduto: mesmos números em todas as combinações", () => {
+  it("eletroduto: idem", () => {
+    const falhas = [];
     for (const c of CASOS_CIRC) {
-      const novo = layoutCircular(c);
-      const velho = legado.circ(c);
-      expect({
-        largura: novo.largura,
-        altura: novo.altura,
-        larguraCss: novo.larguraCss,
-        centroX: novo.centro.x,
-        centroY: novo.centro.y,
-        resumoX: novo.resumo?.x ?? null,
-        resumoY: novo.resumo?.y ?? null,
-        legendaX: novo.legenda?.x ?? null,
-      }).toEqual(velho);
+      const L = layoutCircular(c);
+      if (!L.circuitos && !L.resumo) continue;
+      const h = alturaRenderizada(L);
+      if (L.larguraCss > 780 + EPS || h > 700 + EPS)
+        falhas.push(`R=${c.outerR}: ${L.larguraCss.toFixed(0)}×${h.toFixed(0)}px`);
+    }
+    expect(falhas).toEqual([]);
+  });
+
+  it("um trecho com muitos circuitos não fica maior na tela que um com poucos", () => {
+    // O ponto todo da mudança: antes, cada circuito a mais esticava a imagem
+    // para baixo sem limite.
+    const area = (n) => {
+      const L = layoutRetangular({ trayWidth: 200, trayHeight: 100, circuitos: n, bitolas: 4 });
+      return L.larguraCss * alturaRenderizada(L);
+    };
+    expect(area(50)).toBeLessThanOrEqual(area(10) * 1.5);
+  });
+});
+
+describe("quebra da lista de circuitos em colunas", () => {
+  it("até 10 circuitos, uma coluna só", () => {
+    for (const n of [1, 5, 9, 10]) {
+      expect(colunasDeCircuitos(n)).toBe(1);
+      expect(larguraLegenda(n)).toBe(LEGENDA_W);
     }
   });
 
-  it("reproduz os quatro desenhos capturados do app antes da extração", () => {
-    // Assinaturas lidas do SVG renderizado, para ancorar a equivalência em
-    // saída real e não só na fórmula transcrita.
+  it("o 11º circuito abre a segunda coluna, no topo dela", () => {
+    expect(colunasDeCircuitos(11)).toBe(2);
+    // Mesma altura do primeiro, uma coluna à direita.
+    expect(posicaoCircuito(10)).toEqual({ x: LEGENDA_W, y: posicaoCircuito(0).y });
+  });
+
+  it("desce dentro da coluna, uma linha por circuito", () => {
+    expect(posicaoCircuito(1).y - posicaoCircuito(0).y).toBe(LEGENDA_LINHA);
+    expect(posicaoCircuito(1).x).toBe(0);
+  });
+
+  it("a altura para de crescer no décimo circuito — é esse o ponto", () => {
+    // Sem a quebra, 40 circuitos empurrariam a imagem para quatro vezes essa
+    // altura. É o que deixava o desenho comprido demais.
+    const dez = alturaLegenda(10);
+    for (const n of [11, 20, 21, 40, 100]) {
+      expect(alturaLegenda(n)).toBe(dez);
+    }
+  });
+
+  it("a largura cresce em degraus de uma coluna", () => {
+    expect(larguraLegenda(10)).toBe(LEGENDA_W);
+    expect(larguraLegenda(11)).toBe(2 * LEGENDA_W);
+    expect(larguraLegenda(20)).toBe(2 * LEGENDA_W);
+    expect(larguraLegenda(21)).toBe(3 * LEGENDA_W);
+  });
+
+  it("sem circuitos não há coluna nenhuma", () => {
+    expect(colunasDeCircuitos(0)).toBe(0);
+    expect(larguraLegenda(0)).toBe(0);
+    expect(alturaLegenda(0)).toBe(0);
+  });
+
+  it("cada circuito tem posição própria — nenhum se sobrepõe a outro", () => {
+    const vistas = new Set();
+    for (let i = 0; i < 45; i++) {
+      const { x, y } = posicaoCircuito(i);
+      const chave = `${x}:${y}`;
+      expect(vistas.has(chave)).toBe(false);
+      vistas.add(chave);
+    }
+  });
+
+  it("o limite por coluna é o que a interface promete", () => {
+    expect(CIRCUITOS_POR_COLUNA).toBe(10);
+  });
+});
+
+describe("o desenho da aba Infraestrutura não muda", () => {
+  // Lá não há lista de circuitos nem resumo; estas medidas são as mesmas
+  // desde antes de tudo isso, e servem de âncora contra regressão.
+  it("calha 100×50 continua 228×146", () => {
     expect(layoutRetangular({ trayWidth: 100, trayHeight: 50, circuitos: 0, bitolas: 0 }))
       .toMatchObject({ largura: 228, altura: 146, larguraCss: 520, desenho: { x: 32, y: 32 } });
+  });
 
-    const simRet = layoutRetangular({ trayWidth: 50, trayHeight: 100, circuitos: 3, bitolas: 6 });
-    expect(simRet).toMatchObject({ largura: 382, altura: 280, larguraCss: 780 });
-    expect(simRet.resumo.y).toBe(152);
-    expect(simRet.legenda).toEqual({ x: 132, y: 32 });
-
+  it("eletroduto Ø22,4 continua 155,4×155,4 com o tubo centralizado", () => {
     expect(layoutCircular({ outerR: 13.7, circuitos: 0, bitolas: 0 }))
       .toMatchObject({ largura: 155.4, altura: 155.4, larguraCss: 420, centro: { x: 77.7, y: 77.7 } });
+  });
+});
 
-    const simDuct = layoutCircular({ outerR: 35.112, circuitos: 3, bitolas: 6 });
-    expect(simDuct).toMatchObject({ largura: 454.224, altura: 214.224, larguraCss: 760 });
-    expect(simDuct.centro).toEqual({ x: 99.112, y: 67.112 });
-    expect(simDuct.resumo).toMatchObject({ x: -35.112, y: 51.112 });
-    expect(simDuct.legenda).toEqual({ x: 204.224, y: 32 });
+describe("a simulação empilha desenho, circuitos e resumo", () => {
+  it("calha: a lista fica entre a cota e o resumo", () => {
+    const L = layoutRetangular({ trayWidth: 50, trayHeight: 100, circuitos: 3, bitolas: 6 });
+    expect(L.cota.textoY).toBeLessThan(L.circuitos.y);
+    expect(L.circuitos.y).toBeLessThan(L.resumo.y);
+    // Uma coluna só: a largura é a do desenho, não a de uma coluna lateral.
+    expect(L.circuitos.largura).toBe(LEGENDA_W);
+  });
+
+  it("calha: 18 circuitos ocupam duas colunas e não esticam a altura", () => {
+    const dez = layoutRetangular({ trayWidth: 50, trayHeight: 100, circuitos: 10, bitolas: 6 });
+    const dezoito = layoutRetangular({ trayWidth: 50, trayHeight: 100, circuitos: 18, bitolas: 6 });
+    expect(dezoito.altura).toBe(dez.altura);
+    expect(dezoito.largura).toBeGreaterThan(dez.largura);
+    expect(dezoito.circuitos.largura).toBe(2 * LEGENDA_W);
+  });
+
+  it("eletroduto: mesma pilha abaixo do tubo", () => {
+    const L = layoutCircular({ outerR: 35.112, circuitos: 3, bitolas: 6 });
+    expect(L.circuitos.y).toBeLessThan(L.resumo.y);
+    expect(L.centro.y).toBe(32 + 35.112); // tubo ancorado no topo
   });
 });
 
 describe("alturas dos blocos de texto", () => {
   it("a legenda cresce uma linha por circuito", () => {
-    expect(alturaLegenda(3) - alturaLegenda(2)).toBe(26);
-    expect(alturaLegenda(0)).toBe(20); // só o título
+    expect(alturaLegenda(3) - alturaLegenda(2)).toBe(LEGENDA_LINHA);
+    // Sem circuito nenhum o bloco não existe — não ocupa nem a altura do título.
+    expect(alturaLegenda(0)).toBe(0);
   });
 
   it("o resumo cresce uma linha por bitola, e some quando não há nenhuma", () => {

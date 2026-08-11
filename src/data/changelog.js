@@ -782,6 +782,18 @@ export const CHANGELOG = [
       "Centenas de trechos plausíveis são conferidos a cada execução contra os invariantes físicos: cabo não atravessa cabo, nada vaza da infraestrutura e nada flutua no ar. Foi essa varredura que revelou a falha do trifólio corrigida na versão anterior.",
     ],
   },
+  {
+    versao: "1.27.0",
+    data: "2026-08-11",
+    titulo: "Desenho da simulação mais compacto",
+    tipo: "melhoria",
+    itens: [
+      "A lista de circuitos saiu da coluna lateral e foi para baixo do desenho, logo acima do resumo por bitola.",
+      "A lista quebra em colunas de 10 circuitos: a partir do décimo primeiro, o desenho cresce para o lado em vez de esticar para baixo sem limite. Um trecho de 50 circuitos ocupava mais de 2000px de altura na tela; agora nenhum passa de 700px.",
+      "O desenho passou a ser escalado para caber numa moldura, em vez de ter largura fixa — assim um trecho estreito e alto não é mais ampliado até virar uma parede de pixels.",
+      "O desenho da aba Infraestrutura não mudou: lá não há lista de circuitos nem resumo.",
+    ],
+  },
 ];
 
 // Ordena versões maior.menor.correção. Negativo se `a` vem antes de `b`.

@@ -13,7 +13,7 @@ import {
   CHAR_W_MONO,
   truncar,
   cabemEm,
-  yCircuito,
+  posicaoCircuito,
   yLinhaResumo,
   layoutRetangular,
   layoutCircular,
@@ -59,38 +59,39 @@ function ResumoCabos({ resumo, dark, largura }) {
   );
 }
 
-// A legenda ocupa uma coluna à direita do desenho. Uma linha por circuito:
-// "NN TAG" em cima, a designação de cabos embaixo. Sem descrição (fica só na
-// tabela do quadro) e sem marcação sobre os cabos: o desenho responde "cabe?"
-// e a lista responde "o que tem aqui?".
-function LegendaCircuitos({ itens, dark }) {
+// A lista de circuitos fica abaixo do desenho, quebrada em colunas de
+// CIRCUITOS_POR_COLUNA. Uma linha por circuito: "NN TAG" em cima, a designação
+// de cabos embaixo. Sem descrição (fica só na tabela do quadro) e sem marcação
+// sobre os cabos: o desenho responde "cabe?" e a lista responde "o que tem
+// aqui?".
+function LegendaCircuitos({ itens, dark, largura }) {
   const corSuave = dark ? "#94a3b8" : "#64748b";
   const corTag = dark ? "#e2e8f0" : "#334155";
   const corDesig = dark ? "#34d399" : "#059669";
   const corLinha = dark ? "#334155" : "#e2e8f0";
-  const util = LEGENDA_W - 12;
+  const util = LEGENDA_W - 12; // espaço útil DENTRO de uma coluna
 
   return (
     <g fontFamily="system-ui, sans-serif">
       <text x={0} y={0} fontSize={8} fontWeight="700" letterSpacing="1" fill={corSuave}>
         CIRCUITOS NO TRECHO
       </text>
-      <line x1={0} y1={6} x2={util} y2={6} stroke={corLinha} strokeWidth={1} />
+      <line x1={0} y1={6} x2={largura} y2={6} stroke={corLinha} strokeWidth={1} />
       {itens.map((it, i) => {
-        const y = yCircuito(i);
+        const { x, y } = posicaoCircuito(i);
         // Normaliza antes de medir: um item sem tag ou sem designação
         // derrubaria o componente inteiro no `.length`, não só a legenda.
         const tag = it.tag ?? "";
         const designacao = it.designacao ?? "";
         return (
           <g key={`${it.numero}-${tag}`}>
-            <text x={0} y={y} fontSize={9} fontFamily="ui-monospace, monospace" fill={corSuave}>
+            <text x={x} y={y} fontSize={9} fontFamily="ui-monospace, monospace" fill={corSuave}>
               {it.numero}
             </text>
-            <text x={18} y={y} fontSize={9} fontWeight="700" fill={corTag}>
+            <text x={x + 18} y={y} fontSize={9} fontWeight="700" fill={corTag}>
               {truncar(tag, cabemEm(util - 18, CHAR_W_BOLD))}
             </text>
-            <text x={18} y={y + 11} fontSize={8.5} fontFamily="ui-monospace, monospace" fill={corDesig}>
+            <text x={x + 18} y={y + 11} fontSize={8.5} fontFamily="ui-monospace, monospace" fill={corDesig}>
               {truncar(designacao, cabemEm(util - 18, CHAR_W_MONO))}
             </text>
           </g>
@@ -492,17 +493,17 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
             <text x={0} y={-outerR - 8} fill={dimText} fontSize={11} textAnchor="middle">
               {bitola ? `${bitola} — ` : ""}Ø int. {trayWidth} mm
             </text>
+            {L.circuitos && (
+              <g transform={`translate(${L.circuitos.x}, ${L.circuitos.y})`}>
+                <LegendaCircuitos itens={legenda} dark={dark} largura={L.circuitos.largura} />
+              </g>
+            )}
             {L.resumo && (
               <g transform={`translate(${L.resumo.x}, ${L.resumo.y})`}>
                 <ResumoCabos resumo={resumo} dark={dark} largura={L.resumo.largura} />
               </g>
             )}
           </g>
-          {L.legenda && (
-            <g transform={`translate(${L.legenda.x}, ${L.legenda.y})`}>
-              <LegendaCircuitos itens={legenda} dark={dark} />
-            </g>
-          )}
         </svg>
         <CableLegend legendItems={legendItems} />
       </div>
@@ -611,9 +612,12 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
           {trayWidth} mm
         </text>
 
-        {/* resumo de cabos por bitola — no espaço abaixo da cota de largura,
-            que hoje fica vazio quando a legenda de circuitos é mais alta que
-            o desenho */}
+        {/* lista de circuitos e resumo por bitola, empilhados abaixo da cota */}
+        {L.circuitos && (
+          <g transform={`translate(0, ${L.circuitos.y})`}>
+            <LegendaCircuitos itens={legenda} dark={dark} largura={L.circuitos.largura} />
+          </g>
+        )}
         {L.resumo && (
           <g transform={`translate(0, ${L.resumo.y})`}>
             <ResumoCabos resumo={resumo} dark={dark} largura={L.resumo.largura} />
@@ -635,11 +639,6 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
           {trayHeight} mm
         </text>
       </g>
-      {L.legenda && (
-        <g transform={`translate(${L.legenda.x}, ${L.legenda.y})`}>
-          <LegendaCircuitos itens={legenda} dark={dark} />
-        </g>
-      )}
     </svg>
   );
 

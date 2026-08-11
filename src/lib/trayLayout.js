@@ -17,17 +17,32 @@
 export const PADDING = 64;
 export const WALL = 6; // espessura da chapa da eletrocalha (visual)
 
-// ---- Legenda de circuitos (coluna à direita) --------------------------------
-export const LEGENDA_W = 250;    // largura reservada
+// ---- Lista de circuitos -----------------------------------------------------
+// Fica abaixo do desenho, não numa coluna lateral: a coluna esticava a imagem
+// para o lado e, num trecho com muitos circuitos, também para baixo. Aqui a
+// lista quebra em colunas de no máximo 10 circuitos, então a altura para de
+// crescer depois do décimo e o excedente vai para a coluna ao lado.
+export const CIRCUITOS_POR_COLUNA = 10;
+export const LEGENDA_W = 250;    // largura de UMA coluna
 export const LEGENDA_LINHA = 26; // altura de cada circuito (duas linhas de texto)
 export const LEGENDA_TOPO = 20;  // do título até o primeiro circuito
-export const LEGENDA_GAP = 50;   // do desenho até a legenda (passa a cota de altura)
 
-// ---- Resumo por bitola (bloco abaixo do desenho) ----------------------------
+// ---- Resumo por bitola ------------------------------------------------------
 export const RESUMO_TOPO = 16;  // do título até a primeira linha
 export const RESUMO_LINHA = 12; // altura de cada linha
-export const RESUMO_GAP = 16;   // folga antes do bloco, seja abaixo da cota
-                                // (calha) ou abaixo do tubo (eletroduto)
+
+// Folga entre blocos empilhados (cota → circuitos → resumo).
+export const RESUMO_GAP = 16;
+
+// ---- Tamanho na tela --------------------------------------------------------
+// O SVG é servido com uma largura em px e `height: auto`, então a altura
+// renderizada é a largura vezes a proporção do viewBox. Com uma largura FIXA,
+// um desenho estreito e alto (é o que a lista empilhada produz quando há
+// poucos circuitos) era ampliado até virar uma parede de pixels. Aqui a
+// largura é escolhida para a imagem caber numa caixa, preservando a proporção.
+const CAIXA_W = 780;
+const CAIXA_H = 700;
+const larguraParaCaber = (largura, altura) => Math.min(CAIXA_W, (CAIXA_H * largura) / altura);
 
 // ---- Cotas (largura embaixo, altura à direita) ------------------------------
 // Mesmos afastamentos nos dois eixos, medidos a partir da face externa da
@@ -41,10 +56,23 @@ export const COTA_TICK = 4; // meia-altura dos tracinhos nas pontas da cota
 export const yCircuito = (i) => LEGENDA_TOPO + i * LEGENDA_LINHA;
 export const yLinhaResumo = (i) => RESUMO_TOPO + i * RESUMO_LINHA;
 
+// O circuito `i` da lista: desce até o décimo, depois começa a coluna
+// seguinte. Quem desenha não faz essa conta — pede a posição aqui.
+export const posicaoCircuito = (i) => ({
+  x: Math.floor(i / CIRCUITOS_POR_COLUNA) * LEGENDA_W,
+  y: yCircuito(i % CIRCUITOS_POR_COLUNA),
+});
+
+export const colunasDeCircuitos = (circuitos) =>
+  circuitos ? Math.ceil(circuitos / CIRCUITOS_POR_COLUNA) : 0;
+
 // E a altura do bloco é, por construção, onde a linha seguinte começaria —
 // derivada das mesmas funções acima, nunca de uma segunda fórmula. Mexer no
-// espaçamento das linhas move a altura junto, sem chance de esquecer.
-export const alturaLegenda = (circuitos) => yCircuito(circuitos);
+// espaçamento das linhas move a altura junto, sem chance de esquecer. Com a
+// quebra em colunas, quem manda é a coluna mais cheia.
+export const alturaLegenda = (circuitos) =>
+  circuitos ? yCircuito(Math.min(circuitos, CIRCUITOS_POR_COLUNA)) : 0;
+export const larguraLegenda = (circuitos) => colunasDeCircuitos(circuitos) * LEGENDA_W;
 export const alturaResumo = (bitolas) => (bitolas ? yLinhaResumo(bitolas) + 8 : 0);
 
 // ---- Truncagem de texto -----------------------------------------------------
@@ -69,47 +97,54 @@ export const cabemEm = (largura, charW) => Math.max(0, Math.floor(largura / char
 
 // ---- Calha, perfilado, leito, aramado (seção retangular) --------------------
 //
-// Coordenadas do desenho são LOCAIS ao grupo transladado para `desenho`; as da
-// legenda são absolutas no canvas. `resumo.y` é local, como o resto do desenho.
+// Tudo é desenhado dentro de um grupo transladado para `desenho`, então as
+// coordenadas de `cota`, `circuitos` e `resumo` são LOCAIS a ele — empilhadas
+// de cima para baixo, cada bloco começando onde o anterior terminou.
 export function layoutRetangular({ trayWidth, trayHeight, circuitos = 0, bitolas = 0 }) {
   const temLegenda = circuitos > 0;
   const temResumo = bitolas > 0;
 
   const desenho = { x: PADDING / 2, y: PADDING / 2 };
 
-  // Pilha vertical no espaço local, de cima para baixo.
   const baseEstrutura = trayHeight + WALL;
   const cota = { linhaY: baseEstrutura + COTA_LINHA, textoY: baseEstrutura + COTA_TEXTO };
   // Cota de altura, na face direita da chapa.
   const faceDireita = trayWidth + WALL;
   const cotaAltura = { linhaX: faceDireita + COTA_LINHA, textoX: faceDireita + COTA_TEXTO };
-  const resumo = temResumo
-    ? { y: cota.textoY + RESUMO_GAP, largura: trayWidth }
+
+  // Os blocos de texto ocupam a largura das colunas de circuitos quando há
+  // lista; senão acompanham a calha, para o traço do resumo não sobrar.
+  const larguraTexto = temLegenda ? larguraLegenda(circuitos) : trayWidth;
+
+  // Pilha: cota de largura → circuitos → resumo.
+  const listaCircuitos = temLegenda
+    ? { y: cota.textoY + RESUMO_GAP, largura: larguraTexto }
     : null;
+  const fimListaLocal = listaCircuitos
+    ? listaCircuitos.y + alturaLegenda(circuitos)
+    : cota.textoY;
+  const resumo = temResumo ? { y: fimListaLocal + RESUMO_GAP, largura: larguraTexto } : null;
+  const fimLocal = resumo ? resumo.y + alturaResumo(bitolas) : fimListaLocal;
 
-  // Onde o desenho termina, em coordenada absoluta.
-  const fimDesenho = desenho.y + (resumo ? resumo.y + alturaResumo(bitolas) : cota.textoY);
-
-  const legenda = temLegenda
-    ? { x: desenho.x + trayWidth + LEGENDA_GAP, y: PADDING / 2 }
-    : null;
-  // A legenda pede a mesma folga embaixo que tem em cima.
-  const fimLegenda = legenda ? legenda.y + alturaLegenda(circuitos) + PADDING / 2 : 0;
-
-  // Piso histórico do desenho sem resumo: mantém a moldura folgada de sempre
+  // Piso histórico do desenho sozinho: mantém a moldura folgada de sempre
   // quando o conteúdo terminaria antes disso.
   const alturaMinima = trayHeight + PADDING * 1.5;
 
+  const largura = Math.max(trayWidth + PADDING * 2, desenho.x + larguraTexto + PADDING / 2);
+  const altura = Math.max(alturaMinima, desenho.y + fimLocal);
+
   return {
-    largura: temLegenda ? legenda.x + LEGENDA_W : trayWidth + PADDING * 2,
-    altura: Math.max(alturaMinima, fimDesenho, fimLegenda),
-    larguraCss: temLegenda ? 780 : 520,
+    largura,
+    altura,
+    // Sem blocos de texto (é o caso da aba Infraestrutura) o desenho continua
+    // com a largura de sempre — ali a proporção nunca foi um problema.
+    larguraCss: temLegenda || temResumo ? larguraParaCaber(largura, altura) : 520,
     desenho,
     baseEstrutura, // onde a chapa termina — a sombra de apoio se pendura aqui
     cota,
     cotaAltura,
+    circuitos: listaCircuitos,
     resumo,
-    legenda,
   };
 }
 
@@ -120,29 +155,37 @@ export function layoutRetangular({ trayWidth, trayHeight, circuitos = 0, bitolas
 export function layoutCircular({ outerR, circuitos = 0, bitolas = 0 }) {
   const temLegenda = circuitos > 0;
   const temResumo = bitolas > 0;
+  const temTexto = temLegenda || temResumo;
 
   const lado = (outerR + PADDING) * 2;
-  const legenda = temLegenda ? { x: lado + 6, y: PADDING / 2 } : null;
-  const largura = temLegenda ? legenda.x + LEGENDA_W : lado;
+  const larguraTexto = temLegenda ? larguraLegenda(circuitos) : 2 * outerR;
 
-  // Com resumo, o tubo ancora no topo — senão o resumo, que fica abaixo dele,
-  // teria que perseguir um centro que muda com a altura da legenda. Sem
-  // resumo, o tubo continua centralizado no canvas, como sempre foi.
-  const resumo = temResumo ? { x: -outerR, y: outerR + RESUMO_GAP, largura: 2 * outerR } : null;
+  // Havendo bloco de texto embaixo, o tubo ancora no topo — senão o texto
+  // teria que perseguir um centro que muda com a altura da lista. Sem texto,
+  // o tubo continua centralizado no canvas, como sempre foi.
   const topoTubo = PADDING / 2;
-  const fimDesenho = temResumo
-    ? topoTubo + 2 * outerR + RESUMO_GAP + alturaResumo(bitolas)
-    : lado;
-  const fimLegenda = legenda ? legenda.y + alturaLegenda(circuitos) + PADDING / 2 : 0;
 
-  const altura = Math.max(fimDesenho, fimLegenda);
+  // Pilha abaixo do tubo, em coordenada local ao centro dele.
+  const listaCircuitos = temLegenda
+    ? { x: -outerR, y: outerR + RESUMO_GAP, largura: larguraTexto }
+    : null;
+  const fimListaLocal = listaCircuitos
+    ? listaCircuitos.y + alturaLegenda(circuitos)
+    : outerR;
+  const resumo = temResumo
+    ? { x: -outerR, y: fimListaLocal + RESUMO_GAP, largura: larguraTexto }
+    : null;
+  const fimLocal = resumo ? resumo.y + alturaResumo(bitolas) : fimListaLocal;
+
+  const altura = temTexto ? topoTubo + outerR + fimLocal : lado;
+  const largura = Math.max(lado, (lado - 2 * outerR) / 2 + larguraTexto + PADDING / 2);
 
   return {
     largura,
     altura,
-    larguraCss: temLegenda ? 760 : 420,
-    centro: { x: lado / 2, y: temResumo ? topoTubo + outerR : altura / 2 },
+    larguraCss: temTexto ? larguraParaCaber(largura, altura) : 420,
+    centro: { x: lado / 2, y: temTexto ? topoTubo + outerR : altura / 2 },
+    circuitos: listaCircuitos,
     resumo,
-    legenda,
   };
 }
