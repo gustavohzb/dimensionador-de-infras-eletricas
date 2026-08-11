@@ -20,7 +20,6 @@ const LEGENDA_GAP = 50;    // do desenho até a legenda (passa a cota de altura)
 // truncagem é por contagem de caracteres. A fonte não é monoespaçada, então
 // isto erra por sobra — que é o lado seguro: texto cortado cedo demais é
 // melhor do que texto vazando por cima do vizinho.
-const CHAR_W = 5.0;        // 9px, normal
 const CHAR_W_BOLD = 5.6;   // 9px, bold
 const CHAR_W_MONO = 5.1;   // 8.5px, monoespaçada
 
@@ -31,13 +30,12 @@ function truncar(texto, maxChars) {
 
 const alturaLegenda = (itens) => LEGENDA_TOPO + itens.length * LEGENDA_LINHA;
 
-// Uma linha por circuito: "NN TAG — descrição" em cima, a designação de cabos
-// embaixo. Sem marcação sobre os cabos: o desenho responde "cabe?" e a lista
-// responde "o que tem aqui?".
+// Uma linha por circuito: "NN TAG" em cima, a designação de cabos embaixo.
+// Sem descrição (fica só na tabela do quadro) e sem marcação sobre os cabos:
+// o desenho responde "cabe?" e a lista responde "o que tem aqui?".
 function LegendaCircuitos({ itens, dark }) {
   const corSuave = dark ? "#94a3b8" : "#64748b";
   const corTag = dark ? "#e2e8f0" : "#334155";
-  const corDesc = dark ? "#94a3b8" : "#64748b";
   const corDesig = dark ? "#34d399" : "#059669";
   const corLinha = dark ? "#334155" : "#e2e8f0";
   const util = LEGENDA_W - 12;
@@ -54,24 +52,14 @@ function LegendaCircuitos({ itens, dark }) {
         // derrubaria o componente inteiro no `.length`, não só a legenda.
         const tag = it.tag ?? "";
         const designacao = it.designacao ?? "";
-        // xDesc tem que vir do comprimento da tag EXIBIDA (truncada), não da
-        // crua — senão uma TAG longa empurra a descrição pra fora do desenho
-        // mesmo aparecendo cortada na tela.
-        const tagExibida = truncar(tag, 14);
-        const xDesc = 18 + tagExibida.length * CHAR_W_BOLD + 8;
         return (
           <g key={`${it.numero}-${tag}`}>
             <text x={0} y={y} fontSize={9} fontFamily="ui-monospace, monospace" fill={corSuave}>
               {it.numero}
             </text>
             <text x={18} y={y} fontSize={9} fontWeight="700" fill={corTag}>
-              {tagExibida}
+              {truncar(tag, Math.floor((util - 18) / CHAR_W_BOLD))}
             </text>
-            {it.descricao && (
-              <text x={xDesc} y={y} fontSize={9} fill={corDesc}>
-                {truncar(it.descricao, Math.floor((util - xDesc) / CHAR_W))}
-              </text>
-            )}
             <text x={18} y={y + 11} fontSize={8.5} fontFamily="ui-monospace, monospace" fill={corDesig}>
               {truncar(designacao, Math.floor((util - 18) / CHAR_W_MONO))}
             </text>
