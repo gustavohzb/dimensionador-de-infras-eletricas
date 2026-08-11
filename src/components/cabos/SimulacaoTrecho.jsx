@@ -87,7 +87,7 @@ export default function SimulacaoTrecho({ circuitos, resultados, selecionados, p
   };
 
   const elegiveisTrifolio = itens.filter((it) => it.podeTrifolio);
-  const resumo = useMemo(() => resumoPorBitola(itens), [itens]);
+  const resumo = useMemo(() => resumoPorBitola(cabos), [cabos]);
 
   return (
     <div className={`${cardCls} space-y-3`}>

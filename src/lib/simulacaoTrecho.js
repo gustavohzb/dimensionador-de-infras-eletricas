@@ -117,23 +117,35 @@ export function condutoPredominante(circuitos) {
   return unico;
 }
 
-// Resumo do trecho por bitola: agrupa os circuitos que compartilham a mesma
-// designação de cabo (a string "N#Smm²+...") e conta quantos circuitos usam
-// cada uma — em vez de repetir a mesma designação uma vez por circuito, como
-// a legenda já faz. Um trecho com 17 circuitos idênticos vira uma linha só
-// ("17× 3#70mm²+1#35mm²+1#35mm²"), não dezessete.
+// Resumo do trecho por bitola: soma, cruzando TODOS os circuitos marcados,
+// quantos condutores físicos existem de cada especificação (tipo + vias +
+// seção + material) — um trifólio conta como 3 condutores, não 1 entrada,
+// porque fisicamente são 3 fios de mesma bitola, só instalados amarrados.
+// Cinco circuitos com "3#70mm²" cada viram uma linha só: "15#70mm²".
 //
-// Ordena pela mais comum primeiro (a composição que domina o trecho), com
-// empate alfabético para o resultado não depender da ordem de seleção.
-export function resumoPorBitola(itens) {
+// Recebe `cabos`, não `itens` — a bitola é uma propriedade do condutor físico
+// (o que `circuitosParaCabos` já desmembrou), não do circuito inteiro.
+//
+// Ordena por seção crescente, como uma lista de material lida de cima pra
+// baixo; empate por vias, para o resultado não depender da ordem de entrada.
+export function resumoPorBitola(cabos) {
   const contagem = new Map();
-  for (const it of itens ?? []) {
-    if (!it?.designacao) continue;
-    contagem.set(it.designacao, (contagem.get(it.designacao) ?? 0) + 1);
+  for (const c of cabos ?? []) {
+    if (!c) continue;
+    const chave = `${c.type}:${c.vias}:${c.section}:${c.material ?? "cobre"}`;
+    const quantidade = c.trifolio ? 3 : 1;
+    const atual = contagem.get(chave);
+    if (atual) atual.quantidade += quantidade;
+    else contagem.set(chave, { type: c.type, vias: c.vias, section: c.section, quantidade });
   }
-  return [...contagem.entries()]
-    .map(([designacao, quantidade]) => ({ designacao, quantidade }))
-    .sort((a, b) => b.quantidade - a.quantidade || a.designacao.localeCompare(b.designacao));
+  return [...contagem.values()]
+    .sort((a, b) => a.section - b.section || a.vias - b.vias)
+    .map((g) => ({
+      ...g,
+      // Mesma notação de designacaoCabos/parseSecao: "N#Smm²" para unipolar,
+      // "N#VxSmm²" para multipolar (N cabos, cada um com V vias internas).
+      label: g.type === "multipolar" ? `${g.quantidade}#${g.vias}x${g.section}mm²` : `${g.quantidade}#${g.section}mm²`,
+    }));
 }
 
 // Ocupação recalculada a partir dos cabos ATUAIS contra a infraestrutura

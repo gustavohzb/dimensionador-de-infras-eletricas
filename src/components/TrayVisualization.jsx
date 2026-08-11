@@ -49,19 +49,19 @@ function ResumoCabos({ resumo, dark, largura }) {
   return (
     <g fontFamily="system-ui, sans-serif">
       <text x={0} y={0} fontSize={7.5} fontWeight="700" letterSpacing="1" fill={corSuave}>
-        RESUMO DE CABOS
+        RESUMO POR BITOLA
       </text>
       <line x1={0} y1={5} x2={largura} y2={5} stroke={corLinha} strokeWidth={1} />
       {resumo.map((r, i) => (
         <text
-          key={r.designacao}
+          key={`${r.type}-${r.vias}-${r.section}`}
           x={0}
           y={RESUMO_TOPO + i * RESUMO_LINHA}
           fontSize={8}
           fontFamily="ui-monospace, monospace"
           fill={corDesig}
         >
-          {truncar(`${r.quantidade}× ${r.designacao}`, maxChars)}
+          {truncar(r.label, maxChars)}
         </text>
       ))}
     </g>

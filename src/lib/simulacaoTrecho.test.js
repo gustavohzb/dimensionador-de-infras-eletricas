@@ -236,28 +236,58 @@ describe("ocupacaoAplicada", () => {
 });
 
 describe("resumoPorBitola", () => {
-  const item = (designacao) => ({ numero: "01", tag: "AL-01", designacao });
+  // Cabo unipolar mínimo, no formato que circuitosParaCabos produz.
+  const cabo = (over = {}) => ({ type: "unipolar", vias: 1, section: 70, material: "cobre", ...over });
 
-  it("agrupa circuitos com a mesma designação numa linha só, contando quantos são", () => {
-    const itens = [item("3#70mm²+1#35mm²+1#35mm²"), item("3#70mm²+1#35mm²+1#35mm²"), item("3#70mm²+1#35mm²+1#35mm²")];
-    const resumo = resumoPorBitola(itens);
-    expect(resumo).toEqual([{ designacao: "3#70mm²+1#35mm²+1#35mm²", quantidade: 3 }]);
+  it("5 circuitos com 3 condutores de 70mm² cada viram uma linha só: 15#70mm²", () => {
+    // Cada circuito contribui 3 entradas de 70mm² (as 3 fases) — simulando o
+    // que circuitosParaCabos devolveria para 5 circuitos "3#70mm²+...".
+    const cabos = Array.from({ length: 5 }, () => [cabo(), cabo(), cabo()]).flat();
+    const resumo = resumoPorBitola(cabos);
+    expect(resumo).toEqual([{ type: "unipolar", vias: 1, section: 70, quantidade: 15, label: "15#70mm²" }]);
   });
 
-  it("ordena pela mais comum primeiro, empatando por ordem alfabética", () => {
-    const itens = [item("B"), item("A"), item("A"), item("C"), item("C"), item("C")];
-    const resumo = resumoPorBitola(itens);
-    expect(resumo.map((r) => r.designacao)).toEqual(["C", "A", "B"]);
-    expect(resumo.map((r) => r.quantidade)).toEqual([3, 2, 1]);
+  it("trifólio conta como 3 condutores, igual a 3 entradas soltas da mesma seção", () => {
+    const soltos = resumoPorBitola([cabo(), cabo(), cabo()]);
+    const feixe = resumoPorBitola([cabo({ trifolio: true })]);
+    expect(feixe).toEqual(soltos);
+    expect(feixe[0].quantidade).toBe(3);
+  });
+
+  it("multipolar usa a notação N#VxSmm² — N cabos, cada um com V vias internas", () => {
+    const resumo = resumoPorBitola([
+      { type: "multipolar", vias: 4, section: 16, material: "cobre" },
+      { type: "multipolar", vias: 4, section: 16, material: "cobre" },
+    ]);
+    expect(resumo).toEqual([{ type: "multipolar", vias: 4, section: 16, quantidade: 2, label: "2#4x16mm²" }]);
+  });
+
+  it("uma linha por bitola: seções diferentes não se misturam, mesmo material igual", () => {
+    const cabos = [cabo({ section: 70 }), cabo({ section: 70 }), cabo({ section: 35 })];
+    const resumo = resumoPorBitola(cabos);
+    expect(resumo).toEqual([
+      { type: "unipolar", vias: 1, section: 35, quantidade: 1, label: "1#35mm²" },
+      { type: "unipolar", vias: 1, section: 70, quantidade: 2, label: "2#70mm²" },
+    ]);
+  });
+
+  it("ordena por seção crescente, como uma lista de material", () => {
+    const cabos = [cabo({ section: 95 }), cabo({ section: 16 }), cabo({ section: 50 })];
+    expect(resumoPorBitola(cabos).map((r) => r.section)).toEqual([16, 50, 95]);
+  });
+
+  it("unipolar e multipolar da mesma seção não se misturam — são produtos diferentes", () => {
+    const cabos = [
+      cabo({ section: 16 }),
+      { type: "multipolar", vias: 4, section: 16, material: "cobre" },
+    ];
+    const resumo = resumoPorBitola(cabos);
+    expect(resumo).toHaveLength(2);
+    expect(resumo.map((r) => r.label).sort()).toEqual(["1#16mm²", "1#4x16mm²"]);
   });
 
   it("lista vazia ou nula devolve resumo vazio, sem estourar", () => {
     expect(resumoPorBitola([])).toEqual([]);
     expect(resumoPorBitola(undefined)).toEqual([]);
-  });
-
-  it("ignora item sem designação em vez de criar uma linha vazia", () => {
-    const itens = [item("3#25mm²"), { numero: "02", tag: "AL-02", designacao: "" }, { numero: "03", tag: "AL-03" }];
-    expect(resumoPorBitola(itens)).toEqual([{ designacao: "3#25mm²", quantidade: 1 }]);
   });
 });
