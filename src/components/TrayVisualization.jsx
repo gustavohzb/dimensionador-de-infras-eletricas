@@ -534,11 +534,12 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
   const width = temLegenda ? legendaX + LEGENDA_W : trayWidth + PADDING * 2;
   // Sem resumo, a altura é exatamente a de sempre (trayHeight + PADDING*1.5).
   // Com resumo, cresce só o suficiente para caber a cota de largura (que
-  // termina em trayHeight+WALL+30) mais o bloco do resumo logo abaixo dela —
+  // termina em trayHeight+WALL+30) mais o bloco do resumo logo abaixo dela,
+  // sem esquecer o PADDING/2 do topo em que o desenho inteiro é transladado —
   // nunca menos que a base, então o layout sem resumo não muda em nada.
   const alturaSemResumo = trayHeight + PADDING * 1.5;
   const alturaComResumo = temResumo
-    ? Math.max(alturaSemResumo, trayHeight + WALL + 46 + alturaResumo(resumo))
+    ? Math.max(alturaSemResumo, PADDING / 2 + trayHeight + WALL + 46 + alturaResumo(resumo))
     : alturaSemResumo;
   const height = temLegenda
     ? Math.max(alturaComResumo, alturaLegenda(legenda) + PADDING)
