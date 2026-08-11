@@ -1,50 +1,41 @@
 import { forwardRef, useId } from "react";
 import { VIAS_COLORS, COMANDO_COLOR, getDimensions, ELETRODUTO_NORMAS } from "../data/corfioHEPR";
 import { layoutCables, layoutCablesCircular, layoutCablesSplit } from "../lib/packing";
+// Toda a geometria — tamanho do canvas e posição de cada bloco — vem de
+// trayLayout. Este componente NÃO recalcula coordenada: o que ele desenha e o
+// que dimensiona o viewBox têm que sair da mesma conta, senão o conteúdo
+// reaparece cortado (já aconteceu duas vezes; ver o cabeçalho de trayLayout).
+import {
+  WALL,
+  COTA_TICK,
+  LEGENDA_W,
+  CHAR_W_BOLD,
+  CHAR_W_MONO,
+  truncar,
+  cabemEm,
+  yCircuito,
+  yLinhaResumo,
+  layoutRetangular,
+  layoutCircular,
+} from "../lib/trayLayout";
 
-const PADDING = 64;
-const WALL = 6; // espessura da chapa da eletrocalha (visual)
 const SEPTUM_HIGHLIGHT = "#f59e0b"; // cor de destaque da indicação do septo divisor (âmbar, visível em claro e escuro)
 
-// ---- Legenda de circuitos (opcional) ---------------------------------------
-// Desenhada DENTRO do SVG, não em HTML ao lado: o exportarSvgPng serializa só
-// o elemento <svg>, então uma legenda em HTML não sairia na imagem (é o que
-// acontece com a CableLegend de vias, logo abaixo).
-const LEGENDA_W = 250;     // largura reservada à direita, em unidades do viewBox
-const LEGENDA_LINHA = 26;  // altura de cada circuito (duas linhas de texto)
-const LEGENDA_TOPO = 20;   // do título até o primeiro circuito
-const LEGENDA_GAP = 50;    // do desenho até a legenda (passa a cota de altura)
+// ---- Blocos de texto opcionais (resumo e legenda) ---------------------------
+// Os dois são desenhados DENTRO do SVG, não em HTML ao lado: o exportarSvgPng
+// serializa só o elemento <svg>, então texto em HTML não sairia na imagem (é o
+// que acontece com a CableLegend de vias, no fim do arquivo).
+//
+// Cada bloco desenha em coordenada LOCAL, a partir de (0,0) — quem os coloca
+// no lugar é o <g transform> lá embaixo, com a posição vinda de trayLayout.
 
-// Larguras médias de caractere, medidas a olho nas fontes usadas abaixo. SVG
-// não quebra texto sozinho e não dá para medir fonte sem DOM, então a
-// truncagem é por contagem de caracteres. A fonte não é monoespaçada, então
-// isto erra por sobra — que é o lado seguro: texto cortado cedo demais é
-// melhor do que texto vazando por cima do vizinho.
-const CHAR_W_BOLD = 5.6;   // 9px, bold
-const CHAR_W_MONO = 5.1;   // 8.5px, monoespaçada
-
-function truncar(texto, maxChars) {
-  if (maxChars < 2) return "…";
-  return texto.length <= maxChars ? texto : `${texto.slice(0, maxChars - 1)}…`;
-}
-
-const alturaLegenda = (itens) => LEGENDA_TOPO + itens.length * LEGENDA_LINHA;
-
-// ---- Resumo de cabos por bitola (opcional) ---------------------------------
-// Vai no espaço abaixo do desenho, dentro do mesmo <g> do desenho — por isso
-// suas linhas são posicionadas em coordenada LOCAL (relativa ao desenho), não
-// à legenda de circuitos, que fica numa coluna à direita.
-const RESUMO_TOPO = 16;  // do título até a primeira linha
-const RESUMO_LINHA = 12; // altura de cada linha do resumo
-
-const alturaResumo = (resumo) => (resumo?.length ? RESUMO_TOPO + resumo.length * RESUMO_LINHA + 8 : 0);
-
+// O resumo fica no espaço abaixo do desenho, dentro do mesmo <g> dele.
 function ResumoCabos({ resumo, dark, largura }) {
   if (!resumo || resumo.length === 0) return null;
   const corSuave = dark ? "#94a3b8" : "#64748b";
   const corDesig = dark ? "#34d399" : "#059669";
   const corLinha = dark ? "#334155" : "#e2e8f0";
-  const maxChars = Math.max(6, Math.floor(largura / CHAR_W_MONO));
+  const maxChars = Math.max(6, cabemEm(largura, CHAR_W_MONO));
 
   return (
     <g fontFamily="system-ui, sans-serif">
@@ -56,7 +47,7 @@ function ResumoCabos({ resumo, dark, largura }) {
         <text
           key={`${r.type}-${r.vias}-${r.section}`}
           x={0}
-          y={RESUMO_TOPO + i * RESUMO_LINHA}
+          y={yLinhaResumo(i)}
           fontSize={8}
           fontFamily="ui-monospace, monospace"
           fill={corDesig}
@@ -68,9 +59,10 @@ function ResumoCabos({ resumo, dark, largura }) {
   );
 }
 
-// Uma linha por circuito: "NN TAG" em cima, a designação de cabos embaixo.
-// Sem descrição (fica só na tabela do quadro) e sem marcação sobre os cabos:
-// o desenho responde "cabe?" e a lista responde "o que tem aqui?".
+// A legenda ocupa uma coluna à direita do desenho. Uma linha por circuito:
+// "NN TAG" em cima, a designação de cabos embaixo. Sem descrição (fica só na
+// tabela do quadro) e sem marcação sobre os cabos: o desenho responde "cabe?"
+// e a lista responde "o que tem aqui?".
 function LegendaCircuitos({ itens, dark }) {
   const corSuave = dark ? "#94a3b8" : "#64748b";
   const corTag = dark ? "#e2e8f0" : "#334155";
@@ -85,7 +77,7 @@ function LegendaCircuitos({ itens, dark }) {
       </text>
       <line x1={0} y1={6} x2={util} y2={6} stroke={corLinha} strokeWidth={1} />
       {itens.map((it, i) => {
-        const y = LEGENDA_TOPO + i * LEGENDA_LINHA;
+        const y = yCircuito(i);
         // Normaliza antes de medir: um item sem tag ou sem designação
         // derrubaria o componente inteiro no `.length`, não só a legenda.
         const tag = it.tag ?? "";
@@ -96,10 +88,10 @@ function LegendaCircuitos({ itens, dark }) {
               {it.numero}
             </text>
             <text x={18} y={y} fontSize={9} fontWeight="700" fill={corTag}>
-              {truncar(tag, Math.floor((util - 18) / CHAR_W_BOLD))}
+              {truncar(tag, cabemEm(util - 18, CHAR_W_BOLD))}
             </text>
             <text x={18} y={y + 11} fontSize={8.5} fontFamily="ui-monospace, monospace" fill={corDesig}>
-              {truncar(designacao, Math.floor((util - 18) / CHAR_W_MONO))}
+              {truncar(designacao, cabemEm(util - 18, CHAR_W_MONO))}
             </text>
           </g>
         );
@@ -464,17 +456,11 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
     const wallThickness = Math.max(2.5, R * 0.12);
     const outerR = R + wallThickness;
     const items = layoutCablesCircular(cables, R);
-    const size = (outerR + PADDING) * 2;
-    const c0 = size / 2;
-    const legendaX = size + 6;
-    // Com resumo, o tubo fica ancorado no topo (como o desenho retangular já
-    // é) em vez de centralizado no canvas inteiro — senão o resumo, que fica
-    // abaixo do tubo, teria que "perseguir" um centro que muda com a altura
-    // da legenda. Sem resumo, mantém a centralização de sempre.
-    const alturaBase = temResumo ? PADDING / 2 + 2 * outerR + 16 + alturaResumo(resumo) : size;
-    const larguraSvg = temLegenda ? legendaX + LEGENDA_W : size;
-    const alturaSvg = temLegenda ? Math.max(alturaBase, alturaLegenda(legenda) + PADDING) : alturaBase;
-    const centroY = temResumo ? PADDING / 2 + outerR : alturaSvg / 2;
+    const L = layoutCircular({
+      outerR,
+      circuitos: temLegenda ? legenda.length : 0,
+      bitolas: temResumo ? resumo.length : 0,
+    });
     const bitola = ductDim.sizes.find((s) => s.value === trayWidth)?.label;
     const normaLabel = ELETRODUTO_NORMAS.find((n) => n.id === eletrodutoNorma)?.label;
 
@@ -482,15 +468,15 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
       <div className="flex w-full flex-col items-center">
         <svg
           ref={svgRef}
-          viewBox={`0 0 ${larguraSvg} ${alturaSvg}`}
-          width={larguraSvg}
-          height={alturaSvg}
+          viewBox={`0 0 ${L.largura} ${L.altura}`}
+          width={L.largura}
+          height={L.altura}
           className="max-w-full"
-          style={{ width: temLegenda ? 760 : 420, height: "auto" }}
+          style={{ width: L.larguraCss, height: "auto" }}
         >
           <SharedDefs uid={uid} />
-          <rect x={0} y={0} width={larguraSvg} height={alturaSvg} fill={bgFill} />
-          <g transform={`translate(${c0}, ${centroY})`}>
+          <rect x={0} y={0} width={L.largura} height={L.altura} fill={bgFill} />
+          <g transform={`translate(${L.centro.x}, ${L.centro.y})`}>
             <ellipse cx={0} cy={outerR + 5} rx={outerR * 0.85} ry={3.5} fill="#000000" opacity="0.12" />
             <Eletroduto R={R} uid={uid} />
             <g filter={`url(#cableShadow-${uid})`}>
@@ -506,14 +492,14 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
             <text x={0} y={-outerR - 8} fill={dimText} fontSize={11} textAnchor="middle">
               {bitola ? `${bitola} — ` : ""}Ø int. {trayWidth} mm
             </text>
-            {temResumo && (
-              <g transform={`translate(${-outerR}, ${outerR + 16})`}>
-                <ResumoCabos resumo={resumo} dark={dark} largura={2 * outerR} />
+            {L.resumo && (
+              <g transform={`translate(${L.resumo.x}, ${L.resumo.y})`}>
+                <ResumoCabos resumo={resumo} dark={dark} largura={L.resumo.largura} />
               </g>
             )}
           </g>
-          {temLegenda && (
-            <g transform={`translate(${legendaX}, ${PADDING / 2})`}>
+          {L.legenda && (
+            <g transform={`translate(${L.legenda.x}, ${L.legenda.y})`}>
               <LegendaCircuitos itens={legenda} dark={dark} />
             </g>
           )}
@@ -530,39 +516,31 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
   const hasForca = cables.some((c) => c.type !== "comando");
   const split = hasComando && hasForca ? layoutCablesSplit(cables, trayWidth, trayHeight) : null;
   const items = split ? split.items : layoutCables(cables, trayWidth, trayHeight);
-  const legendaX = PADDING / 2 + trayWidth + LEGENDA_GAP;
-  const width = temLegenda ? legendaX + LEGENDA_W : trayWidth + PADDING * 2;
-  // Sem resumo, a altura é exatamente a de sempre (trayHeight + PADDING*1.5).
-  // Com resumo, cresce só o suficiente para caber a cota de largura (que
-  // termina em trayHeight+WALL+30) mais o bloco do resumo logo abaixo dela,
-  // sem esquecer o PADDING/2 do topo em que o desenho inteiro é transladado —
-  // nunca menos que a base, então o layout sem resumo não muda em nada.
-  const alturaSemResumo = trayHeight + PADDING * 1.5;
-  const alturaComResumo = temResumo
-    ? Math.max(alturaSemResumo, PADDING / 2 + trayHeight + WALL + 46 + alturaResumo(resumo))
-    : alturaSemResumo;
-  const height = temLegenda
-    ? Math.max(alturaComResumo, alturaLegenda(legenda) + PADDING)
-    : alturaComResumo;
+  const L = layoutRetangular({
+    trayWidth,
+    trayHeight,
+    circuitos: temLegenda ? legenda.length : 0,
+    bitolas: temResumo ? resumo.length : 0,
+  });
 
   const svg = (
     <svg
       ref={svgRef}
-      viewBox={`0 0 ${width} ${height}`}
-      width={width}
-      height={height}
+      viewBox={`0 0 ${L.largura} ${L.altura}`}
+      width={L.largura}
+      height={L.altura}
       className="max-w-full"
-      style={{ width: temLegenda ? 780 : 520, height: "auto" }}
+      style={{ width: L.larguraCss, height: "auto" }}
     >
       <SharedDefs uid={uid} />
 
-      <rect x={0} y={0} width={width} height={height} fill={bgFill} />
+      <rect x={0} y={0} width={L.largura} height={L.altura} fill={bgFill} />
 
-      <g transform={`translate(${PADDING / 2}, ${PADDING / 2})`}>
+      <g transform={`translate(${L.desenho.x}, ${L.desenho.y})`}>
         {/* sombra de apoio no piso */}
         <ellipse
           cx={trayWidth / 2}
-          cy={trayHeight + WALL + 5}
+          cy={L.baseEstrutura + 5}
           rx={trayWidth / 2 + WALL}
           ry={3.5}
           fill="#000000"
@@ -626,39 +604,39 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
         </g>
 
         {/* cota de largura */}
-        <line x1={0} y1={trayHeight + WALL + 14} x2={trayWidth} y2={trayHeight + WALL + 14} stroke="#94a3b8" strokeWidth={1} />
-        <line x1={0} y1={trayHeight + WALL + 10} x2={0} y2={trayHeight + WALL + 18} stroke="#94a3b8" strokeWidth={1} />
-        <line x1={trayWidth} y1={trayHeight + WALL + 10} x2={trayWidth} y2={trayHeight + WALL + 18} stroke="#94a3b8" strokeWidth={1} />
-        <text x={trayWidth / 2} y={trayHeight + WALL + 30} fill={dimText} fontSize={11} textAnchor="middle">
+        <line x1={0} y1={L.cota.linhaY} x2={trayWidth} y2={L.cota.linhaY} stroke="#94a3b8" strokeWidth={1} />
+        <line x1={0} y1={L.cota.linhaY - COTA_TICK} x2={0} y2={L.cota.linhaY + COTA_TICK} stroke="#94a3b8" strokeWidth={1} />
+        <line x1={trayWidth} y1={L.cota.linhaY - COTA_TICK} x2={trayWidth} y2={L.cota.linhaY + COTA_TICK} stroke="#94a3b8" strokeWidth={1} />
+        <text x={trayWidth / 2} y={L.cota.textoY} fill={dimText} fontSize={11} textAnchor="middle">
           {trayWidth} mm
         </text>
 
         {/* resumo de cabos por bitola — no espaço abaixo da cota de largura,
             que hoje fica vazio quando a legenda de circuitos é mais alta que
             o desenho */}
-        {temResumo && (
-          <g transform={`translate(0, ${trayHeight + WALL + 46})`}>
-            <ResumoCabos resumo={resumo} dark={dark} largura={trayWidth} />
+        {L.resumo && (
+          <g transform={`translate(0, ${L.resumo.y})`}>
+            <ResumoCabos resumo={resumo} dark={dark} largura={L.resumo.largura} />
           </g>
         )}
 
         {/* cota de altura (vertical, ao lado da linha) */}
-        <line x1={trayWidth + WALL + 14} y1={0} x2={trayWidth + WALL + 14} y2={trayHeight} stroke="#94a3b8" strokeWidth={1} />
-        <line x1={trayWidth + WALL + 10} y1={0} x2={trayWidth + WALL + 18} y2={0} stroke="#94a3b8" strokeWidth={1} />
-        <line x1={trayWidth + WALL + 10} y1={trayHeight} x2={trayWidth + WALL + 18} y2={trayHeight} stroke="#94a3b8" strokeWidth={1} />
+        <line x1={L.cotaAltura.linhaX} y1={0} x2={L.cotaAltura.linhaX} y2={trayHeight} stroke="#94a3b8" strokeWidth={1} />
+        <line x1={L.cotaAltura.linhaX - COTA_TICK} y1={0} x2={L.cotaAltura.linhaX + COTA_TICK} y2={0} stroke="#94a3b8" strokeWidth={1} />
+        <line x1={L.cotaAltura.linhaX - COTA_TICK} y1={trayHeight} x2={L.cotaAltura.linhaX + COTA_TICK} y2={trayHeight} stroke="#94a3b8" strokeWidth={1} />
         <text
-          x={trayWidth + WALL + 30}
+          x={L.cotaAltura.textoX}
           y={trayHeight / 2}
           fill={dimText}
           fontSize={11}
           textAnchor="middle"
-          transform={`rotate(-90, ${trayWidth + WALL + 30}, ${trayHeight / 2})`}
+          transform={`rotate(-90, ${L.cotaAltura.textoX}, ${trayHeight / 2})`}
         >
           {trayHeight} mm
         </text>
       </g>
-      {temLegenda && (
-        <g transform={`translate(${legendaX}, ${PADDING / 2})`}>
+      {L.legenda && (
+        <g transform={`translate(${L.legenda.x}, ${L.legenda.y})`}>
           <LegendaCircuitos itens={legenda} dark={dark} />
         </g>
       )}
