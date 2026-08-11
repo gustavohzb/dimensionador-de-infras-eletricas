@@ -33,7 +33,7 @@ const SEPTUM_HIGHLIGHT = "#f59e0b"; // cor de destaque da indicação do septo d
 function ResumoCabos({ resumo, dark, largura }) {
   if (!resumo || resumo.length === 0) return null;
   const corSuave = dark ? "#94a3b8" : "#64748b";
-  const corDesig = dark ? "#34d399" : "#059669";
+  const corDesig = dark ? "#ffffff" : "#000000";
   const corLinha = dark ? "#334155" : "#e2e8f0";
   const maxChars = Math.max(6, cabemEm(largura, CHAR_W_MONO));
 
@@ -67,7 +67,7 @@ function ResumoCabos({ resumo, dark, largura }) {
 function LegendaCircuitos({ itens, dark, largura }) {
   const corSuave = dark ? "#94a3b8" : "#64748b";
   const corTag = dark ? "#e2e8f0" : "#334155";
-  const corDesig = dark ? "#34d399" : "#059669";
+  const corDesig = dark ? "#ffffff" : "#000000";
   const corLinha = dark ? "#334155" : "#e2e8f0";
   const util = LEGENDA_W - 12; // espaço útil DENTRO de uma coluna
 

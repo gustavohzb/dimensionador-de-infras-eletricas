@@ -11,7 +11,8 @@ import { ESQUEMAS } from "../data/cabosNBR5410";
 import { designacaoCabos } from "../lib/cableSizingPro";
 import { circuitosParaLinhas } from "../lib/quadroToMemorial";
 import { exportCircuitoPDF, exportMemorialPDF } from "../lib/memorialPdf";
-import { proximoNumero } from "../lib/sequencialRotulos";
+import { proximoNumero, proximaCopia } from "../lib/sequencialRotulos";
+import { marcarTagsDuplicadas } from "../lib/tagsDuplicadas";
 
 const STORAGE_KEY = "quadroCargas.v2";
 const STORAGE_KEY_V1 = "quadroCargas.v1";
@@ -111,7 +112,7 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
   };
   const copiar = (i) => {
     const copia = JSON.parse(JSON.stringify(circuitos[i]));
-    copia.tag = `${copia.tag}-C`;
+    copia.tag = proximaCopia(circuitos.map((c) => c.tag), copia.tag);
     const next = circuitos.slice();
     next.splice(i + 1, 0, copia);
     setCircuitos(next);
@@ -138,6 +139,11 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
     setSelecionadosEnvio(new Set()); // índices mudaram — zera a seleção de envio
     setImportando(false);
   };
+
+  // TAGs repetidas confundem a leitura do memorial e da simulação (duas
+  // linhas com a mesma identificação) — avisa, mas não bloqueia edição.
+  const tagsRepetidas = marcarTagsDuplicadas(circuitos.map((c) => c.tag));
+  const nomesTagsRepetidas = [...new Set(circuitos.filter((_, i) => tagsRepetidas[i]).map((c) => c.tag))];
 
   // ---- Envio para a aba Infraestrutura (Auto) ----
   // Só circuitos calculados com sucesso podem ser enviados (os com erro não
@@ -274,6 +280,17 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
             </button>
           </div>
         </div>
+        {nomesTagsRepetidas.length > 0 && (
+          <p className="mb-2 rounded-xs border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-800 dark:border-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+            ⚠ Tag repetida: {nomesTagsRepetidas.map((t, i) => (
+              <span key={t}>
+                {i > 0 && ", "}
+                <b className="font-mono">{t}</b>
+              </span>
+            ))}
+            . Circuitos com a mesma TAG ficam difíceis de distinguir no memorial e na simulação — renomeie um deles.
+          </p>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-left text-xs">
             <thead>
@@ -355,7 +372,17 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
                       />
                     </td>
                     <td className="px-2 py-1.5 font-mono tabular-nums text-slate-400">{String(i + 1).padStart(2, "0")}</td>
-                    <td className="px-2 py-1.5 font-mono font-semibold text-slate-700 dark:text-slate-200">{c.tag}</td>
+                    <td
+                      className={`px-2 py-1.5 font-mono font-semibold ${
+                        tagsRepetidas[i]
+                          ? "text-amber-700 dark:text-amber-400"
+                          : "text-slate-700 dark:text-slate-200"
+                      }`}
+                      title={tagsRepetidas[i] ? "Tag repetida — confira as outras linhas com a mesma TAG" : undefined}
+                    >
+                      {c.tag}
+                      {tagsRepetidas[i] && <span className="ml-1">⚠</span>}
+                    </td>
                     <td className="max-w-[180px] truncate px-2 py-1.5 text-slate-500 dark:text-slate-400">
                       {c.descricao || "—"}
                     </td>

@@ -13,3 +13,20 @@ export function proximoNumero(rotulos, padrao) {
     .filter((n) => Number.isFinite(n));
   return (usados.length ? Math.max(...usados) : 0) + 1;
 }
+
+const escapaRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Próxima tag ao copiar um circuito: acrescenta "-NN" em vez de "-C" (que não
+// distingue a 2ª cópia da 3ª, nem deixa claro quantas já existem).
+//
+// A "família" da cópia é a tag SEM um sufixo numérico já existente — copiar
+// "QDLF-01" não empilha para "QDLF-01-01"; o "-01" já é tratado como a
+// numeração da família "QDLF", e a cópia pega o próximo número livre dali
+// ("QDLF-02", por exemplo). Assim copiar uma cópia continua a mesma
+// contagem em vez de aninhar sufixos sem fim.
+export function proximaCopia(tags, tagOriginal) {
+  const base = String(tagOriginal ?? "").replace(/-\d+$/, "");
+  const padrao = new RegExp(`^${escapaRegex(base)}-(\\d+)$`);
+  const n = proximoNumero(tags, padrao);
+  return `${base}-${String(n).padStart(2, "0")}`;
+}

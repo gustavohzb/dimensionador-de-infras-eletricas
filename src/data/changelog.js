@@ -794,6 +794,17 @@ export const CHANGELOG = [
       "O desenho da aba Infraestrutura não mudou: lá não há lista de circuitos nem resumo.",
     ],
   },
+  {
+    versao: "1.27.1",
+    data: "2026-08-12",
+    titulo: "Cópia numerada, aviso de TAG repetida e contraste da designação",
+    tipo: "melhoria",
+    itens: [
+      "Copiar um circuito no quadro de cargas passa a numerar a TAG (-01, -02, -03…) em vez de acrescentar -C — dá para saber quantas cópias existem e qual é qual.",
+      "Duas ou mais linhas com a mesma TAG (mesmo diferindo só em maiúscula/minúscula ou espaço) mostram um aviso acima da tabela, com as linhas envolvidas marcadas — TAGs repetidas ficam difíceis de distinguir no memorial e na simulação.",
+      "A designação de cabos na lista de circuitos e no resumo por bitola do desenho de simulação passou de verde para preto no modo claro e branco no modo escuro — mais contraste contra o fundo do bloco de texto.",
+    ],
+  },
 ];
 
 // Ordena versões maior.menor.correção. Negativo se `a` vem antes de `b`.

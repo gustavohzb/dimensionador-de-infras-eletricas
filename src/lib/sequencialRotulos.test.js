@@ -2,7 +2,7 @@
 // `lista.length + 1` errava (remoção no meio e dois cliques no mesmo lote).
 
 import { describe, it, expect } from "vitest";
-import { proximoNumero } from "./sequencialRotulos";
+import { proximoNumero, proximaCopia } from "./sequencialRotulos";
 
 const LUM = /^L(\d+)$/;
 const TAG = /^AL-(\d+)/;
@@ -54,5 +54,44 @@ describe("proximoNumero", () => {
     expect(a).toBe(2);
     expect(b).toBe(3);
     expect(a).not.toBe(b);
+  });
+});
+
+describe("proximaCopia", () => {
+  it("primeira cópia de uma tag sem número no fim vira -01", () => {
+    expect(proximaCopia(["QDLF-CLASSIFICACAO"], "QDLF-CLASSIFICACAO")).toBe("QDLF-CLASSIFICACAO-01");
+  });
+
+  it("segunda cópia vira -02, não repete -01", () => {
+    expect(proximaCopia(["QDLF", "QDLF-01"], "QDLF")).toBe("QDLF-02");
+  });
+
+  it("copiar uma tag que JÁ termina em número continua a mesma família, não empilha sufixo", () => {
+    // "QDLF-01" já carrega a numeração da família "QDLF" — copiá-la não vira
+    // "QDLF-01-01", vira o próximo número livre de "QDLF-NN".
+    expect(proximaCopia(["QDLF-01"], "QDLF-01")).toBe("QDLF-02");
+  });
+
+  it("copiar uma cópia continua a mesma contagem, não aninha um segundo sufixo", () => {
+    // Copiar "QDLF-01" (que por sua vez já foi copiado de "QDLF") não vira
+    // "QDLF-01-01" — a base é "QDLF", e o próximo livre daquela família é -02.
+    expect(proximaCopia(["QDLF", "QDLF-01"], "QDLF-01")).toBe("QDLF-02");
+  });
+
+  it("pula números já usados por edição manual, sem repetir", () => {
+    expect(proximaCopia(["QDLF", "QDLF-01", "QDLF-03"], "QDLF")).toBe("QDLF-04");
+  });
+
+  it("famílias de tags diferentes não se misturam", () => {
+    expect(proximaCopia(["QDLF-01", "SALA-02"], "SALA-02")).toBe("SALA-03");
+  });
+
+  it("tag com caracteres especiais de regex não quebra", () => {
+    expect(proximaCopia(["QD (Anexo)"], "QD (Anexo)")).toBe("QD (Anexo)-01");
+  });
+
+  it("tag vazia ou nula não quebra", () => {
+    expect(proximaCopia([], "")).toBe("-01");
+    expect(proximaCopia([], undefined)).toBe("-01");
   });
 });
