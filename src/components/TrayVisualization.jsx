@@ -54,14 +54,18 @@ function LegendaCircuitos({ itens, dark }) {
         // derrubaria o componente inteiro no `.length`, não só a legenda.
         const tag = it.tag ?? "";
         const designacao = it.designacao ?? "";
-        const xDesc = 18 + tag.length * CHAR_W_BOLD + 8;
+        // xDesc tem que vir do comprimento da tag EXIBIDA (truncada), não da
+        // crua — senão uma TAG longa empurra a descrição pra fora do desenho
+        // mesmo aparecendo cortada na tela.
+        const tagExibida = truncar(tag, 14);
+        const xDesc = 18 + tagExibida.length * CHAR_W_BOLD + 8;
         return (
           <g key={`${it.numero}-${tag}`}>
             <text x={0} y={y} fontSize={9} fontFamily="ui-monospace, monospace" fill={corSuave}>
               {it.numero}
             </text>
             <text x={18} y={y} fontSize={9} fontWeight="700" fill={corTag}>
-              {truncar(tag, 14)}
+              {tagExibida}
             </text>
             {it.descricao && (
               <text x={xDesc} y={y} fontSize={9} fill={corDesc}>
