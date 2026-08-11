@@ -117,6 +117,25 @@ export function condutoPredominante(circuitos) {
   return unico;
 }
 
+// Resumo do trecho por bitola: agrupa os circuitos que compartilham a mesma
+// designação de cabo (a string "N#Smm²+...") e conta quantos circuitos usam
+// cada uma — em vez de repetir a mesma designação uma vez por circuito, como
+// a legenda já faz. Um trecho com 17 circuitos idênticos vira uma linha só
+// ("17× 3#70mm²+1#35mm²+1#35mm²"), não dezessete.
+//
+// Ordena pela mais comum primeiro (a composição que domina o trecho), com
+// empate alfabético para o resultado não depender da ordem de seleção.
+export function resumoPorBitola(itens) {
+  const contagem = new Map();
+  for (const it of itens ?? []) {
+    if (!it?.designacao) continue;
+    contagem.set(it.designacao, (contagem.get(it.designacao) ?? 0) + 1);
+  }
+  return [...contagem.entries()]
+    .map(([designacao, quantidade]) => ({ designacao, quantidade }))
+    .sort((a, b) => b.quantidade - a.quantidade || a.designacao.localeCompare(b.designacao));
+}
+
 // Ocupação recalculada a partir dos cabos ATUAIS contra a infraestrutura
 // aplicada. O objeto `applied` congela os números do momento da busca, e os
 // cabos podem ter mudado desde então — é essa diferença que faz aparecer o

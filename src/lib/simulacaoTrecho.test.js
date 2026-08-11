@@ -3,7 +3,7 @@
 // — se designacaoCabos ou parseSecao mudarem de formato, estes testes quebram.
 
 import { describe, it, expect } from "vitest";
-import { circuitosParaCabos, condutoPredominante, ocupacaoAplicada } from "./simulacaoTrecho";
+import { circuitosParaCabos, condutoPredominante, ocupacaoAplicada, resumoPorBitola } from "./simulacaoTrecho";
 import { getDiameter } from "../data/corfioHEPR";
 import { computeOccupancy } from "./occupancy";
 
@@ -232,5 +232,32 @@ describe("ocupacaoAplicada", () => {
     const trif = [{ d: 10, type: "unipolar", vias: 1, trifolio: true }];
     const applied = { infraType: "eletrocalha", eletrodutoNorma: null, trayWidth: 100, trayHeight: 50, trayArea: 5000 };
     expect(ocupacaoAplicada(trif, applied).cableArea).toBeCloseTo(3 * Math.PI * 25, 6);
+  });
+});
+
+describe("resumoPorBitola", () => {
+  const item = (designacao) => ({ numero: "01", tag: "AL-01", designacao });
+
+  it("agrupa circuitos com a mesma designação numa linha só, contando quantos são", () => {
+    const itens = [item("3#70mm²+1#35mm²+1#35mm²"), item("3#70mm²+1#35mm²+1#35mm²"), item("3#70mm²+1#35mm²+1#35mm²")];
+    const resumo = resumoPorBitola(itens);
+    expect(resumo).toEqual([{ designacao: "3#70mm²+1#35mm²+1#35mm²", quantidade: 3 }]);
+  });
+
+  it("ordena pela mais comum primeiro, empatando por ordem alfabética", () => {
+    const itens = [item("B"), item("A"), item("A"), item("C"), item("C"), item("C")];
+    const resumo = resumoPorBitola(itens);
+    expect(resumo.map((r) => r.designacao)).toEqual(["C", "A", "B"]);
+    expect(resumo.map((r) => r.quantidade)).toEqual([3, 2, 1]);
+  });
+
+  it("lista vazia ou nula devolve resumo vazio, sem estourar", () => {
+    expect(resumoPorBitola([])).toEqual([]);
+    expect(resumoPorBitola(undefined)).toEqual([]);
+  });
+
+  it("ignora item sem designação em vez de criar uma linha vazia", () => {
+    const itens = [item("3#25mm²"), { numero: "02", tag: "AL-02", designacao: "" }, { numero: "03", tag: "AL-03" }];
+    expect(resumoPorBitola(itens)).toEqual([{ designacao: "3#25mm²", quantidade: 1 }]);
   });
 });

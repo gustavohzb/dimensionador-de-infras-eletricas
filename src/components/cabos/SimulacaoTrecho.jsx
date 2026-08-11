@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { INFRA_TYPES } from "../../data/corfioHEPR";
 import { useBuscaInfra } from "../../hooks/useBuscaInfra";
 import { exportarSvgPng } from "../../lib/exportarSvgPng";
-import { circuitosParaCabos, condutoPredominante, ocupacaoAplicada } from "../../lib/simulacaoTrecho";
+import { circuitosParaCabos, condutoPredominante, ocupacaoAplicada, resumoPorBitola } from "../../lib/simulacaoTrecho";
 import OccupancyMeter from "../OccupancyMeter";
 import TrayVisualization from "../TrayVisualization";
 
@@ -87,6 +87,7 @@ export default function SimulacaoTrecho({ circuitos, resultados, selecionados, p
   };
 
   const elegiveisTrifolio = itens.filter((it) => it.podeTrifolio);
+  const resumo = useMemo(() => resumoPorBitola(itens), [itens]);
 
   return (
     <div className={`${cardCls} space-y-3`}>
@@ -243,6 +244,7 @@ export default function SimulacaoTrecho({ circuitos, resultados, selecionados, p
               leitoFlange={applied.leitoFlange}
               eletrodutoNorma={applied.eletrodutoNorma}
               legenda={itens}
+              resumo={resumo}
             />
           </div>
 

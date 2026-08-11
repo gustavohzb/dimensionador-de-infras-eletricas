@@ -30,6 +30,44 @@ function truncar(texto, maxChars) {
 
 const alturaLegenda = (itens) => LEGENDA_TOPO + itens.length * LEGENDA_LINHA;
 
+// ---- Resumo de cabos por bitola (opcional) ---------------------------------
+// Vai no espaço abaixo do desenho, dentro do mesmo <g> do desenho — por isso
+// suas linhas são posicionadas em coordenada LOCAL (relativa ao desenho), não
+// à legenda de circuitos, que fica numa coluna à direita.
+const RESUMO_TOPO = 16;  // do título até a primeira linha
+const RESUMO_LINHA = 12; // altura de cada linha do resumo
+
+const alturaResumo = (resumo) => (resumo?.length ? RESUMO_TOPO + resumo.length * RESUMO_LINHA + 8 : 0);
+
+function ResumoCabos({ resumo, dark, largura }) {
+  if (!resumo || resumo.length === 0) return null;
+  const corSuave = dark ? "#94a3b8" : "#64748b";
+  const corDesig = dark ? "#34d399" : "#059669";
+  const corLinha = dark ? "#334155" : "#e2e8f0";
+  const maxChars = Math.max(6, Math.floor(largura / CHAR_W_MONO));
+
+  return (
+    <g fontFamily="system-ui, sans-serif">
+      <text x={0} y={0} fontSize={7.5} fontWeight="700" letterSpacing="1" fill={corSuave}>
+        RESUMO DE CABOS
+      </text>
+      <line x1={0} y1={5} x2={largura} y2={5} stroke={corLinha} strokeWidth={1} />
+      {resumo.map((r, i) => (
+        <text
+          key={r.designacao}
+          x={0}
+          y={RESUMO_TOPO + i * RESUMO_LINHA}
+          fontSize={8}
+          fontFamily="ui-monospace, monospace"
+          fill={corDesig}
+        >
+          {truncar(`${r.quantidade}× ${r.designacao}`, maxChars)}
+        </text>
+      ))}
+    </g>
+  );
+}
+
 // Uma linha por circuito: "NN TAG" em cima, a designação de cabos embaixo.
 // Sem descrição (fica só na tabela do quadro) e sem marcação sobre os cabos:
 // o desenho responde "cabe?" e a lista responde "o que tem aqui?".
@@ -409,9 +447,10 @@ function CableLegend({ legendItems }) {
   );
 }
 
-const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWidth, trayHeight, dark = false, infraType = "eletrocalha", leitoFlange = "interna", eletrodutoNorma = "nbr5624", legenda = null }, svgRef) {
+const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWidth, trayHeight, dark = false, infraType = "eletrocalha", leitoFlange = "interna", eletrodutoNorma = "nbr5624", legenda = null, resumo = null }, svgRef) {
   const uid = useId().replace(/:/g, "");
   const temLegenda = Array.isArray(legenda) && legenda.length > 0;
+  const temResumo = Array.isArray(resumo) && resumo.length > 0;
   const legendItems = [...new Map(cables.map((c) => [`${c.type}-${c.vias}`, { type: c.type, vias: c.vias }])).values()].sort(
     (a, b) => a.vias - b.vias
   );
@@ -428,8 +467,14 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
     const size = (outerR + PADDING) * 2;
     const c0 = size / 2;
     const legendaX = size + 6;
+    // Com resumo, o tubo fica ancorado no topo (como o desenho retangular já
+    // é) em vez de centralizado no canvas inteiro — senão o resumo, que fica
+    // abaixo do tubo, teria que "perseguir" um centro que muda com a altura
+    // da legenda. Sem resumo, mantém a centralização de sempre.
+    const alturaBase = temResumo ? PADDING / 2 + 2 * outerR + 16 + alturaResumo(resumo) : size;
     const larguraSvg = temLegenda ? legendaX + LEGENDA_W : size;
-    const alturaSvg = temLegenda ? Math.max(size, alturaLegenda(legenda) + PADDING) : size;
+    const alturaSvg = temLegenda ? Math.max(alturaBase, alturaLegenda(legenda) + PADDING) : alturaBase;
+    const centroY = temResumo ? PADDING / 2 + outerR : alturaSvg / 2;
     const bitola = ductDim.sizes.find((s) => s.value === trayWidth)?.label;
     const normaLabel = ELETRODUTO_NORMAS.find((n) => n.id === eletrodutoNorma)?.label;
 
@@ -445,7 +490,7 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
         >
           <SharedDefs uid={uid} />
           <rect x={0} y={0} width={larguraSvg} height={alturaSvg} fill={bgFill} />
-          <g transform={`translate(${c0}, ${alturaSvg / 2})`}>
+          <g transform={`translate(${c0}, ${centroY})`}>
             <ellipse cx={0} cy={outerR + 5} rx={outerR * 0.85} ry={3.5} fill="#000000" opacity="0.12" />
             <Eletroduto R={R} uid={uid} />
             <g filter={`url(#cableShadow-${uid})`}>
@@ -461,6 +506,11 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
             <text x={0} y={-outerR - 8} fill={dimText} fontSize={11} textAnchor="middle">
               {bitola ? `${bitola} — ` : ""}Ø int. {trayWidth} mm
             </text>
+            {temResumo && (
+              <g transform={`translate(${-outerR}, ${outerR + 16})`}>
+                <ResumoCabos resumo={resumo} dark={dark} largura={2 * outerR} />
+              </g>
+            )}
           </g>
           {temLegenda && (
             <g transform={`translate(${legendaX}, ${PADDING / 2})`}>
@@ -482,9 +532,17 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
   const items = split ? split.items : layoutCables(cables, trayWidth, trayHeight);
   const legendaX = PADDING / 2 + trayWidth + LEGENDA_GAP;
   const width = temLegenda ? legendaX + LEGENDA_W : trayWidth + PADDING * 2;
+  // Sem resumo, a altura é exatamente a de sempre (trayHeight + PADDING*1.5).
+  // Com resumo, cresce só o suficiente para caber a cota de largura (que
+  // termina em trayHeight+WALL+30) mais o bloco do resumo logo abaixo dela —
+  // nunca menos que a base, então o layout sem resumo não muda em nada.
+  const alturaSemResumo = trayHeight + PADDING * 1.5;
+  const alturaComResumo = temResumo
+    ? Math.max(alturaSemResumo, trayHeight + WALL + 46 + alturaResumo(resumo))
+    : alturaSemResumo;
   const height = temLegenda
-    ? Math.max(trayHeight + PADDING * 1.5, alturaLegenda(legenda) + PADDING)
-    : trayHeight + PADDING * 1.5;
+    ? Math.max(alturaComResumo, alturaLegenda(legenda) + PADDING)
+    : alturaComResumo;
 
   const svg = (
     <svg
@@ -573,6 +631,15 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
         <text x={trayWidth / 2} y={trayHeight + WALL + 30} fill={dimText} fontSize={11} textAnchor="middle">
           {trayWidth} mm
         </text>
+
+        {/* resumo de cabos por bitola — no espaço abaixo da cota de largura,
+            que hoje fica vazio quando a legenda de circuitos é mais alta que
+            o desenho */}
+        {temResumo && (
+          <g transform={`translate(0, ${trayHeight + WALL + 46})`}>
+            <ResumoCabos resumo={resumo} dark={dark} largura={trayWidth} />
+          </g>
+        )}
 
         {/* cota de altura (vertical, ao lado da linha) */}
         <line x1={trayWidth + WALL + 14} y1={0} x2={trayWidth + WALL + 14} y2={trayHeight} stroke="#94a3b8" strokeWidth={1} />
