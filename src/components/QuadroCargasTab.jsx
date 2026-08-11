@@ -189,6 +189,9 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
     setCircuitos(saved.circuitos?.length ? saved.circuitos : [novoCircuito(1)]);
     setPreset({ ...defaultPreset(), ...saved.preset });
     setSelecionado(0);
+    // Os índices marcados são de outro quadro — reaplicá-los sobre os
+    // circuitos que acabaram de entrar simularia um trecho que ninguém montou.
+    setSelecionadosEnvio(new Set());
     setActiveProject({ id: saved.id, nome: saved.nome });
   };
   const handleDeleteProject = async (id) => {
@@ -201,6 +204,9 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
     setCircuitos([novoCircuito(1)]);
     setPreset(defaultPreset());
     setSelecionado(0);
+    // Os índices marcados são de outro quadro — reaplicá-los sobre os
+    // circuitos que acabaram de entrar simularia um trecho que ninguém montou.
+    setSelecionadosEnvio(new Set());
   };
 
   return (
@@ -237,7 +243,7 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
               title="Busca aqui mesmo a melhor infraestrutura para os cabos dos circuitos marcados, com o desenho do trecho e a lista dos circuitos."
               className="rounded-xs border border-copper-600 px-3 py-1.5 text-xs font-medium text-copper-600 hover:bg-copper-50 disabled:opacity-40 disabled:hover:bg-transparent dark:border-copper-500 dark:text-copper-300 dark:hover:bg-copper-500/10"
             >
-              {simulando
+              {simulando && selEnvio.length > 0
                 ? "Fechar simulação"
                 : selEnvio.length > 0
                   ? `Simular ${selEnvio.length} circuito${selEnvio.length > 1 ? "s" : ""}`
