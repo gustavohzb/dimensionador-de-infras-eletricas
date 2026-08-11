@@ -19,7 +19,7 @@ const botaoCls =
 // uma busca nova. Mexer na descrição de um circuito não mexe nela; mudar a
 // carga a ponto de trocar a bitola, sim.
 const assinatura = (cabos) =>
-  cabos.map((c) => `${c.type}:${c.vias}:${c.section}:${c.trifolio ? "t" : "s"}`).join("|");
+  cabos.map((c) => `${c.type}:${c.vias}:${c.section}:${c.d}:${c.trifolio ? "t" : "s"}`).join("|");
 
 export default function SimulacaoTrecho({ circuitos, resultados, selecionados, preset, dark = false, onAbrirNaInfra }) {
   const [semTrifolio, setSemTrifolio] = useState(() => new Set());
@@ -230,7 +230,7 @@ export default function SimulacaoTrecho({ circuitos, resultados, selecionados, p
         </ul>
       )}
 
-      {applied && oc && (
+      {applied && oc && cabos.length > 0 && (
         <>
           <div className="flex justify-center overflow-x-auto rounded-sm bg-slate-50 p-3 dark:bg-slate-800/60">
             <TrayVisualization

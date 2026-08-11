@@ -109,6 +109,27 @@ describe("circuitosParaCabos", () => {
     expect(grupos.size).toBe(6); // 3 specs × 2 circuitos
   });
 
+  it("os cabos produzidos alimentam ocupacaoAplicada sem NaN", () => {
+    const { cabos } = chamar();
+    const applied = { infraType: "eletrocalha", eletrodutoNorma: null, trayWidth: 100, trayHeight: 50, trayArea: 5000 };
+    const oc = ocupacaoAplicada(cabos, applied);
+    expect(cabos.every((c) => Number.isFinite(c.d))).toBe(true);
+    expect(Number.isFinite(oc.ocupacao)).toBe(true);
+    expect(oc.cableArea).toBeGreaterThan(0);
+  });
+
+  it("getDiameter falhando tira o circuito inteiro, com aviso — não entra pela metade", () => {
+    // Seção fora do catálogo Corfio: getDiameter lança, e o circuito inteiro
+    // (não só o cabo problemático) precisa sair da simulação.
+    const { cabos, itens, avisos } = chamar({
+      resultados: [res({ secaoFinal: 999999, neutro: 999999 })],
+    });
+    expect(cabos).toEqual([]);
+    expect(itens).toEqual([]);
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0]).toContain("AL-01");
+  });
+
   it("mantém um cabo por condutor num circuito bifásico — 2 fases não viram um cabo só", () => {
     // bifSnCt: 2 fases + terra, sem neutro. As 2 fases são "2#25mm²" — quantity
     // 2 não é feixe de trifólio, e cada condutor precisa continuar sendo uma

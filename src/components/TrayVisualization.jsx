@@ -61,7 +61,7 @@ function LegendaCircuitos({ itens, dark }) {
               {it.numero}
             </text>
             <text x={18} y={y} fontSize={9} fontWeight="700" fill={corTag}>
-              {tag}
+              {truncar(tag, 14)}
             </text>
             {it.descricao && (
               <text x={xDesc} y={y} fontSize={9} fill={corDesc}>

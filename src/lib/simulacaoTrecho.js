@@ -26,7 +26,7 @@ export function circuitosParaCabos({ circuitos, resultados, selecionados, materi
   const avisos = [];
   const sem = semTrifolio ?? new Set();
 
-  for (const i of selecionados ?? []) {
+  for (const i of [...(selecionados ?? [])].sort((a, b) => a - b)) {
     const c = circuitos[i];
     const r = resultados[i];
     const numero = String(i + 1).padStart(2, "0");

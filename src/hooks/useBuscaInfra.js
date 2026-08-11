@@ -51,12 +51,6 @@ export function useBuscaInfra({ infraTypeInicial = null, autoAplicar = false } =
     setApplied(null);
   };
 
-  const limpar = () => {
-    setResults(null);
-    setLayerHint(null);
-    setApplied(null);
-  };
-
   const displayResults = useMemo(
     () => (results ? selectDiverseResults(filtrar(results, infraTypeRaw), 2) : null),
     [results, infraTypeRaw]
@@ -88,6 +82,5 @@ export function useBuscaInfra({ infraTypeInicial = null, autoAplicar = false } =
     setInfraType,
     buscar,
     aplicar: setApplied,
-    limpar,
   };
 }

@@ -116,6 +116,7 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
     next.splice(i + 1, 0, copia);
     setCircuitos(next);
     setSelecionado(i + 1);
+    setSelecionadosEnvio(new Set()); // índices deslocam ao copiar — zera a seleção
     requestAnimationFrame(() =>
       formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
     );
@@ -166,7 +167,7 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
   };
   const enviarSelecionados = () => {
     if (selEnvio.length === 0) return;
-    const ordenados = selEnvio.sort((a, b) => a - b);
+    const ordenados = [...selEnvio].sort((a, b) => a - b);
     const circuitosSel = ordenados.map((i) => circuitos[i]);
     const resultadosSel = ordenados.map((i) => resultados[i]);
     const linhas = circuitosParaLinhas(circuitosSel, resultadosSel);
