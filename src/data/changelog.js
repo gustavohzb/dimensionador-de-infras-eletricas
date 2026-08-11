@@ -760,6 +760,28 @@ export const CHANGELOG = [
       "O caminho antigo continua: o link Abrir na aba Infraestrutura leva os mesmos cabos para lá, onde ficam Projetos, cabos avulsos, derating e o Relatório PDF.",
     ],
   },
+  {
+    versao: "1.26.1",
+    data: "2026-08-11",
+    titulo: "Feixe de trifólio deixa de invadir o cabo vizinho",
+    tipo: "correcao",
+    itens: [
+      "O feixe de trifólio podia se sobrepor a um cabo já acomodado ao lado — o desenho mostrava os condutores se atravessando e, num trecho apertado, a busca podia aprovar uma infraestrutura menor do que o necessário. Corrigido na calha e no eletroduto.",
+      "A causa: o feixe é rígido, mas cada um dos três condutores era descido isoladamente e depois nivelado pelo mais obstruído — o que erguia os outros acima do próprio repouso, sem conferir se havia espaço lá em cima. Agora a acomodação é resolvida para o feixe inteiro de uma vez.",
+      "O resumo por bitola não ficava mais cortado quando a calha é mais alta que larga.",
+    ],
+  },
+  {
+    versao: "1.26.2",
+    data: "2026-08-11",
+    titulo: "Motor de infraestrutura coberto por testes",
+    tipo: "interno",
+    itens: [
+      "Empacotamento, ocupação e fatores de agrupamento passam a ter testes automáticos — antes eram a única parte do app sem nenhum, apesar de serem o que decide se o projeto está dentro da norma.",
+      "Os fatores da Tabela 42 da NBR 5410 e os limites de ocupação (53%, 40% e 31%) ficam travados contra alteração acidental.",
+      "Centenas de trechos plausíveis são conferidos a cada execução contra os invariantes físicos: cabo não atravessa cabo, nada vaza da infraestrutura e nada flutua no ar. Foi essa varredura que revelou a falha do trifólio corrigida na versão anterior.",
+    ],
+  },
 ];
 
 // Ordena versões maior.menor.correção. Negativo se `a` vem antes de `b`.

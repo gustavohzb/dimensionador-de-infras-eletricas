@@ -3,6 +3,10 @@
 // precisa rodar a mesma simulação contra várias infraestruturas candidatas
 // para confirmar que os cabos cabem de verdade (não só na conta de área %).
 
+// Altura do condutor de cima do trifólio sobre a base, em raios: os três
+// centros formam um triângulo equilátero de lado 2r.
+const RAIZ3 = Math.sqrt(3);
+
 export function layoutCables(cables, trayWidth, trayHeight) {
   const items = [];
   const placed = []; // círculos já posicionados: { cx, cy, r }
@@ -95,22 +99,35 @@ export function layoutCables(cables, trayWidth, trayHeight) {
   };
 
   // Deposição do feixe de trifólio (rígido): acha a origem X que deixa o
-  // feixe mais baixo. Os dois condutores da base nivelam pelo obstáculo mais alto.
+  // feixe mais baixo.
+  //
+  // O feixe é UM corpo de três condutores, então não dá para descer cada um
+  // pelo seu próprio dropCy e nivelar pelo mais alto: nivelar ERGUE o outro
+  // acima do repouso dele, e subir não é seguro — o condutor entra no
+  // obstáculo que estava logo acima. O condutor de cima, então, nem repouso
+  // próprio tem (ele viaja pendurado nos outros dois).
+  //
+  // Em vez disso, resolve para o corpo inteiro: projeta o intervalo proibido
+  // de cada obstáculo, para cada um dos três condutores, no MESMO eixo
+  // (baseCy) e procura o baseCy mais fundo que escapa de todos.
   const dropTrifolio = (r) => {
     const bundleW = 4 * r; // 2·d
     const maxX = trayWidth - bundleW;
     if (maxX < 0) return { x: 0, baseCy: trayHeight - r };
     const clampX = (x) => Math.min(Math.max(x, 0), maxX);
     const floorCy = trayHeight - r;
+    const dyTopo = r * RAIZ3; // o condutor de cima fica essa altura acima da base
+
     const cands = new Set([0, maxX]);
     for (const p of placed) {
-      // encostar o condutor esquerdo (cx = X+r) ou direito (cx = X+3r) ao lado de p
-      cands.add(clampX(p.cx - (r + p.r) - r));
-      cands.add(clampX(p.cx + (r + p.r) - r));
-      cands.add(clampX(p.cx - (r + p.r) - 3 * r));
-      cands.add(clampX(p.cx + (r + p.r) - 3 * r));
-      // contato exato com a base do trifólio apoiada no fundo
+      // encostar o condutor esquerdo (cx = X+r), o de cima (X+2r) ou o
+      // direito (X+3r) ao lado de p
       const sum = r + p.r;
+      for (const off of [r, 2 * r, 3 * r]) {
+        cands.add(clampX(p.cx - sum - off));
+        cands.add(clampX(p.cx + sum - off));
+      }
+      // contato exato com a base do trifólio apoiada no fundo
       const dy = floorCy - p.cy;
       const h2 = sum * sum - dy * dy;
       if (h2 > 0) {
@@ -119,14 +136,47 @@ export function layoutCables(cables, trayWidth, trayHeight) {
         cands.add(clampX(p.cx - dxf - 3 * r));
       }
     }
+
+    // baseCy mais fundo em que os TRÊS condutores ficam livres, ou -Infinity
+    // se este X não comporta o feixe.
+    const baseCyEm = (x) => {
+      const condutores = [
+        { cx: x + r, dy: 0 },
+        { cx: x + 3 * r, dy: 0 },
+        { cx: x + 2 * r, dy: -dyTopo },
+      ];
+      const forbidden = [];
+      for (const { cx, dy } of condutores) {
+        for (const p of placed) {
+          const dx = cx - p.cx;
+          const sum = r + p.r;
+          if (Math.abs(dx) < sum - EPS) {
+            const v = Math.sqrt(Math.max(0, sum * sum - dx * dx));
+            // proibido no cy DAQUELE condutor (cy = baseCy + dy) → em baseCy
+            forbidden.push([p.cy - v - dy, p.cy + v - dy]);
+          }
+        }
+      }
+      const ok = (b) =>
+        b <= floorCy + 1e-9 &&
+        forbidden.every(([lo, hi]) => b <= lo + 1e-9 || b >= hi - 1e-9);
+      if (ok(floorCy)) return floorCy; // fundo livre para o feixe inteiro
+      let melhor = -Infinity;
+      for (const [lo] of forbidden) if (lo > melhor && ok(lo)) melhor = lo;
+      return melhor;
+    };
+
     let best = null;
     for (const x of cands) {
-      const baseCy = Math.min(dropCy(x + r, r), dropCy(x + 3 * r, r));
+      const baseCy = baseCyEm(x);
+      if (baseCy === -Infinity) continue;
       if (!best || baseCy > best.baseCy + 1e-6 || (Math.abs(baseCy - best.baseCy) < 1e-6 && x < best.x)) {
         best = { x, baseCy };
       }
     }
-    return best;
+    // Trecho lotado a ponto de não sobrar posição válida: deposita no fundo e
+    // deixa o rectFits/ocupação reprovarem, em vez de devolver null e quebrar.
+    return best ?? { x: 0, baseCy: floorCy };
   };
 
   cables.forEach((c, idx) => {
@@ -294,27 +344,64 @@ export function layoutCablesCircular(cables, R) {
   };
 
   // Feixe de trifólio (rígido): acha o centro horizontal que deixa o feixe
-  // mais fundo. Os dois condutores da base nivelam pelo obstáculo mais alto.
+  // mais fundo. Vale aqui a mesma ressalva da calha retangular — nivelar os
+  // dois condutores da base pelo mais obstruído ergueria o outro acima do
+  // repouso dele, sem garantia de estar livre lá em cima, e o condutor de
+  // cima não tem repouso próprio. Resolve para o corpo inteiro, projetando
+  // os intervalos proibidos dos três condutores no eixo baseCy.
   const dropTrifolio = (r) => {
+    const dyTopo = r * RAIZ3;
     const cands = new Set([0]);
     for (const p of placed) {
       const d = r + p.r;
-      cands.add(p.cx - d - r);
-      cands.add(p.cx + d - r);
-      cands.add(p.cx - d + r);
-      cands.add(p.cx + d + r);
+      // encostar o condutor esquerdo (cxc-r), o de cima (cxc) ou o direito
+      // (cxc+r) ao lado de p
+      for (const off of [-r, 0, r]) {
+        cands.add(p.cx - d - off);
+        cands.add(p.cx + d - off);
+      }
     }
+
+    const baseCyEm = (cxc) => {
+      const capEsq = wallFloor(cxc - r, r);
+      const capDir = wallFloor(cxc + r, r);
+      if (capEsq === -Infinity || capDir === -Infinity) return -Infinity;
+      const cap = Math.min(capEsq, capDir);
+      const condutores = [
+        { cx: cxc - r, dy: 0 },
+        { cx: cxc + r, dy: 0 },
+        { cx: cxc, dy: -dyTopo },
+      ];
+      const forbidden = [];
+      for (const { cx, dy } of condutores) {
+        for (const p of placed) {
+          const dx = cx - p.cx;
+          const sum = r + p.r;
+          if (Math.abs(dx) < sum - EPS) {
+            const v = Math.sqrt(Math.max(0, sum * sum - dx * dx));
+            forbidden.push([p.cy - v - dy, p.cy + v - dy]);
+          }
+        }
+      }
+      const ok = (b) =>
+        b <= cap + 1e-9 &&
+        forbidden.every(([lo, hi]) => b <= lo + 1e-9 || b >= hi - 1e-9);
+      if (ok(cap)) return cap;
+      let melhor = -Infinity;
+      for (const [lo] of forbidden) if (lo > melhor && ok(lo)) melhor = lo;
+      return melhor;
+    };
+
     let best = null;
     for (const cxc of cands) {
-      const cyLeft = dropCy(cxc - r, r);
-      const cyRight = dropCy(cxc + r, r);
-      if (cyLeft === -Infinity || cyRight === -Infinity) continue;
-      const baseCy = Math.min(cyLeft, cyRight);
+      const baseCy = baseCyEm(cxc);
+      if (baseCy === -Infinity) continue;
       if (!best || baseCy > best.baseCy + 1e-6 || (Math.abs(baseCy - best.baseCy) < 1e-6 && cxc < best.cxc)) {
         best = { cxc, baseCy };
       }
     }
-    return best || { cxc: 0, baseCy: dropCy(0, r) };
+    // Tubo lotado: deposita no fundo e deixa o circularFits/ocupação reprovarem.
+    return best ?? { cxc: 0, baseCy: dropCy(0, r) };
   };
 
   cables.forEach((c, idx) => {
