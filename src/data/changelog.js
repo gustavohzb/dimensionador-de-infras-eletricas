@@ -805,6 +805,17 @@ export const CHANGELOG = [
       "A designação de cabos na lista de circuitos e no resumo por bitola do desenho de simulação passou de verde para preto no modo claro e branco no modo escuro — mais contraste contra o fundo do bloco de texto.",
     ],
   },
+  {
+    versao: "1.28.0",
+    data: "2026-08-12",
+    titulo: "Seleção múltipla e exclusão em lote no quadro de cargas",
+    tipo: "novo",
+    itens: [
+      "A checkbox de cada circuito agora também serve para marcar vários de uma vez e excluí-los juntos — inclusive circuitos com erro de cálculo, que antes não podiam ser marcados (a simulação continua ignorando-os automaticamente).",
+      "Shift+clique numa checkbox marca todo o intervalo desde a última marcada, do jeito Gmail: selecione o primeiro circuito, desça até outro e Shift+clique nele para pegar todos os do meio.",
+      "Excluir vários pede confirmação (quantos serão apagados) — a exclusão de uma linha só continua sem confirmar, como sempre foi.",
+    ],
+  },
 ];
 
 // Ordena versões maior.menor.correção. Negativo se `a` vem antes de `b`.

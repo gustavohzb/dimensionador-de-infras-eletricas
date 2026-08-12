@@ -73,8 +73,18 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
   const [circuitos, setCircuitos] = useState(() => carregarEstado().circuitos);
   const [preset, setPreset] = useState(() => carregarEstado().preset);
   const [selecionado, setSelecionado] = useState(0);
-  // Índices marcados para envio à aba Infraestrutura (checkbox por linha).
+  // Índices marcados na checkbox de cada linha — usados tanto para enviar à
+  // simulação (filtrados para excluir os com erro, ver `selEnvio`) quanto
+  // para excluir vários circuitos de uma vez (sem esse filtro: um circuito
+  // com erro também pode ser marcado e apagado).
   const [selecionadosEnvio, setSelecionadosEnvio] = useState(() => new Set());
+  // Última linha em que a checkbox foi clicada — a âncora do Shift+clique,
+  // que marca todo o intervalo entre ela e a linha clicada agora.
+  const [ultimoClicado, setUltimoClicado] = useState(null);
+  // Shift do clique, capturado no onClick (que enxerga o MouseEvent) para o
+  // onChange (que não enxerga — 'change' de checkbox não carrega shiftKey)
+  // usar na hora de decidir o próximo estado. Ver o comentário na checkbox.
+  const shiftNoClique = useRef(false);
   const formRef = useRef(null);
   const [importando, setImportando] = useState(false);
   const [simulando, setSimulando] = useState(false);
@@ -118,6 +128,7 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
     setCircuitos(next);
     setSelecionado(i + 1);
     setSelecionadosEnvio(new Set()); // índices deslocam ao copiar — zera a seleção
+    setUltimoClicado(null);
     requestAnimationFrame(() =>
       formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
     );
@@ -128,6 +139,25 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
     setCircuitos(next);
     setSelecionado(Math.min(selecionado, next.length - 1));
     setSelecionadosEnvio(new Set()); // índices deslocam ao remover — zera a seleção
+    setUltimoClicado(null);
+  };
+
+  // Exclui todos os circuitos marcados na checkbox de uma vez — ao contrário
+  // do envio, aqui um circuito com erro também pode ser marcado e apagado.
+  // Confirma antes: ao contrário do "excluir" de uma linha só, isso pode
+  // apagar o quadro inteiro num clique.
+  const removerSelecionados = () => {
+    const alvo = [...selecionadosEnvio];
+    if (alvo.length === 0) return;
+    if (circuitos.length - alvo.length < 1) return; // nunca zera o quadro
+    const plural = alvo.length > 1 ? "s" : "";
+    if (!window.confirm(`Excluir ${alvo.length} circuito${plural} selecionado${plural}?`)) return;
+    const alvoSet = new Set(alvo);
+    const next = circuitos.filter((_, i) => !alvoSet.has(i));
+    setCircuitos(next);
+    setSelecionado(Math.min(selecionado, next.length - 1));
+    setSelecionadosEnvio(new Set());
+    setUltimoClicado(null);
   };
 
   // Recebe os circuitos prontos do painel de importação. Somar: seleciona o
@@ -137,6 +167,7 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
     setCircuitos((cs) => (substituir ? novos : [...cs, ...novos]));
     setSelecionado(primeiro);
     setSelecionadosEnvio(new Set()); // índices mudaram — zera a seleção de envio
+    setUltimoClicado(null);
     setImportando(false);
   };
 
@@ -147,11 +178,12 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
 
   // ---- Envio para a aba Infraestrutura (Auto) ----
   // Só circuitos calculados com sucesso podem ser enviados (os com erro não
-  // têm designação de cabo).
+  // têm designação de cabo) — mas a checkbox em si marca qualquer circuito,
+  // porque também serve para excluir vários de uma vez. Este filtro só entra
+  // na hora de montar o trecho da simulação.
   const enviaveis = circuitos.map((_, i) => !resultados[i]?.error);
-  const idxEnviaveis = enviaveis.reduce((acc, ok, i) => (ok ? [...acc, i] : acc), []);
   const selEnvio = [...selecionadosEnvio].filter((i) => enviaveis[i]);
-  const todosMarcados = idxEnviaveis.length > 0 && selEnvio.length === idxEnviaveis.length;
+  const todosMarcados = circuitos.length > 0 && selecionadosEnvio.size === circuitos.length;
 
   // Sem circuitos marcados não há trecho para simular — o painel se fecha
   // sozinho, senão o botão ficaria preso em "Fechar simulação".
@@ -160,16 +192,28 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
     if (selEnvio.length === 0) setSimulando(false);
   }, [selEnvio.length]);
 
-  const toggleEnvio = (i) => {
+  // Clique simples alterna a linha. Shift+clique MARCA (nunca desmarca) todo
+  // o intervalo entre a última linha clicada e esta — Gmail se comporta
+  // assim, e é o que deixa "selecionar um, descer, Shift" previsível: o
+  // sentido do Shift não depende de qual das duas pontas já estava marcada.
+  const toggleEnvio = (i, shiftKey) => {
     setSelecionadosEnvio((prev) => {
       const next = new Set(prev);
-      if (next.has(i)) next.delete(i);
-      else next.add(i);
+      if (shiftKey && ultimoClicado != null) {
+        const [lo, hi] = ultimoClicado < i ? [ultimoClicado, i] : [i, ultimoClicado];
+        for (let k = lo; k <= hi; k++) next.add(k);
+      } else if (next.has(i)) {
+        next.delete(i);
+      } else {
+        next.add(i);
+      }
       return next;
     });
+    setUltimoClicado(i);
   };
   const toggleTodosEnvio = () => {
-    setSelecionadosEnvio(todosMarcados ? new Set() : new Set(idxEnviaveis));
+    setSelecionadosEnvio(todosMarcados ? new Set() : new Set(circuitos.map((_, i) => i)));
+    setUltimoClicado(null);
   };
   const enviarSelecionados = () => {
     if (selEnvio.length === 0) return;
@@ -199,6 +243,7 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
     // Os índices marcados são de outro quadro — reaplicá-los sobre os
     // circuitos que acabaram de entrar simularia um trecho que ninguém montou.
     setSelecionadosEnvio(new Set());
+    setUltimoClicado(null);
     setActiveProject({ id: saved.id, nome: saved.nome });
   };
   const handleDeleteProject = async (id) => {
@@ -214,6 +259,7 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
     // Os índices marcados são de outro quadro — reaplicá-los sobre os
     // circuitos que acabaram de entrar simularia um trecho que ninguém montou.
     setSelecionadosEnvio(new Set());
+    setUltimoClicado(null);
   };
 
   return (
@@ -291,6 +337,31 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
             . Circuitos com a mesma TAG ficam difíceis de distinguir no memorial e na simulação — renomeie um deles.
           </p>
         )}
+        {selecionadosEnvio.size > 0 && (
+          <div className="mb-2 flex items-center justify-between rounded-xs border border-copper-200 bg-copper-50 px-2.5 py-1.5 text-[11px] dark:border-copper-800 dark:bg-copper-500/10">
+            <span className="font-medium text-copper-800 dark:text-copper-300">
+              {selecionadosEnvio.size} circuito{selecionadosEnvio.size > 1 ? "s" : ""} selecionado{selecionadosEnvio.size > 1 ? "s" : ""}
+            </span>
+            <span className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => { setSelecionadosEnvio(new Set()); setUltimoClicado(null); }}
+                className="font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              >
+                limpar seleção
+              </button>
+              <button
+                type="button"
+                onClick={removerSelecionados}
+                disabled={circuitos.length - selecionadosEnvio.size < 1}
+                title={circuitos.length - selecionadosEnvio.size < 1 ? "O quadro precisa ficar com pelo menos 1 circuito" : undefined}
+                className="rounded-xs border border-red-500 px-2.5 py-1 font-medium text-red-600 hover:bg-red-50 disabled:opacity-40 disabled:hover:bg-transparent dark:border-red-500/70 dark:text-red-400 dark:hover:bg-red-500/10"
+              >
+                excluir selecionados
+              </button>
+            </span>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-left text-xs">
             <thead>
@@ -300,9 +371,8 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
                     type="checkbox"
                     checked={todosMarcados}
                     onChange={toggleTodosEnvio}
-                    disabled={idxEnviaveis.length === 0}
-                    title="Selecionar todos para envio"
-                    aria-label="Selecionar todos os circuitos para envio"
+                    title="Selecionar todos"
+                    aria-label="Selecionar todos os circuitos"
                     className="h-3.5 w-3.5 accent-copper-600 align-middle"
                   />
                 </th>
@@ -363,12 +433,26 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
                     <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
-                        checked={selecionadosEnvio.has(i) && !r.error}
-                        onChange={() => toggleEnvio(i)}
-                        disabled={!!r.error}
-                        title={r.error ? "Circuito com erro — não pode ser enviado" : "Marcar para envio à Infraestrutura"}
-                        aria-label={`Marcar ${c.tag} para envio`}
-                        className="h-3.5 w-3.5 accent-copper-600 align-middle disabled:opacity-40"
+                        checked={selecionadosEnvio.has(i)}
+                        // O 'change' de checkbox não carrega shiftKey (não é
+                        // um MouseEvent) — por isso o clique só ANOTA o Shift
+                        // num ref, e é o onChange (deixando o toggle nativo
+                        // acontecer normalmente) quem decide o próximo
+                        // estado. Tentar decidir tudo no onClick com
+                        // preventDefault() parece equivalente mas não é: o
+                        // navegador reverte o checked nativo depois do
+                        // preventDefault, e isso confunde o rastreamento de
+                        // valor do React — a caixa fica sem refletir o
+                        // estado, mesmo com o React re-renderizando certo.
+                        onClick={(e) => { shiftNoClique.current = e.shiftKey; }}
+                        onChange={() => toggleEnvio(i, shiftNoClique.current)}
+                        title={
+                          r.error
+                            ? "Circuito com erro — não entra na simulação, mas pode ser marcado para excluir. Shift+clique marca o intervalo desde a última linha marcada."
+                            : "Marcar. Shift+clique marca o intervalo desde a última linha marcada."
+                        }
+                        aria-label={`Marcar ${c.tag}`}
+                        className="h-3.5 w-3.5 accent-copper-600 align-middle"
                       />
                     </td>
                     <td className="px-2 py-1.5 font-mono tabular-nums text-slate-400">{String(i + 1).padStart(2, "0")}</td>
