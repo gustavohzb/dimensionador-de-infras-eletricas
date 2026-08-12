@@ -558,7 +558,12 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
                 {atual.tag}{atual.descricao ? ` — ${atual.descricao}` : ""}
               </span>
             </div>
-            <CircuitoForm value={atual} onChange={setAtual} condutorTemp={preset.condutorTemp} />
+            <CircuitoForm
+              value={atual}
+              onChange={setAtual}
+              condutorTemp={preset.condutorTemp}
+              tagDuplicada={tagsRepetidas[selecionado]}
+            />
           </section>
           <section>
             <div className="rounded-sm border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">

@@ -211,7 +211,7 @@ function TrechoEditor({ trecho, index, onChange, onRemove, removable, condutorTe
   );
 }
 
-export function CircuitoForm({ value, onChange, showIdentificacao = true, condutorTemp = 90 }) {
+export function CircuitoForm({ value, onChange, showIdentificacao = true, condutorTemp = 90, tagDuplicada = false }) {
   const c = value;
   const set = (patch) => onChange({ ...c, ...patch });
   const setTrecho = (i, t) => {
@@ -229,7 +229,31 @@ export function CircuitoForm({ value, onChange, showIdentificacao = true, condut
           {showIdentificacao && (
             <div className="grid grid-cols-[100px_1fr] gap-2">
               <Field label="TAG">
-                <input value={c.tag} onChange={(e) => set({ tag: e.target.value })} className={inputCls} />
+                <input
+                  value={c.tag}
+                  onChange={(e) => set({ tag: e.target.value })}
+                  // Enquanto a TAG bater com a de outro circuito, o campo
+                  // recusa perder o foco (refoca e seleciona o texto) — é
+                  // o único jeito de "não deixar sair" sem um botão de
+                  // salvar: aqui cada tecla já grava no circuito.
+                  onBlur={(e) => {
+                    if (tagDuplicada) {
+                      e.target.focus();
+                      e.target.select();
+                    }
+                  }}
+                  aria-invalid={tagDuplicada || undefined}
+                  className={`${inputCls} ${
+                    tagDuplicada
+                      ? "border-red-500 focus:ring-red-500 dark:border-red-500"
+                      : ""
+                  }`}
+                />
+                {tagDuplicada && (
+                  <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">
+                    Já existe outro circuito com essa TAG — mude o valor para poder sair do campo.
+                  </p>
+                )}
               </Field>
               <Field label="Descrição">
                 <input value={c.descricao} onChange={(e) => set({ descricao: e.target.value })} className={inputCls} placeholder="ex.: Bomba d'água 01" />

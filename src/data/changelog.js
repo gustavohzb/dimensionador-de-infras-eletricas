@@ -816,6 +816,15 @@ export const CHANGELOG = [
       "Excluir vários pede confirmação (quantos serão apagados) — a exclusão de uma linha só continua sem confirmar, como sempre foi.",
     ],
   },
+  {
+    versao: "1.28.1",
+    data: "2026-08-12",
+    titulo: "TAG repetida passa a travar o campo, não só avisar",
+    tipo: "correcao",
+    itens: [
+      "O campo TAG, ao editar um circuito, fica com borda vermelha e recusa perder o foco enquanto o valor coincidir com o de outro circuito — mude a TAG para poder sair do campo. O aviso no topo do quadro (para quando a duplicata já existe e não está sendo editada agora) continua existindo.",
+    ],
+  },
 ];
 
 // Ordena versões maior.menor.correção. Negativo se `a` vem antes de `b`.
