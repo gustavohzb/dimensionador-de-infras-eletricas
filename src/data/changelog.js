@@ -825,6 +825,17 @@ export const CHANGELOG = [
       "O campo TAG, ao editar um circuito, fica com borda vermelha e recusa perder o foco enquanto o valor coincidir com o de outro circuito — mude a TAG para poder sair do campo. O aviso no topo do quadro (para quando a duplicata já existe e não está sendo editada agora) continua existindo.",
     ],
   },
+  {
+    versao: "1.29.0",
+    data: "2026-08-12",
+    titulo: "Aba que falha não derruba mais o app inteiro",
+    tipo: "melhoria",
+    itens: [
+      "Cada aba passa a ter sua própria barreira de erro. Antes, um erro em qualquer aba apagava o app todo e deixava a tela em branco — inclusive uma aba que você nem tinha aberto, porque todas ficam carregadas ao mesmo tempo. Agora o problema fica contido na aba que falhou e as outras continuam funcionando.",
+      "No lugar da tela branca aparece um aviso com o que deu errado e um botão “Recomeçar esta aba”, que volta a aba ao estado inicial. Como o estado fica salvo no navegador, antes disso nem recarregar a página resolvia: voltava o mesmo dado e quebrava de novo.",
+      "Recomeçar guarda uma cópia do que estava salvo (nas chaves terminadas em .backup) em vez de apagar de vez, para um projeto real não se perder por causa de um erro do app.",
+    ],
+  },
 ];
 
 // Ordena versões maior.menor.correção. Negativo se `a` vem antes de `b`.

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import logo from "./assets/logo.png";
 import { useDarkMode } from "./hooks/useDarkMode";
+import { ABAS } from "./lib/estadoAbas";
+import ErrorBoundary from "./components/ErrorBoundary";
 import InfraTab from "./components/InfraTab";
 import QuadroCargasTab from "./components/QuadroCargasTab";
 import CapacitoresTab from "./components/CapacitoresTab";
@@ -34,7 +36,6 @@ function ThemeToggle({ dark, onToggle }) {
   );
 }
 
-const TAB_IDS = ["infra", "quadroCargas", "iluminacao", "capacitores", "spda", "atualizacoes", "sobre"];
 const ABA_ATIVA_KEY = "abaAtiva";
 
 export default function App() {
@@ -42,7 +43,7 @@ export default function App() {
   // Persistida para o F5 voltar na mesma aba em vez de sempre cair em Infra.
   const [activeTab, setActiveTab] = useState(() => {
     const salva = localStorage.getItem(ABA_ATIVA_KEY);
-    return TAB_IDS.includes(salva) ? salva : "infra";
+    return ABAS.some((a) => a.id === salva) ? salva : "infra";
   });
   // Ponte "enviar cabos do Quadro de Cargas → aba Infraestrutura (Auto)".
   // { linhas, material } enquanto há um envio a consumir; null caso contrário.
@@ -77,15 +78,7 @@ export default function App() {
           </div>
         </div>
         <div className="mx-auto flex max-w-6xl gap-4 px-4">
-          {[
-            { id: "infra", label: "Infraestrutura" },
-            { id: "quadroCargas", label: "Cabos Elétricos" },
-            { id: "iluminacao", label: "Iluminação" },
-            { id: "capacitores", label: "Capacitores" },
-            { id: "spda", label: "SPDA" },
-            { id: "atualizacoes", label: "Atualizações" },
-            { id: "sobre", label: "Sobre" },
-          ].map((tab) => (
+          {ABAS.map((tab) => (
             <button
               key={tab.id}
               type="button"
@@ -102,38 +95,57 @@ export default function App() {
         </div>
       </header>
 
+      {/* Cada aba dentro da sua própria barreira de erro: as abas inativas
+          continuam montadas (só escondidas), então sem isso um erro em
+          qualquer uma delas apagaria o app inteiro de quem está em outra. */}
       <main className="mx-auto max-w-6xl p-3">
         <div className={activeTab === "infra" ? "" : "hidden"}>
-          <InfraTab
-            dark={dark}
-            pendingImport={pendingImport}
-            onConsumeImport={() => setPendingImport(null)}
-          />
+          <ErrorBoundary aba="infra">
+            <InfraTab
+              dark={dark}
+              pendingImport={pendingImport}
+              onConsumeImport={() => setPendingImport(null)}
+            />
+          </ErrorBoundary>
         </div>
 
         <div className={activeTab === "quadroCargas" ? "" : "hidden"}>
-          <QuadroCargasTab dark={dark} onEnviarParaInfra={enviarParaInfra} />
+          <ErrorBoundary aba="quadroCargas">
+            <QuadroCargasTab dark={dark} onEnviarParaInfra={enviarParaInfra} />
+          </ErrorBoundary>
         </div>
 
         <div className={activeTab === "iluminacao" ? "" : "hidden"}>
-          <IluminacaoTab dark={dark} ativo={activeTab === "iluminacao"} />
+          <ErrorBoundary aba="iluminacao">
+            <IluminacaoTab dark={dark} ativo={activeTab === "iluminacao"} />
+          </ErrorBoundary>
         </div>
 
         <div className={activeTab === "capacitores" ? "" : "hidden"}>
-          <CapacitoresTab dark={dark} />
+          <ErrorBoundary aba="capacitores">
+            <CapacitoresTab dark={dark} />
+          </ErrorBoundary>
         </div>
 
         <div className={activeTab === "spda" ? "" : "hidden"}>
-          <SpdaTab />
+          <ErrorBoundary aba="spda">
+            <SpdaTab />
+          </ErrorBoundary>
         </div>
 
         {/* Só monta quando aberta: são mais de cem cartões e a aba não guarda
             nada que precise sobreviver à troca (as outras ficam montadas
             porque carregam o trecho/circuito em edição). */}
-        {activeTab === "atualizacoes" && <AtualizacoesTab />}
+        {activeTab === "atualizacoes" && (
+          <ErrorBoundary aba="atualizacoes">
+            <AtualizacoesTab />
+          </ErrorBoundary>
+        )}
 
         <div className={activeTab === "sobre" ? "" : "hidden"}>
-          <SobreTab />
+          <ErrorBoundary aba="sobre">
+            <SobreTab />
+          </ErrorBoundary>
         </div>
       </main>
     </div>
