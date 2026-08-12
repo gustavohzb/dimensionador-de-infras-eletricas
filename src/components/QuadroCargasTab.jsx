@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  CircuitoForm, ResultadoCircuito, computeCircuito, defaultCircuito, defaultPreset, CRITERIO_LABEL, CRITERIO_SIGLA, CRITERIO_LEGENDA,
+  CircuitoForm, ResultadoCircuito, computeCircuito, CRITERIO_LABEL, CRITERIO_SIGLA, CRITERIO_LEGENDA,
 } from "./cabos/CircuitoForm";
+import { defaultCircuito, defaultPreset, normalizarQuadro } from "../lib/circuitoModelo";
 import PresetPanel from "./cabos/PresetPanel";
 import ImportarCargas from "./cabos/ImportarCargas";
 import SimulacaoTrecho from "./cabos/SimulacaoTrecho";
@@ -46,19 +47,21 @@ function novoCircuito(n) {
 
 // Carrega o estado salvo: formato v2 ({ circuitos, preset }) ou migra do v1
 // (só a lista de circuitos, antes do preset existir).
+//
+// Passa por normalizarQuadro nos dois caminhos: o JSON parsear não garante que
+// o circuito tem o formato de hoje, e um circuito salvo antes dos trechos
+// existirem derrubava a aba no primeiro render.
 function carregarEstado() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.circuitos) && parsed.circuitos.length) {
-        return { circuitos: parsed.circuitos, preset: { ...defaultPreset(), ...parsed.preset } };
-      }
+      const quadro = normalizarQuadro(JSON.parse(raw));
+      if (quadro.circuitos.length) return quadro;
     }
     const rawV1 = localStorage.getItem(STORAGE_KEY_V1);
     if (rawV1) {
-      const arr = JSON.parse(rawV1);
-      if (Array.isArray(arr) && arr.length) return { circuitos: arr, preset: defaultPreset() };
+      const quadro = normalizarQuadro({ circuitos: JSON.parse(rawV1) });
+      if (quadro.circuitos.length) return quadro;
     }
   } catch { /* estado inicial */ }
   return { circuitos: [novoCircuito(1)], preset: defaultPreset() };
@@ -68,10 +71,13 @@ function carregarEstado() {
 // (material, temperatura, quedas, seções) vale para todos os circuitos; os
 // projetos ficam no Supabase (tabela projetos_cabos).
 export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
-  // Lazy: sem a função, carregarEstado() rodava (lendo e parseando o
-  // localStorage inteiro) a cada render — inclusive a cada tecla digitada.
-  const [circuitos, setCircuitos] = useState(() => carregarEstado().circuitos);
-  const [preset, setPreset] = useState(() => carregarEstado().preset);
+  // Lazy e uma vez só: sem a função, carregarEstado() rodava (lendo e
+  // parseando o localStorage inteiro) a cada render — inclusive a cada tecla
+  // digitada. Guardado num state próprio porque circuitos e preset saem da
+  // mesma leitura; chamar duas vezes parseava o storage duas vezes.
+  const [inicial] = useState(carregarEstado);
+  const [circuitos, setCircuitos] = useState(inicial.circuitos);
+  const [preset, setPreset] = useState(inicial.preset);
   const [selecionado, setSelecionado] = useState(0);
   // Índices marcados na checkbox de cada linha — usados tanto para enviar à
   // simulação (filtrados para excluir os com erro, ver `selEnvio`) quanto
@@ -237,8 +243,11 @@ export default function QuadroCargasTab({ dark = false, onEnviarParaInfra }) {
   };
   const handleLoadProject = async (id) => {
     const saved = await projectsApi.loadProject(id);
-    setCircuitos(saved.circuitos?.length ? saved.circuitos : [novoCircuito(1)]);
-    setPreset({ ...defaultPreset(), ...saved.preset });
+    // Mesma normalização do carregamento local: um projeto guardado na nuvem
+    // meses atrás está no formato daquela época, não no de hoje.
+    const quadro = normalizarQuadro(saved);
+    setCircuitos(quadro.circuitos.length ? quadro.circuitos : [novoCircuito(1)]);
+    setPreset(quadro.preset);
     setSelecionado(0);
     // Os índices marcados são de outro quadro — reaplicá-los sobre os
     // circuitos que acabaram de entrar simularia um trecho que ninguém montou.

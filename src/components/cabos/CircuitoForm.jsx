@@ -2,6 +2,7 @@ import {
   CONDUTOS, DISTRIBUICOES, ESQUEMAS, FORMAS_PARTIDA, temperaturasTrecho,
 } from "../../data/cabosNBR5410";
 import { correnteDeProjeto, dimensionarCircuitoPro, designacaoCabos, UNIDADES_POTENCIA } from "../../lib/cableSizingPro";
+import { defaultPreset, defaultTrecho } from "../../lib/circuitoModelo";
 
 const inputCls =
   "w-full rounded-xs border border-slate-300 bg-white px-2.5 py-1.5 text-sm tabular-nums text-slate-800 focus:outline-none focus:ring-2 focus:ring-copper-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100";
@@ -29,46 +30,6 @@ export function Field({ label, tip, children }) {
     </div>
   );
 }
-
-export const defaultTrecho = () => ({
-  condutoId: "eletrocalha",
-  distribuicao: null,
-  camadas: 1,
-  circuitos: 1,
-  temperatura: 30, // temperatura ambiente/solo do trecho (Tab. 40)
-  distancia: 30,
-});
-
-// Preset do projeto: parâmetros que valem para TODOS os circuitos do quadro
-// (fonte única — não são mais editáveis por circuito). A temperatura de cada
-// trecho (ambiente/solo) continua no próprio trecho. O tipo de cabo
-// (unipolar/multipolar) é decidido automaticamente a partir de
-// `secaoMaxMultipolar`: multipolar até essa seção, unipolar acima.
-export const defaultPreset = () => ({
-  quedaMaxRegime: 4,
-  secaoMinima: 2.5,
-  secaoMaxMultipolar: 16,
-  material: "cobre", // "cobre" | "aluminio"
-  condutorTemp: 90, // 90 → EPR/XLPE | 70 → PVC
-  fp: 0.92, // fator de potência (cos φ) do projeto
-});
-
-export const defaultCircuito = () => ({
-  tag: "AL-01",
-  descricao: "",
-  modo: "corrente", // "corrente" | "potencia"
-  corrente: 40,
-  potencia: 10,
-  unidade: "CV",
-  rendimento: 0.92,
-  fatorServico: 1,
-  esquemaId: "trifCnCt",
-  tensao: 380,
-  formaPartidaId: "nenhuma",
-  quedaMaxPartida: 10, // só se aplica quando formaPartidaId !== "nenhuma" (carga motora)
-  porFase: 1,
-  trechos: [defaultTrecho()],
-});
 
 export function computeCircuito(c, preset = defaultPreset()) {
   const fp = Number(preset.fp) || 0.92;

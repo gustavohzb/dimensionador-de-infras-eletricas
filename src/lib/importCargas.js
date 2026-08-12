@@ -5,7 +5,7 @@
 // detectar o papel de cada coluna e deixar o usuário corrigir na prévia.
 // Precedência de valores: coluna > padrão do lote > default do formulário.
 
-import { defaultCircuito } from "../components/cabos/CircuitoForm";
+import { defaultCircuito } from "./circuitoModelo";
 import { proximoNumero } from "./sequencialRotulos";
 
 const UNIDADE_CANONICA = { cv: "CV", kw: "kW", w: "W", kva: "kVA" };

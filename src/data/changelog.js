@@ -836,6 +836,16 @@ export const CHANGELOG = [
       "Recomeçar guarda uma cópia do que estava salvo (nas chaves terminadas em .backup) em vez de apagar de vez, para um projeto real não se perder por causa de um erro do app.",
     ],
   },
+  {
+    versao: "1.29.1",
+    data: "2026-08-12",
+    titulo: "Projeto antigo do quadro de cargas volta a abrir",
+    tipo: "correcao",
+    itens: [
+      "Um projeto salvo antes dos trechos existirem (versão 0.10.0) derrubava a aba Cabos Elétricos ao ser aberto, tanto do navegador quanto da nuvem. O quadro era a única aba que não conferia o formato do que carregava — SPDA e Capacitores já faziam isso. Agora o circuito antigo é completado com os valores padrão e abre normalmente.",
+      "A temperatura ambiente de projetos antigos, que era um valor único do quadro, passa a ser transferida para os trechos ao abrir. Antes ela se perdia e voltava como 30 °C: um quadro salvo a 45 °C reabria com cabos menores do que os dimensionados — num circuito de 140 A, 35 mm² no lugar de 50 mm².",
+    ],
+  },
 ];
 
 // Ordena versões maior.menor.correção. Negativo se `a` vem antes de `b`.
