@@ -57,6 +57,7 @@ export const CAMPOS_AGRUPAMENTO = {
 
 // Parâmetros do projeto, válidos para todos os circuitos.
 export const defaultPresetMT = () => ({
+  nomeProjeto: "", // vai ao cabeçalho e ao nome do arquivo do memorial
   material: "cobre", // "cobre" | "aluminio"
   isolacao: 90, // 90 → XLPE/TR XLPE/EPR/HEPR | 105 → EPR 105
   cobertura: "ST2", // material da cobertura — define a temperatura final da blindagem (Tab. 44)

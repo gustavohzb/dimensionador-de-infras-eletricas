@@ -49,7 +49,7 @@ aba de baixa tensão, hoje estável.
 | `src/lib/comDefaults.js` | Merge com defaults que trata `undefined` como ausente | **pronto** |
 | `src/lib/mtModelo.js` | Formato do circuito de MT e normalização do estado salvo | **pronto** |
 | `src/lib/mtSizing.js` | Motor: os quatro critérios e o critério determinante | **pronto** |
-| `src/lib/mtPdf.js` | Memorial de cálculo | a fazer |
+| `src/lib/mtPdf.js` | Memorial de cálculo | **pronto** |
 | `src/components/MediaTensaoTab.jsx` + `src/components/mt/*` | Tela | **pronto** |
 
 Compartilhado de verdade: a função de merge com defaults de `circuitoModelo.js`
@@ -210,7 +210,22 @@ quarto critério.
   procedência de cada número. O selo de norma do cabeçalho passou a acompanhar a
   aba — dizer "NBR 5410" numa tela de 13,8 kV era justamente a confusão que esta
   aba existe para evitar.
-- **Etapa 3 — memorial e designação.**
+- **Etapa 3 — memorial e designação.** Concluída: resumo em paisagem, uma ficha
+  por circuito em retrato, procedência de cada número e a designação do cabo com
+  a blindagem. A montagem do documento é separada da criação dele para o teste
+  poder varrer, com um documento falso, todo texto que chega ao papel.
+
+### A restrição de fonte que o memorial impôs
+
+A fonte padrão do jsPDF é WinAnsi e não tem `Ω`, `√`, `θ` nem subscrito — e o
+texto de média tensão é feito deles. Pior: o jsPDF não reclama de caractere sem
+glifo, desenha lixo e segue, então o defeito só apareceria no PDF pronto.
+
+Todo texto passa por `textoSeguroPdf`, que troca o que tem nome (`Ω` vira "ohm",
+`√(t)` vira "raiz(t)") e transforma em "?" o que sobrar — um "?" é um defeito
+visível que alguém reporta, um caractere trocado não. Dois testes cobrem isso: um
+varre as mensagens de recusa do motor, outro varre todo texto que chega ao
+documento na montagem completa.
 
 ## Decisões da Etapa 1
 
