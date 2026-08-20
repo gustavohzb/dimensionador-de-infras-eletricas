@@ -48,6 +48,19 @@ import {
   geometriaCabo,
   secoesDisponiveis,
 } from "../data/cabosPrysmianMT";
+import { CAMPOS_AGRUPAMENTO } from "./mtModelo";
+
+// Nome de cada campo de agrupamento como ele aparece na tela, para a mensagem
+// de erro citar o campo que o projetista está vendo.
+const ROTULO_CAMPO = {
+  arranjo: "o arranjo",
+  espacamentoRelativo: "o espaçamento e/Dₑ",
+  dutos: "o número de dutos",
+  espacamento: "o espaçamento entre dutos",
+  condutoresIsolados: "o número de condutores isolados",
+  regime: "o espaçamento",
+  cabos: "o número de cabos",
+};
 
 // Coeficiente de variação da resistência com a temperatura, a 20 °C (1/°C).
 const ALFA = { cobre: 0.00393, aluminio: 0.00403 };
@@ -127,12 +140,13 @@ function motivoFatorTemperatura(t, isolacao) {
 // Fator de agrupamento do trecho para uma seção. Depende da seção em F1, F2,
 // G1, G2 e I — por isso é consultado dentro do laço das seções, e não uma vez
 // só como na aba de baixa tensão.
-function fatorAgrupamentoTrecho(t, secao) {
+function fatorAgrupamentoTrecho(t, secao, formacao = "unipolar") {
   if (!t.agrupado) return 1; // circuito isolado: não há vizinho a corrigir
   const m = t.metodo;
   if (m === "A1") {
     return fatorAgrupamentoMT({
       metodo: "A1", arranjo: t.arranjo, espacamentoRelativo: t.espacamentoRelativo,
+      cabo: formacao === "tripolar" ? "tripolar" : "unipolarTrifolio",
     });
   }
   if (m === "F1" || m === "F2" || m === "G1" || m === "G2") {
@@ -147,6 +161,25 @@ function fatorAgrupamentoTrecho(t, secao) {
     });
   }
   return null;
+}
+
+// Número em português: o app inteiro usa vírgula decimal, e um "0.1326" no
+// meio do memorial denuncia que aquele trecho foi escrito por fora.
+const br = (n, casas = null) => (casas == null ? String(n) : Number(n).toFixed(casas)).replace(".", ",");
+
+const ISOLACAO_LABEL = { 90: "EPR/XLPE 90 °C", 105: "EPR 105 °C" };
+
+// Designação do cabo para a lista de material. É o único lugar onde a classe de
+// tensão aparece: a norma declara em 6.2.5 que a ampacidade tabelada vale para
+// todas as classes, então ela não entra em nenhuma conta.
+//
+// A blindagem entra na designação porque é o que se compra. Num cabo em que ela
+// precisou subir de 6 mm² para 70, pedir só "3#1x50 mm² 8,7/15 kV" traz o cabo
+// errado da fábrica.
+export function designacaoCaboMT({ secao, formacao, classeTensao, isolacao, blindagem }) {
+  const veias = formacao === "tripolar" ? `1#3x${secao}` : `3#1x${secao}`;
+  const isol = ISOLACAO_LABEL[isolacao] ?? `${isolacao} °C`;
+  return `${veias} mm² ${classeTensao} ${isol}, blindagem ${blindagem} mm²`;
 }
 
 // Reatância indutiva de cabos unipolares (Ω/km), pela IEC 60287-1-1:
@@ -168,7 +201,7 @@ export function reatanciaMT({ classe, secao, espacamento = null, frequencia = 60
     reatancia: x,
     espacamento: s,
     geometria: g,
-    origem: `IEC 60287-1-1, com d = ${g.diametroCondutor} mm e s = ${s} mm de ${g.documento}`,
+    origem: `IEC 60287-1-1, com d = ${br(g.diametroCondutor)} mm e s = ${br(s)} mm de ${g.documento}`,
   };
 }
 
@@ -210,7 +243,7 @@ export function dimensionarCircuitoMT({ preset, circuito }) {
   const tempo = Number(circuito.tempoCurto);
   if (!(tempo > 0)) return { error: "Informe o tempo de atuação da proteção." };
   if (tempo > TEMPO_MAX_CURTO) {
-    return { error: `Tempo de curto de ${tempo} s acima do limite de ${TEMPO_MAX_CURTO} s da norma (6.2.6.1.2).` };
+    return { error: `Tempo de curto de ${br(tempo)} s acima do limite de ${TEMPO_MAX_CURTO} s da norma (6.2.6.1.2).` };
   }
   if (TEMP_FINAL_BLINDAGEM[cobertura] === undefined) {
     return { error: `Cobertura "${cobertura}" não está na Tabela 44 — sem ela não há temperatura final da blindagem.` };
@@ -220,7 +253,7 @@ export function dimensionarCircuitoMT({ preset, circuito }) {
   if (falta.error) return { error: falta.error };
 
   const procedencias = [
-    { tipo: "convencao", texto: `Queda de tensão máxima de ${quedaMaxRegime} % adotada pelo projetista; a NBR 14039 não fixa limite.` },
+    { tipo: "convencao", texto: `Queda de tensão máxima de ${br(quedaMaxRegime)} % adotada pelo projetista; a NBR 14039 não fixa limite.` },
   ];
   if (falta.origem.startsWith("premissa")) {
     procedencias.push({ tipo: "premissa", texto: `Corrente de falta fase-terra: ${falta.origem}.` });
@@ -248,10 +281,21 @@ export function dimensionarCircuitoMT({ preset, circuito }) {
     if (t.agrupado && METODOS_SEM_AGRUPAMENTO.includes(t.metodo)) {
       return { error: `O método ${t.metodo} não tem tabela de agrupamento na NBR 14039. Com mais de um circuito, o fator precisa ser calculado pela IEC 60287-2-2.` };
     }
-    // Fator nulo em TODAS as seções é entrada inválida (contagem de dutos ou
-    // arranjo que a tabela não tem), não seção fora de faixa.
-    if (t.agrupado && SECOES_MT.every((s) => fatorAgrupamentoTrecho(t, s) == null)) {
-      return { error: `Agrupamento do método ${t.metodo}: a combinação informada não está na tabela da norma.` };
+    // Campo em branco e combinação inexistente são coisas diferentes, e a
+    // mensagem tem de separar as duas: uma manda o projetista preencher, a
+    // outra manda ele procurar outro arranjo porque a norma não tabela aquele.
+    if (t.agrupado) {
+      const faltando = (CAMPOS_AGRUPAMENTO[t.metodo] ?? []).filter(
+        (campo) => t[campo] === null || t[campo] === undefined || t[campo] === ""
+      );
+      if (faltando.length) {
+        return { error: `Agrupamento do método ${t.metodo}: preencha ${faltando.map((c) => ROTULO_CAMPO[c] ?? c).join(", ")}.` };
+      }
+      // Fator nulo em TODAS as seções é entrada inválida (contagem de dutos ou
+      // arranjo que a tabela não tem), não seção fora de faixa.
+      if (SECOES_MT.every((s) => fatorAgrupamentoTrecho(t, s, circuito.formacao) == null)) {
+        return { error: `Agrupamento do método ${t.metodo}: a combinação informada não está na tabela da norma.` };
+      }
     }
 
     const correcaoSoloAplicavel = METODOS_COM_CORRECAO_SOLO.includes(t.metodo);
@@ -261,10 +305,10 @@ export function dimensionarCircuitoMT({ preset, circuito }) {
       fatorResistividade = FATOR_RESISTIVIDADE_SOLO[t.metodo][t.resistividadeSolo];
       fatorProfundidade = FATOR_PROFUNDIDADE[t.metodo][t.profundidade];
       if (fatorResistividade === undefined) {
-        return { error: `Resistividade térmica de ${t.resistividadeSolo} K·m/W fora da Tabela 32.` };
+        return { error: `Resistividade térmica de ${br(t.resistividadeSolo)} K·m/W fora da Tabela 32.` };
       }
       if (fatorProfundidade === undefined) {
-        return { error: `Profundidade de ${t.profundidade} m fora da Tabela 33.` };
+        return { error: `Profundidade de ${br(t.profundidade)} m fora da Tabela 33.` };
       }
     }
 
@@ -282,7 +326,7 @@ export function dimensionarCircuitoMT({ preset, circuito }) {
   const capacidadeCorrigida = (t, secao) => {
     const nominal = capacidadeMT({ isolacao, material, secao, metodo: t.metodo });
     if (nominal == null) return null; // célula "–": combinação não tabelada
-    const fa = fatorAgrupamentoTrecho(t, secao);
+    const fa = fatorAgrupamentoTrecho(t, secao, circuito.formacao);
     if (fa == null) return null;
     return nominal * t.fatorTemperatura * fa * t.fatorResistividade * t.fatorProfundidade;
   };
@@ -349,7 +393,7 @@ export function dimensionarCircuitoMT({ preset, circuito }) {
 
   if (!blindagem.atende) {
     return {
-      error: `A blindagem de ${especificada} mm² não suporta a falta fase-terra de ${Math.round(falta.corrente)} A por ${tempo} s: são necessários ${Math.ceil(minBlindagem)} mm². A blindagem padrão do catálogo é de ${BLINDAGEM_PADRAO_MM2} mm² e é a mesma em qualquer seção de condutor — aumentar o cabo não resolve, é preciso especificar blindagem maior (sob consulta).`,
+      error: `A blindagem de ${especificada} mm² não suporta a falta fase-terra de ${Math.round(falta.corrente)} A por ${br(tempo)} s: são necessários ${Math.ceil(minBlindagem)} mm². A blindagem padrão do catálogo é de ${BLINDAGEM_PADRAO_MM2} mm² e é a mesma em qualquer seção de condutor — aumentar o cabo não resolve, é preciso especificar blindagem maior (sob consulta).`,
       blindagem,
     };
   }
@@ -380,9 +424,9 @@ export function dimensionarCircuitoMT({ preset, circuito }) {
   const catalogoConhecido = secoesDoCatalogo.length > 0;
   const finais = eletricos(secaoFinal);
   if (finais.origemReatancia) {
-    procedencias.push({ tipo: "catalogo", texto: `Reatância de ${finais.reatancia.toFixed(4)} Ω/km calculada pela ${finais.origemReatancia}.` });
+    procedencias.push({ tipo: "catalogo", texto: `Reatância de ${br(finais.reatancia, 4)} Ω/km calculada pela ${finais.origemReatancia}.` });
   } else {
-    procedencias.push({ tipo: "premissa", texto: `Reatância de ${reatancia} Ω/km informada; o cabo não está no catálogo transcrito e a NBR 14039 não tabela impedância.` });
+    procedencias.push({ tipo: "premissa", texto: `Reatância de ${br(reatancia)} Ω/km informada; o cabo não está no catálogo transcrito e a NBR 14039 não tabela impedância.` });
   }
 
   return {
@@ -395,6 +439,13 @@ export function dimensionarCircuitoMT({ preset, circuito }) {
     criterio,
     secaoComercial: catalogoConhecido ? (secoesDoCatalogo.find((s) => s >= secaoFinal) ?? null) : null,
     disponivelNoCatalogo: catalogoConhecido ? secoesDoCatalogo.includes(secaoFinal) : null,
+    designacao: designacaoCaboMT({
+      secao: secaoFinal,
+      formacao: circuito.formacao,
+      classeTensao: preset.classeTensao,
+      isolacao,
+      blindagem: blindagem.secaoEspecificada,
+    }),
     reatanciaUsada: finais.reatancia,
     resistenciaUsada: finais.resistencia,
     comprimentoTotal,
@@ -403,7 +454,7 @@ export function dimensionarCircuitoMT({ preset, circuito }) {
     procedencias,
     trechos: avaliados.map((t) => ({
       ...t,
-      fatorAgrupamento: fatorAgrupamentoTrecho(t, secaoFinal),
+      fatorAgrupamento: fatorAgrupamentoTrecho(t, secaoFinal, circuito.formacao),
       capacidadeNominal: capacidadeMT({ isolacao, material, secao: secaoFinal, metodo: t.metodo }),
       capacidadeCorrigida: capacidadeCorrigida(t, secaoFinal),
     })),

@@ -28,7 +28,6 @@ export const defaultTrechoMT = () => ({
   // Agrupamento. `agrupado: false` é circuito isolado — a norma só tabela
   // grupos, e um grupo sozinho não sofre influência térmica de vizinho.
   agrupado: false,
-  cabo: "unipolarTrifolio", // "unipolarTrifolio" (Tab. 34) | "tripolar" (Tab. 35)
   arranjo: null, // A1
   espacamentoRelativo: null, // A1: e/Dₑ
   dutos: null, // F1, F2, G1, G2
@@ -47,7 +46,7 @@ export const defaultTrechoMT = () => ({
 // Os seis métodos ausentes (A2, B1, B2, C, D, E) não têm tabela de agrupamento
 // em lugar nenhum da norma — estão em METODOS_SEM_AGRUPAMENTO.
 export const CAMPOS_AGRUPAMENTO = {
-  A1: ["cabo", "arranjo", "espacamentoRelativo"],
+  A1: ["arranjo", "espacamentoRelativo"],
   F1: ["dutos", "espacamento"],
   F2: ["dutos"],
   G1: ["dutos", "espacamento"],
@@ -80,6 +79,10 @@ export const defaultPresetMT = () => ({
 export const defaultCircuitoMT = () => ({
   tag: "AL-MT-01",
   descricao: "",
+  // Formação do cabo. Fica no circuito e não no trecho porque um circuito não
+  // troca de cabo no meio do caminho: decide a tabela de agrupamento (34 para
+  // unipolares em trifólio, 35 para tripolares) e entra na designação.
+  formacao: "unipolar", // "unipolar" | "tripolar"
   modo: "potencia", // "potencia" (kVA do transformador) | "corrente"
   potenciaKVA: 1000,
   corrente: 100, // A, quando modo === "corrente"

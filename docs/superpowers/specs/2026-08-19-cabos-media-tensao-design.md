@@ -50,7 +50,7 @@ aba de baixa tensão, hoje estável.
 | `src/lib/mtModelo.js` | Formato do circuito de MT e normalização do estado salvo | **pronto** |
 | `src/lib/mtSizing.js` | Motor: os quatro critérios e o critério determinante | **pronto** |
 | `src/lib/mtPdf.js` | Memorial de cálculo | a fazer |
-| `src/components/MediaTensaoTab.jsx` + `src/components/mt/*` | Tela | a fazer |
+| `src/components/MediaTensaoTab.jsx` + `src/components/mt/*` | Tela | **pronto** |
 
 Compartilhado de verdade: a função de merge com defaults de `circuitoModelo.js`
 (a extrair para módulo comum), o registro em `estadoAbas.js`, o `ErrorBoundary` e
@@ -205,7 +205,11 @@ quarto critério.
 - **Etapa 1 — motor e testes.** Concluída: `mtModelo.js` (23 testes) e
   `mtSizing.js` (34 testes), sem tela. A função de merge com defaults saiu de
   `circuitoModelo.js` para `comDefaults.js`, como o desenho previa.
-- **Etapa 2 — tela.** Aba, formulário condicional ao método, tabela de resultados.
+- **Etapa 2 — tela.** Concluída: aba registrada em `estadoAbas.js`, formulário de
+  trecho condicional ao método, tabela de circuitos e painel de resultado com a
+  procedência de cada número. O selo de norma do cabeçalho passou a acompanhar a
+  aba — dizer "NBR 5410" numa tela de 13,8 kV era justamente a confusão que esta
+  aba existe para evitar.
 - **Etapa 3 — memorial e designação.**
 
 ## Decisões da Etapa 1

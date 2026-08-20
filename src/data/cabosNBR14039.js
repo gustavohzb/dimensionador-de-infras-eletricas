@@ -598,12 +598,18 @@ export function fatorAgrupamentoEspacadoEnterrado({ regime, cabos, secao }) {
 // Fator de agrupamento pelo arranjo e pelo espaçamento relativo (e / Dₑ).
 // Devolve null quando não há tabela para o método, quando o arranjo não é um
 // dos normalizados, ou quando o espaçamento é negativo.
-export function fatorAgrupamentoMT({ metodo, arranjo, espacamentoRelativo }) {
+export function fatorAgrupamentoMT({ metodo, arranjo, espacamentoRelativo, cabo = null }) {
   const tabelas = AGRUPAMENTOS_MT[metodo];
   if (!tabelas) return null;
   const r = Number(espacamentoRelativo);
   if (!Number.isFinite(r) || r < 0) return null;
-  for (const t of tabelas) {
+  // `cabo` restringe a busca à tabela da formação certa: os arranjos da 34
+  // (unipolares em trifólio) e da 35 (tripolares) são desenhos diferentes, e
+  // aceitar um arranjo da outra tabela devolveria um fator que não existe para
+  // aquele cabo. Sem `cabo`, procura nas duas — é como os testes de dados a
+  // consultam, tabela a tabela.
+  const candidatas = cabo ? tabelas.filter((t) => t.cabo === cabo) : tabelas;
+  for (const t of candidatas) {
     const a = t.arranjos.find((x) => x.id === arranjo);
     if (!a) continue;
     const faixa = a.faixas.find((f) => r >= f.min && (f.max === null || r < f.max));

@@ -8,6 +8,7 @@
 export const ABAS = [
   { id: "infra", label: "Infraestrutura" },
   { id: "quadroCargas", label: "Cabos Elétricos" },
+  { id: "mediaTensao", label: "Média Tensão" },
   { id: "iluminacao", label: "Iluminação" },
   { id: "capacitores", label: "Capacitores" },
   { id: "spda", label: "SPDA" },
@@ -24,6 +25,7 @@ export const ABAS = [
 export const CHAVES_POR_ABA = {
   infra: [],
   quadroCargas: ["quadroCargas.v2", "quadroCargas.v1"],
+  mediaTensao: ["mediaTensao.v1"],
   iluminacao: ["iluminacao.v3", "iluminacao.v2", "iluminacao.v1"],
   capacitores: ["capacitores.v1"],
   spda: ["spdaRisco.v1"],

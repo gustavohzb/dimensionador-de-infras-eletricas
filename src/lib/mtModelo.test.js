@@ -39,6 +39,14 @@ describe("defaults", () => {
     expect(t.profundidade).toBe(0.9);
   });
 
+  it("a formação do cabo é do circuito, não do trecho", () => {
+    // Um circuito não vira tripolar no meio do caminho. A escolha decide qual
+    // tabela de agrupamento vale (34 para unipolares em trifólio, 35 para
+    // tripolares) e entra na designação do cabo.
+    expect(defaultCircuitoMT().formacao).toBe("unipolar");
+    expect(defaultTrechoMT()).not.toHaveProperty("cabo");
+  });
+
   it("o circuito nasce com um trecho", () => {
     expect(defaultCircuitoMT().trechos).toHaveLength(1);
   });
@@ -87,7 +95,7 @@ describe("CAMPOS_AGRUPAMENTO", () => {
   });
 
   it("os campos pedidos são os que a tabela daquele método consome", () => {
-    expect(CAMPOS_AGRUPAMENTO.A1).toEqual(["cabo", "arranjo", "espacamentoRelativo"]);
+    expect(CAMPOS_AGRUPAMENTO.A1).toEqual(["arranjo", "espacamentoRelativo"]);
     expect(CAMPOS_AGRUPAMENTO.F1).toEqual(["dutos", "espacamento"]);
     expect(CAMPOS_AGRUPAMENTO.F2).toEqual(["dutos"]);
     expect(CAMPOS_AGRUPAMENTO.G1).toEqual(["dutos", "espacamento"]);

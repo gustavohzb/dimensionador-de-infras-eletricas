@@ -5,6 +5,7 @@ import { ABAS } from "./lib/estadoAbas";
 import ErrorBoundary from "./components/ErrorBoundary";
 import InfraTab from "./components/InfraTab";
 import QuadroCargasTab from "./components/QuadroCargasTab";
+import MediaTensaoTab from "./components/MediaTensaoTab";
 import CapacitoresTab from "./components/CapacitoresTab";
 import IluminacaoTab from "./components/IluminacaoTab";
 import SpdaTab from "./components/SpdaTab";
@@ -35,6 +36,16 @@ function ThemeToggle({ dark, onToggle }) {
     </button>
   );
 }
+
+// Norma que rege cada aba. Deixou de ser um selo fixo quando entrou a média
+// tensão: dizer "NBR 5410" numa tela de 13,8 kV seria errado, e é justamente a
+// confusão que a aba nova existe para evitar.
+const NORMA_DA_ABA = {
+  mediaTensao: "NBR 14039:2021",
+  iluminacao: "NBR 5413 / 8995-1",
+  spda: "NBR 5419:2015",
+  capacitores: "NBR 5410:2004",
+};
 
 const ABA_ATIVA_KEY = "abaAtiva";
 
@@ -72,7 +83,7 @@ export default function App() {
           </div>
           <div className="flex items-center gap-2">
             <span className="rounded-xs border border-slate-200 bg-slate-50 px-2 py-1 font-mono text-[11px] text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
-              NBR 5410:2004
+              {NORMA_DA_ABA[activeTab] ?? "NBR 5410:2004"}
             </span>
             <ThemeToggle dark={dark} onToggle={() => setDark((v) => !v)} />
           </div>
@@ -112,6 +123,12 @@ export default function App() {
         <div className={activeTab === "quadroCargas" ? "" : "hidden"}>
           <ErrorBoundary aba="quadroCargas">
             <QuadroCargasTab dark={dark} onEnviarParaInfra={enviarParaInfra} />
+          </ErrorBoundary>
+        </div>
+
+        <div className={activeTab === "mediaTensao" ? "" : "hidden"}>
+          <ErrorBoundary aba="mediaTensao">
+            <MediaTensaoTab />
           </ErrorBoundary>
         </div>
 

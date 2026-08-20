@@ -6,7 +6,13 @@
 // o curto na blindagem realmente pesar na escolha da seção.
 
 import { describe, it, expect } from "vitest";
-import { correnteDeFalta, correnteDeProjetoMT, dimensionarCircuitoMT, reatanciaMT } from "./mtSizing";
+import {
+  correnteDeFalta,
+  correnteDeProjetoMT,
+  designacaoCaboMT,
+  dimensionarCircuitoMT,
+  reatanciaMT,
+} from "./mtSizing";
 import { defaultCircuitoMT, defaultPresetMT, defaultTrechoMT } from "./mtModelo";
 
 const preset = (extra) => ({ ...defaultPresetMT(), ...extra });
@@ -206,6 +212,22 @@ describe("dimensionarCircuitoMT — fatores", () => {
     expect(r.trechos[0].correcaoSoloAplicavel).toBe(false);
   });
 
+  it("a formação do circuito escolhe entre as Tabelas 34 e 35", () => {
+    // Mesmo arranjo não existe nas duas tabelas: "doisHoriz" é da 35
+    // (tripolares) e não da 34 (unipolares em trifólio).
+    const comum = { metodo: "A1", agrupado: true, arranjo: "doisHoriz", espacamentoRelativo: 0.2 };
+    const tri = dimensionarCircuitoMT({
+      preset: preset(),
+      circuito: circuito({ formacao: "tripolar", trechos: [trecho(comum)] }),
+    });
+    const uni = dimensionarCircuitoMT({
+      preset: preset(),
+      circuito: circuito({ formacao: "unipolar", trechos: [trecho(comum)] }),
+    });
+    expect(tri.trechos[0].fatorAgrupamento).toBe(0.89);
+    expect(uni.error).toBeTruthy();
+  });
+
   it("não limita o produto dos fatores a 1,00", () => {
     // Tabela 38, 3 dutos, seção pequena, 800 mm de espaçamento → 1,08. Um teto
     // em 1,00 aqui jogaria fora capacidade que a norma reconhece.
@@ -216,6 +238,19 @@ describe("dimensionarCircuitoMT — fatores", () => {
       }),
     });
     expect(r.trechos[0].fatorAgrupamento).toBeGreaterThan(1);
+  });
+
+  it("distingue campo em branco de combinação que a norma não tem", () => {
+    // Achado na verificação da tela: marcar "agrupado" antes de preencher os
+    // campos dava "a combinação informada não está na tabela da norma", que
+    // manda o projetista procurar um defeito na norma quando o que falta é ele
+    // escolher o número de dutos.
+    const r = dimensionarCircuitoMT({
+      preset: preset(),
+      circuito: circuito({ trechos: [trecho({ metodo: "F1", agrupado: true })] }),
+    });
+    expect(r.error).toMatch(/preencha|informe/i);
+    expect(r.error).not.toMatch(/não está na tabela/i);
   });
 
   it("recusa contagem de dutos que a tabela não tem", () => {
@@ -242,6 +277,35 @@ describe("dimensionarCircuitoMT — fatores", () => {
     // O trecho a 50 °C exige 150/0,76 = 197,4 A de tabela. Em F1, 70 mm² dá
     // 167 A e 95 mm² dá 200 A — o trecho frio sozinho teria parado em 50 mm².
     expect(r.secaoCapacidade).toBe(95);
+  });
+});
+
+describe("designacaoCaboMT", () => {
+  it("escreve o cabo unipolar no padrão de lista de material", () => {
+    const d = designacaoCaboMT({
+      secao: 50, formacao: "unipolar", classeTensao: "8,7/15 kV", isolacao: 90, blindagem: 6,
+    });
+    expect(d).toBe("3#1x50 mm² 8,7/15 kV EPR/XLPE 90 °C, blindagem 6 mm²");
+  });
+
+  it("o tripolar é um cabo de três veias, não três cabos", () => {
+    const d = designacaoCaboMT({
+      secao: 50, formacao: "tripolar", classeTensao: "8,7/15 kV", isolacao: 90, blindagem: 6,
+    });
+    expect(d).toBe("1#3x50 mm² 8,7/15 kV EPR/XLPE 90 °C, blindagem 6 mm²");
+  });
+
+  it("mostra a blindagem especificada, que é o que se compra", () => {
+    const d = designacaoCaboMT({
+      secao: 50, formacao: "unipolar", classeTensao: "8,7/15 kV", isolacao: 90, blindagem: 70,
+    });
+    expect(d).toContain("blindagem 70 mm²");
+  });
+
+  it("a classe de tensão aparece só aqui, nunca no cálculo", () => {
+    const a = designacaoCaboMT({ secao: 50, formacao: "unipolar", classeTensao: "8,7/15 kV", isolacao: 90, blindagem: 6 });
+    const b = designacaoCaboMT({ secao: 50, formacao: "unipolar", classeTensao: "15/25 kV", isolacao: 90, blindagem: 6 });
+    expect(a).not.toBe(b);
   });
 });
 
