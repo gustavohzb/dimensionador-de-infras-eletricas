@@ -45,8 +45,10 @@ aba de baixa tensão, hoje estável.
 |---|---|---|
 | `src/data/cabosNBR14039.js` | Tabelas 27 a 44 da norma e funções de consulta | **pronto** |
 | `src/data/cabosNBR14039.test.js` | 64 testes de estrutura e coerência | **pronto** |
-| `src/lib/mtModelo.js` | Formato do circuito de MT e normalização do estado salvo | a fazer |
-| `src/lib/mtSizing.js` | Motor: os quatro critérios e o critério determinante | a fazer |
+| `src/data/cabosPrysmianMT.js` | Geometria do cabo Eprotenax e resistência da NBR NM 280 | **pronto** |
+| `src/lib/comDefaults.js` | Merge com defaults que trata `undefined` como ausente | **pronto** |
+| `src/lib/mtModelo.js` | Formato do circuito de MT e normalização do estado salvo | **pronto** |
+| `src/lib/mtSizing.js` | Motor: os quatro critérios e o critério determinante | **pronto** |
 | `src/lib/mtPdf.js` | Memorial de cálculo | a fazer |
 | `src/components/MediaTensaoTab.jsx` + `src/components/mt/*` | Tela | a fazer |
 
@@ -163,8 +165,8 @@ BT, que já identifica o critério determinante.
    derivado das Tabelas 42 e 43, não uma constante tabelada.
 4. **Curto na blindagem.** Mesma equação com a blindagem partindo 5 °C abaixo do
    condutor e a temperatura final vinda do material da **cobertura** (Tabela 44).
-   É frequentemente este critério que define a seção, não a fase — quem dimensiona
-   só o condutor não vê isso.
+   Define a especificação da blindagem, não a seção do condutor — ver "Decisões
+   da Etapa 1". Quem dimensiona só a fase não vê isso.
 
 A corrente de falta fase-terra do critério 4 vem de um seletor de aterramento do
 neutro (solidamente aterrado, aterrado por resistor com corrente limitada
@@ -200,9 +202,80 @@ quarto critério.
 ## Faseamento
 
 - **Etapa 0 — dados.** Concluída.
-- **Etapa 1 — motor e testes.** `mtModelo.js` e `mtSizing.js`, sem tela.
+- **Etapa 1 — motor e testes.** Concluída: `mtModelo.js` (23 testes) e
+  `mtSizing.js` (34 testes), sem tela. A função de merge com defaults saiu de
+  `circuitoModelo.js` para `comDefaults.js`, como o desenho previa.
 - **Etapa 2 — tela.** Aba, formulário condicional ao método, tabela de resultados.
 - **Etapa 3 — memorial e designação.**
+
+## Decisões da Etapa 1
+
+Quatro números do motor não vêm da NBR 14039, e o motor os devolve rotulados em
+`procedencias[]` para o memorial poder imprimir a origem de cada um:
+
+| Número | Procedência | Tratamento |
+|---|---|---|
+| Ampacidade e todos os fatores de correção | NBR 14039 | tabelado |
+| Resistência do condutor a 20 °C | NBR NM 280 (IEC 60228) | tabelada, corrigida para a temperatura de operação |
+| Reatância | IEC 60287-1-1 sobre geometria de **catálogo** | calculada por seção |
+| Diâmetro do condutor e diâmetro externo | **catálogo** Prysmian Eprotenax | tabelado por classe |
+| Limite de queda de tensão, 3 % | **convenção do projetista** | editável no preset |
+| Falta fase-terra = Icc trifásico, no neutro solidamente aterrado | **premissa** | só nesse aterramento |
+
+A reatância deixou de ser premissa. Com a geometria do cabo (diâmetro do
+condutor e diâmetro externo) e a fórmula `X = 2ω·10⁻⁷·ln(2s/d)` da
+IEC 60287-1-1, ela sai calculada por seção — em trifólio encostado a distância
+entre eixos é o próprio diâmetro externo. O valor de bolso de 0,12 Ω/km que a
+Etapa 1 usava só acertava perto de 95 mm²: errava −19 % em 25 mm² e +39 % em
+630 mm².
+
+Pelo mesmo caminho a resistência melhorou: `ρ₂₀/S` ignora o encordoamento e dá
+0,345 Ω/km em 50 mm², contra os 0,387 Ω/km que a NBR NM 280 tabela — 12 % a
+menos de resistência, e portanto 12 % a menos de queda calculada, no sentido
+otimista. Agora a tabela da norma é a fonte, e `ρ/S` só entra nas seções que ela
+não cobre.
+
+O campo de reatância do preset continua existindo, mas virou reserva: só é usado
+quando o cabo não está no catálogo transcrito, e nesse caso o motor marca o
+valor como premissa no memorial.
+
+**Circuito isolado tem fator de agrupamento 1,00.** Inserido, não transcrito: a
+norma só tabela grupos. O trecho carrega `agrupado: false`, e é isso que separa
+"não há vizinho" de "há vizinho e não há tabela" — este último recusa.
+
+**O critério da blindagem não escolhe a seção do condutor — ele aprova ou
+reprova o cabo.** O catálogo desfez a suposição com que a Etapa 1 trabalhava. A
+blindagem do Eprotenax é de **6 mm² de fios de cobre nu em toda a linha**, igual
+em 25 e em 630 mm², com "outras seções sob consulta". Ela não acompanha a seção
+do condutor.
+
+A consequência inverte o desenho anterior, que previa subir a seção do condutor
+até achar um cabo com blindagem suficiente: **engrossar o condutor não muda
+nada**. O motor compara a blindagem especificada com a exigida pela falta
+fase-terra e, quando não atende, recusa dizendo quantos mm² pedir.
+
+Isso torna o quarto critério mais duro, não menos. Com o preset padrão (neutro
+por resistor, 400 A, 0,5 s) a exigência é de 2,3 mm² e os 6 mm² de fábrica
+sobram. Com neutro solidamente aterrado e 10 kA por 0,5 s, a exigência sobe para
+57 mm² — quase dez vezes a blindagem padrão. O cabo correto existe, mas é
+encomenda, e quem dimensiona só a fase não descobre isso.
+
+### Limites da transcrição do catálogo
+
+Só cobre unipolar, e só 8,7/15 kV e 15/25 kV. Faltam 3,6/6, 6/10, 12/20 e
+20/35 kV, os tripolares e os de alumínio. Fora disso `geometriaCabo` devolve
+null, o motor usa a reatância informada e a declara como premissa — nunca cai
+num cabo vizinho.
+
+O motor também avisa quando a seção calculada não é fabricada naquela classe: a
+norma tabela desde 10 mm², mas o Eprotenax 8,7/15 kV começa em 25 mm² e o
+15/25 kV em 50 mm² (`secaoComercial` e `disponivelNoCatalogo`).
+
+A transcrição foi conferida contra a NBR NM 280 valor a valor, e a conferência
+achou defeito: o PDF desenha as tabelas por colunas, e na leitura linear a linha
+de 120 mm² do 15/25 kV veio com dados do cabo de 20/35 kV. O diâmetro sobre a
+isolação dessa linha está gravado como `null` em vez de um valor plausível
+inventado.
 
 ## Métodos C e D: ambiguidade resolvida como decisão do usuário
 
