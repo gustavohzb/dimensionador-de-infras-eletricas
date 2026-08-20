@@ -13,6 +13,8 @@
 // tocasse `c.trechos`. É o mesmo trabalho que spdaEntrada.js faz no SPDA e o
 // merge com defaults() faz nos Capacitores; o quadro era a única aba sem.
 
+import { comDefaults, ehObjeto } from "./comDefaults";
+
 export const defaultTrecho = () => ({
   condutoId: "eletrocalha",
   distribuicao: null,
@@ -52,24 +54,6 @@ export const defaultCircuito = () => ({
   porFase: 1,
   trechos: [defaultTrecho()],
 });
-
-const ehObjeto = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
-
-// Merge sobre o default que trata `undefined` como ausente.
-//
-// O spread comum não serve: `{...{a:1}, ...{a:undefined}}` dá `{a: undefined}`,
-// ou seja, um campo gravado como undefined venceria o default e voltaria a
-// deixar o input do React sem valor definido (o aviso de campo não controlado).
-// Campos desconhecidos do salvo são mantidos — podem ser de uma versão mais
-// nova, e descartar dado do usuário é pior que carregar um campo a mais.
-function comDefaults(base, salvo) {
-  const saida = { ...base };
-  if (!ehObjeto(salvo)) return saida;
-  for (const [chave, valor] of Object.entries(salvo)) {
-    if (valor !== undefined) saida[chave] = valor;
-  }
-  return saida;
-}
 
 export function normalizarTrecho(salvo, temperaturaDoPreset = null) {
   const trecho = comDefaults(defaultTrecho(), salvo);
