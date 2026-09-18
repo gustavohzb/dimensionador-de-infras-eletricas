@@ -178,6 +178,69 @@ describe("layoutCables — trifólio", () => {
   });
 });
 
+// Juiz INDEPENDENTE do motor: varre o interior do tubo num reticulado fino e
+// devolve o cy mais fundo em que um cabo de raio r ainda caberia, dados os que
+// já estão lá. Não reaproveita nada da busca de candidatos do packing.js — é
+// força bruta burra, e é justamente isso que a torna um juiz honesto: se o
+// motor esquecer uma posição de repouso, a varredura acha.
+//
+// Vale só para poucos cabos, onde não há vão fechado: o motor deposita por
+// gravidade (o cabo precisa CHEGAR à posição), e a força bruta enxergaria
+// também bolsões inalcançáveis.
+function cyMaisFundoPorForcaBruta(r, R, jaPostos, passo = 0.01) {
+  const limite = R - r;
+  let melhor = -Infinity;
+  for (let cx = -limite; cx <= limite; cx += passo) {
+    const teto = Math.sqrt(Math.max(0, limite * limite - cx * cx));
+    for (let cy = teto; cy > -limite; cy -= passo) {
+      const livre = jaPostos.every((p) => Math.hypot(cx - p.cx, cy - p.cy) >= p.r + r - 1e-9);
+      if (livre) {
+        if (cy > melhor) melhor = cy;
+        break; // primeiro válido descendo = o mais fundo neste cx
+      }
+    }
+  }
+  return melhor;
+}
+
+// Mesma varredura para o feixe de trifólio, que é um corpo RÍGIDO: sua
+// posição é só (cxc, baseCy), e os três condutores acompanham.
+function baseCyMaisFundoPorForcaBruta(r, R, jaPostos, passo = 0.01) {
+  const L = R - r;
+  const dyTopo = r * Math.sqrt(3);
+  let melhor = -Infinity;
+  for (let cxc = -L; cxc <= L; cxc += passo) {
+    for (let b = L; b > -L; b -= passo) {
+      const cond = [
+        { cx: cxc - r, cy: b },
+        { cx: cxc + r, cy: b },
+        { cx: cxc, cy: b - dyTopo },
+      ];
+      if (!cond.every((c) => Math.hypot(c.cx, c.cy) <= L + 1e-9)) continue;
+      const livre = cond.every((c) => jaPostos.every((p) => Math.hypot(c.cx - p.cx, c.cy - p.cy) >= p.r + r - 1e-9));
+      if (livre) {
+        if (b > melhor) melhor = b;
+        break;
+      }
+    }
+  }
+  return melhor;
+}
+
+// Cabos que pararam acima do repouso que existia para eles no momento em que
+// foram depositados. Tolerância de 0,05mm: o reticulado tem passo 0,01 e a
+// tangência exata do motor tem folga numérica própria.
+function paradosCedo(items, R) {
+  const fora = [];
+  items.forEach((it, k) => {
+    const alvo = cyMaisFundoPorForcaBruta(it.r, R, items.slice(0, k));
+    if (alvo - it.cy > 0.05) {
+      fora.push(`cabo ${k + 1} parou em cy=${it.cy.toFixed(2)}, cabia em ${alvo.toFixed(2)}`);
+    }
+  });
+  return fora;
+}
+
 describe("layoutCablesCircular — invariantes físicos no eletroduto", () => {
   it("um cabo sozinho repousa no fundo do tubo", () => {
     const R = 25;
@@ -218,6 +281,57 @@ describe("layoutCablesCircular — invariantes físicos no eletroduto", () => {
   it("é determinístico", () => {
     const cabos = [cabo(10.4), cabo(5.35), cabo(15.5)];
     expect(layoutCablesCircular(cabos, 25)).toEqual(layoutCablesCircular(cabos, 25));
+  });
+
+  // O invariante "nada flutua" acima é NECESSÁRIO mas não suficiente, e foi
+  // por essa fresta que passou um defeito real: um cabo encostado na lateral
+  // do tubo, na altura do centro, TOCA a parede — então conta como apoiado —
+  // mas não está em repouso nenhum. Gravidade não empurra para o lado.
+  //
+  // Os dois testes abaixo cobram o que falta: repouso é a posição MAIS FUNDA
+  // disponível, não qualquer posição com contato.
+  it("cada cabo desce até o fundo que existe, em vez de parar na lateral", () => {
+    // Cena real do catálogo: três cabos de comando 4×1,0 mm² (Ø 8,04) num
+    // eletroduto de 3/4" (Ø int. 22,4). Os dois últimos paravam em cy=0 —
+    // grudados na parede, na altura do centro — quando havia repouso em 2,68.
+    const R = 11.2;
+    const items = layoutCablesCircular([cabo(8.04), cabo(8.04), cabo(8.04)], R);
+    expect(paradosCedo(items, R)).toEqual([]);
+  });
+
+  it("o feixe de trifólio também desce até o fundo, e não fica pendurado", () => {
+    // Mesmo defeito do cabo solto, na função irmã: o feixe é rígido e
+    // escorrega pelo arco até encostar, em vez de parar na altura do vizinho.
+    const falhas = [];
+    for (const [R, solto, feixe] of [
+      [27.1, 15.5, 10.4],
+      [21.2, 10.4, 5.35],
+      [34.6, 18.32, 15.5],
+      [18.4, 10.4, 5.35],
+    ]) {
+      const items = layoutCablesCircular([cabo(solto), cabo(feixe, { trifolio: true })], R);
+      if (!circularFits(items, R)) continue;
+      const s = items.find((i) => !i.trifolioGroup);
+      const base = items.find((i) => i.trifolioGroup);
+      const alvo = baseCyMaisFundoPorForcaBruta(feixe / 2, R, [{ cx: s.cx, cy: s.cy, r: s.r }]);
+      if (alvo - base.cy > 0.05) {
+        falhas.push(`R=${R} feixe Ø${feixe}: parou em ${base.cy.toFixed(2)}, cabia em ${alvo.toFixed(2)}`);
+      }
+    }
+    expect(falhas).toEqual([]);
+  });
+
+  it("nenhum cabo para antes do fundo, em tubos e bitolas variados", () => {
+    const falhas = [];
+    for (const R of [8.6, 11.2, 14.35, 18.4, 21.2]) {
+      for (const d of DIAMETROS) {
+        const cabos = [cabo(d), cabo(d), cabo(d)];
+        const items = layoutCablesCircular(cabos, R);
+        if (!circularFits(items, R)) continue;
+        for (const f of paradosCedo(items, R)) falhas.push(`R=${R}, Ø${d}: ${f}`);
+      }
+    }
+    expect(falhas).toEqual([]);
   });
 });
 

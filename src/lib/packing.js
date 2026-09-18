@@ -303,8 +303,32 @@ export function layoutCablesCircular(cables, R) {
     // úteis só quando a pilha já transborda para os lados.
     const cands = new Set([0, -wallLimit, wallLimit]);
     for (const p of placed) {
+      // Lado a lado na MESMA altura. Vale quando o apoio é um piso reto ou o
+      // próprio vizinho; num tubo, sozinho, não basta — ver abaixo.
       cands.add(clamp(p.cx - (r + p.r)));
       cands.add(clamp(p.cx + (r + p.r)));
+      // Apoiado na PAREDE e encostado em p ao mesmo tempo. É o análogo curvo
+      // do "contato exato apoiado no fundo" da calha reta, e sem ele o cabo
+      // parava no extremo da parede, na altura do centro do tubo: num piso
+      // reto dois cabos em repouso ficam na mesma altura, mas num tubo o
+      // vizinho escorrega pelo arco até tocar, e fica mais fundo.
+      // O centro procurado está na circunferência de raio (R-r) em torno do
+      // eixo E a (r + p.r) do centro de p — a mesma interseção de duas
+      // circunferências usada nos vales entre pares, com a parede no lugar
+      // de um dos cabos.
+      const dEixo = Math.hypot(p.cx, p.cy);
+      const rc = r + p.r;
+      if (dEixo > 0 && dEixo <= wallLimit + rc && dEixo >= Math.abs(wallLimit - rc)) {
+        const a = (dEixo * dEixo - rc * rc + wallLimit * wallLimit) / (2 * dEixo);
+        const h2 = wallLimit * wallLimit - a * a;
+        if (h2 >= 0) {
+          const h = Math.sqrt(h2);
+          const mx = (a * p.cx) / dEixo;
+          const ox = (-p.cy / dEixo) * h;
+          cands.add(clamp(mx + ox));
+          cands.add(clamp(mx - ox));
+        }
+      }
     }
     if (placed.length <= 140) {
       for (let i = 0; i < placed.length; i++) {
@@ -359,6 +383,46 @@ export function layoutCablesCircular(cables, R) {
       for (const off of [-r, 0, r]) {
         cands.add(p.cx - d - off);
         cands.add(p.cx + d - off);
+      }
+    }
+
+    // Feixe apoiado na PAREDE e encostado num cabo ao mesmo tempo — o que
+    // faltava aqui, pelo mesmo motivo do cabo solto: o candidato acima põe o
+    // condutor ao LADO de p, na mesma altura, que é repouso de piso reto. Num
+    // tubo o feixe escorrega pelo arco, e o repouso de verdade é o ponto em
+    // que os dois contatos acontecem juntos.
+    //
+    // O feixe é rígido, então sua posição é só (cxc, baseCy) — e nesse plano
+    // toda condição de contato vira uma CIRCUNFERÊNCIA: encostar o condutor
+    // de deslocamento o na parede é estar a (R-r) do ponto -o; encostá-lo em
+    // p é estar a (r+p.r) do ponto (p - o). O repouso é a interseção de duas
+    // delas, a mesma conta já usada nos vales entre pares.
+    const desloc = [
+      { x: -r, y: 0 },
+      { x: r, y: 0 },
+      { x: 0, y: -dyTopo },
+    ];
+    const xDaInterseccao = (ax, ay, ar, bx, by, br) => {
+      const dd = Math.hypot(bx - ax, by - ay);
+      if (dd === 0 || dd > ar + br || dd < Math.abs(ar - br)) return;
+      const a = (dd * dd - br * br + ar * ar) / (2 * dd);
+      const h2 = ar * ar - a * a;
+      if (h2 < 0) return;
+      const h = Math.sqrt(h2);
+      const mx = ax + (a * (bx - ax)) / dd;
+      const ox = (-(by - ay) / dd) * h;
+      cands.add(mx + ox);
+      cands.add(mx - ox);
+    };
+    for (const naParede of desloc) {
+      // circunferência do condutor `naParede` tocando o tubo
+      const ax = -naParede.x, ay = -naParede.y, ar = R - r;
+      // o mais fundo desta circunferência sozinha, quando só a parede limita
+      cands.add(ax);
+      for (const p of placed) {
+        for (const noCabo of desloc) {
+          xDaInterseccao(ax, ay, ar, p.cx - noCabo.x, p.cy - noCabo.y, r + p.r);
+        }
       }
     }
 
