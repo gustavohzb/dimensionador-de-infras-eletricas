@@ -11,6 +11,10 @@ export function useCableTray() {
   const [trayWidth, setTrayWidth] = useState(100);
   const [trayHeight, setTrayHeight] = useState(50);
   const [cables, setCables] = useState([]);
+  // Arranjo de instalação com os feixes de trifólio afastados de 2× o diâmetro.
+  // Vive só na sessão: a tabela `projetos` do Supabase tem colunas explícitas, e
+  // gravar um campo que não existe lá quebraria o salvamento.
+  const [trifoliosEspacados, setTrifoliosEspacados] = useState(false);
 
   // Ajusta trayWidth/trayHeight às medidas válidas de uma configuração de dimensões.
   const applyDimensions = (dim) => {
@@ -85,6 +89,7 @@ export function useCableTray() {
     setTrayWidth(100);
     setTrayHeight(50);
     setCables([]);
+    setTrifoliosEspacados(false);
   };
 
   // Restaura de uma vez um projeto salvo (Supabase). Reatribui ids novos aos
@@ -132,6 +137,8 @@ export function useCableTray() {
     setTrayHeight,
     cables,
     groupedCables,
+    trifoliosEspacados,
+    setTrifoliosEspacados,
     addCable,
     addTrifolio,
     addCustomCable,

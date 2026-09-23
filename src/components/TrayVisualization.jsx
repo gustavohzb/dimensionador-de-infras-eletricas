@@ -1,6 +1,11 @@
 import { forwardRef, useId } from "react";
 import { VIAS_COLORS, COMANDO_COLOR, getDimensions, ELETRODUTO_NORMAS } from "../data/corfioHEPR";
-import { layoutCables, layoutCablesCircular, layoutCablesSplit } from "../lib/packing";
+import {
+  layoutCables,
+  layoutCablesCircular,
+  layoutCablesSplit,
+  layoutCablesTrifolioEspacado,
+} from "../lib/packing";
 // Toda a geometria — tamanho do canvas e posição de cada bloco — vem de
 // trayLayout. Este componente NÃO recalcula coordenada: o que ele desenha e o
 // que dimensiona o viewBox têm que sair da mesma conta, senão o conteúdo
@@ -194,7 +199,30 @@ function Cable({ item, uid }) {
   }
 
   // unipolar (inclui condutores de trifólio)
-  return <Conductor cx={cx} cy={cy} r={r} color={VIAS_COLORS[vias] || VIAS_COLORS[1]} uid={uid} material={material} />;
+  const condutor = <Conductor cx={cx} cy={cy} r={r} color={VIAS_COLORS[vias] || VIAS_COLORS[1]} uid={uid} material={material} />;
+  // Fase só existe no arranjo espaçado. Abaixo de r=3 a letra sairia ilegível
+  // por cima do condutor, e letra ilegível é pior que nenhuma.
+  if (!item.fase || r < 3) return condutor;
+  return (
+    <g>
+      {condutor}
+      <text
+        x={cx}
+        y={cy}
+        fill="#ffffff"
+        fontSize={r * 0.95}
+        fontWeight="700"
+        textAnchor="middle"
+        dominantBaseline="central"
+        stroke="#000000"
+        strokeWidth={r * 0.12}
+        strokeOpacity={0.55}
+        paintOrder="stroke"
+      >
+        {item.fase}
+      </text>
+    </g>
+  );
 }
 
 // Miniatura de cabo para a legenda (cobre sólido — sem depender dos gradientes).
@@ -440,7 +468,7 @@ function CableLegend({ legendItems }) {
   );
 }
 
-const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWidth, trayHeight, dark = false, infraType = "eletrocalha", leitoFlange = "interna", eletrodutoNorma = "nbr5624", legenda = null, resumo = null }, svgRef) {
+const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWidth, trayHeight, dark = false, infraType = "eletrocalha", leitoFlange = "interna", eletrodutoNorma = "nbr5624", legenda = null, resumo = null, trifoliosEspacados = false }, svgRef) {
   const uid = useId().replace(/:/g, "");
   const temLegenda = Array.isArray(legenda) && legenda.length > 0;
   const temResumo = Array.isArray(resumo) && resumo.length > 0;
@@ -516,7 +544,12 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
   const hasComando = cables.some((c) => c.type === "comando");
   const hasForca = cables.some((c) => c.type !== "comando");
   const split = hasComando && hasForca ? layoutCablesSplit(cables, trayWidth, trayHeight) : null;
-  const items = split ? split.items : layoutCables(cables, trayWidth, trayHeight);
+  // O septo vem antes: num trecho misto o compartimento já é outra geometria, e
+  // a fileira espaçada não se aplica (a aba desabilita a chave nesse caso).
+  let items;
+  if (split) items = split.items;
+  else if (trifoliosEspacados) items = layoutCablesTrifolioEspacado(cables, trayWidth, trayHeight);
+  else items = layoutCables(cables, trayWidth, trayHeight);
   const L = layoutRetangular({
     trayWidth,
     trayHeight,
