@@ -3,6 +3,7 @@ import {
   layoutCables,
   layoutCablesCircular,
   layoutCablesSplit,
+  layoutCablesTrifolioEspacado,
   splitWidthByArea,
   rectFits,
   circularFits,
@@ -66,10 +67,13 @@ function trySplit(cables, w, h, septum, maxLayers) {
 // visualização. Ordenado da menor área útil para a maior.
 export function findBestFits(cables, options = {}) {
   if (!cables || cables.length === 0) return [];
-  const { maxLayers } = options; // opcional: limite de camadas de empilhamento
+  const { maxLayers, trifoliosEspacados = false } = options; // limite de camadas; arranjo espaçado
   const hasForca = cables.some((c) => c.type !== "comando");
   const hasComando = cables.some((c) => c.type === "comando");
   const mixed = hasForca && hasComando;
+  // Num trecho misto o septo manda: o compartimento já é outra geometria, e a
+  // aba desabilita a chave nesse caso — a busca não pode discordar dela.
+  const espacado = trifoliosEspacados && !mixed;
   const results = [];
 
   for (const infraType of mixed ? SEPTUM_TYPES : RECT_TYPES) {
@@ -103,7 +107,9 @@ export function findBestFits(cables, options = {}) {
 
         const occ = computeOccupancy(cables, trayArea, false);
         if (!occ.dentroLimite) continue; // já falha na área % — nem tenta empacotar
-        const items = layoutCables(cables, w, h);
+        const items = espacado
+          ? layoutCablesTrifolioEspacado(cables, w, h)
+          : layoutCables(cables, w, h);
         if (!rectFits(items, w)) continue; // falhou fisicamente apesar da área % ok
         const camadas = countLayers(items, groundedRect(h));
         if (maxLayers && camadas > maxLayers) continue;
@@ -122,7 +128,9 @@ export function findBestFits(cables, options = {}) {
     }
   }
 
-  if (!mixed) {
+  // Eletroduto fica de fora do arranjo espaçado: tubo fechado é feixe por
+  // definição, e recomendar um seria oferecer o oposto do que foi pedido.
+  if (!mixed && !espacado) {
     for (const norma of ELETRODUTO_NORMAS) {
       const dim = getDimensions("eletroduto", norma.id);
       for (const size of dim.sizes) {

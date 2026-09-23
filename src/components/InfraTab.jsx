@@ -104,7 +104,7 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
     setCircuitosOverride(null);
   };
 
-  const handleSearch = () => buscar(cables);
+  const handleSearch = () => buscar(cables, { trifoliosEspacados: espacadoAtivo });
 
   // Ocupação sempre recalculada a partir do trecho corrente (a opção "applied"
   // congela os números do momento da busca — cabos podem ter mudado depois).
