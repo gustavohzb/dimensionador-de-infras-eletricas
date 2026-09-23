@@ -23,6 +23,15 @@ procedência que não foi conferida contra a norma impressa.
 Quando essa regra entrar, entra como mudança própria, com a referência exata
 da norma registrada junto.
 
+O que o fator conta continua sendo **só cabo de verdade**: `estimateCircuits`
+percorre a lista de cabos do trecho e soma um circuito por trifólio. O vão de
+2D é espaço vazio, não está na lista, e não soma nada — quatro trifólios
+espaçados são quatro circuitos, os mesmos quatro de quando estão encostados.
+O número segue editável à mão no painel de agrupamento.
+
+Na prática, então, espaçar não dá crédito nenhum no cálculo: quatro trifólios
+num leito dão 0,80 encostados ou espaçados. É o conservador, e é deliberado.
+
 **Não persiste em projeto.** A tabela `projetos` do Supabase tem colunas
 explícitas; um campo novo exige `ALTER TABLE`, que não pode ser feito pelo
 código, e um insert com coluna inexistente quebraria o salvamento. O modo vive
