@@ -12,6 +12,7 @@ import {
   layoutCablesCircular,
   layoutCablesTrifolioEspacado,
   larguraTrifolioEspacado,
+  vaosDaFileira,
   layoutCablesSplit,
   splitWidthByArea,
   rectFits,
@@ -420,6 +421,46 @@ describe("layoutCablesTrifolioEspacado — fileira com vão de 2D", () => {
   it("é determinístico", () => {
     const cabos = [trif(20), trif(10), cabo(8)];
     expect(layoutCablesTrifolioEspacado(cabos, 300, 100)).toEqual(layoutCablesTrifolioEspacado(cabos, 300, 100));
+  });
+});
+
+describe("vaosDaFileira — os vãos que a cota do desenho mede", () => {
+  const trif = (d) => cabo(d, { trifolio: true });
+
+  it("devolve um vão a menos que o número de feixes", () => {
+    for (const n of [1, 2, 3, 5]) {
+      const items = layoutCablesTrifolioEspacado(Array.from({ length: n }, () => trif(20)), 600, 100);
+      expect({ n, vaos: vaosDaFileira(items).length }).toEqual({ n, vaos: Math.max(0, n - 1) });
+    }
+  });
+
+  it("mede de borda a borda, e o valor é 2D", () => {
+    const items = layoutCablesTrifolioEspacado([trif(20), trif(20)], 300, 100);
+    const [v] = vaosDaFileira(items);
+    expect(v.x1).toBe(40); // fim do primeiro feixe (2D)
+    expect(v.x2).toBe(80); // início do segundo
+    expect(v.valor).toBe(40);
+  });
+
+  it("a cota fica na altura dos condutores da base", () => {
+    const items = layoutCablesTrifolioEspacado([trif(20), trif(20)], 300, 100);
+    expect(vaosDaFileira(items)[0].cy).toBe(90); // trayHeight - r
+  });
+
+  it("com bitolas diferentes cada vão tem o seu valor, pelo maior diâmetro", () => {
+    const items = layoutCablesTrifolioEspacado([trif(10), trif(20), trif(10)], 400, 100);
+    expect(vaosDaFileira(items).map((v) => v.valor)).toEqual([40, 40]);
+    const outros = layoutCablesTrifolioEspacado([trif(10), trif(10), trif(20)], 400, 100);
+    expect(vaosDaFileira(outros).map((v) => v.valor)).toEqual([20, 40]);
+  });
+
+  it("ignora cabo solto, que não faz parte da fileira", () => {
+    const items = layoutCablesTrifolioEspacado([trif(20), trif(20), cabo(10)], 300, 100);
+    expect(vaosDaFileira(items)).toHaveLength(1);
+  });
+
+  it("trecho sem trifólio não tem vão nenhum", () => {
+    expect(vaosDaFileira(layoutCables([cabo(10)], 300, 100))).toEqual([]);
   });
 });
 

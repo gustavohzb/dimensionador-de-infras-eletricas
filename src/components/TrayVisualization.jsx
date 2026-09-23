@@ -5,6 +5,7 @@ import {
   layoutCablesCircular,
   layoutCablesSplit,
   layoutCablesTrifolioEspacado,
+  vaosDaFileira,
 } from "../lib/packing";
 // Toda a geometria — tamanho do canvas e posição de cada bloco — vem de
 // trayLayout. Este componente NÃO recalcula coordenada: o que ele desenha e o
@@ -442,11 +443,87 @@ function SharedDefs({ uid }) {
       <filter id={`cableShadow-${uid}`} x="-30%" y="-30%" width="160%" height="160%">
         <feDropShadow dx="0" dy="1.2" stdDeviation="1.1" floodColor="#000000" floodOpacity="0.35" />
       </filter>
+      {/* setas da cota do vão. refX=10 põe a PONTA no fim da linha; com um
+          refX menor a ponta cai atrás do ponto e invade o cabo. */}
+      <marker id={`cotaIni-${uid}`} viewBox="0 0 10 10" refX="10" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill={COTA_VAO} />
+      </marker>
+      <marker id={`cotaFim-${uid}`} viewBox="0 0 10 10" refX="10" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill={COTA_VAO} />
+      </marker>
       {/* seta da indicação do septo divisor */}
       <marker id={`arrow-${uid}`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
         <path d="M 0 0 L 10 5 L 0 10 z" fill={SEPTUM_HIGHLIGHT} />
       </marker>
     </defs>
+  );
+}
+
+// Cota do vão entre feixes de trifólio espaçados.
+//
+// Fica DENTRO do leito, na altura dos condutores da base — junto do que mede.
+// Por isso a cor é o âmbar escuro: o fundo ali é branco, e o âmbar claro que o
+// app usa fora (na seta do septo) sumiria.
+//
+// Sem linhas de chamada: quem delimita o vão são as pontas das setas, que
+// encostam na borda do condutor.
+const COTA_VAO = "#b45309";
+const COTA_FONTE = 9;
+
+// Largura do texto sem DOM, pela mesma estimativa por caractere do trayLayout.
+// Erra por sobra, que é o lado seguro: cair na flecha cedo demais é melhor do
+// que escrever um número por cima do cabo vizinho.
+const larguraRotulo = (texto) => texto.length * CHAR_W_BOLD;
+const mm = (v) => (Number.isInteger(v) ? String(v) : v.toFixed(1).replace(".", ",")) + " mm";
+
+function CotasVao({ vaos, topoFeixes, uid }) {
+  if (vaos.length === 0) return null;
+  const rotulos = vaos.map((v) => mm(v.valor));
+  const todosCabem = vaos.every((v, i) => larguraRotulo(rotulos[i]) <= v.valor);
+  const todosIguais = vaos.every((v) => v.valor === vaos[0].valor);
+  // Vãos todos iguais e nenhum rótulo cabendo: um número só resolve. Vãos
+  // diferentes exigem um por vão — um número só estaria falando pelos outros.
+  const puxadoUnico = !todosCabem && todosIguais ? Math.floor(vaos.length / 2) : null;
+
+  return (
+    <g>
+      {vaos.map((v, i) => {
+        const cabe = larguraRotulo(rotulos[i]) <= v.valor;
+        const puxado = !cabe && (puxadoUnico === null || puxadoUnico === i);
+        const xMeio = (v.x1 + v.x2) / 2;
+        const yTexto = Math.max(COTA_FONTE, topoFeixes - 5);
+        const temHasteDaFlecha = v.cy - 3 - (yTexto + 3) >= 4;
+        return (
+          <g key={`vao-${i}`}>
+            <line
+              x1={v.x1}
+              y1={v.cy}
+              x2={v.x2}
+              y2={v.cy}
+              stroke={COTA_VAO}
+              strokeWidth={0.7}
+              markerStart={`url(#cotaIni-${uid})`}
+              markerEnd={`url(#cotaFim-${uid})`}
+            />
+            {cabe && (
+              <text x={xMeio} y={v.cy - 3} fill={COTA_VAO} fontSize={COTA_FONTE} fontWeight="700" textAnchor="middle">
+                {rotulos[i]}
+              </text>
+            )}
+            {puxado && (
+              <>
+                {temHasteDaFlecha && (
+                  <line x1={xMeio} y1={yTexto + 3} x2={xMeio} y2={v.cy - 3} stroke={COTA_VAO} strokeWidth={0.7} markerEnd={`url(#cotaFim-${uid})`} />
+                )}
+                <text x={xMeio} y={yTexto} fill={COTA_VAO} fontSize={COTA_FONTE} fontWeight="700" textAnchor="middle">
+                  {rotulos[i]}
+                </text>
+              </>
+            )}
+          </g>
+        );
+      })}
+    </g>
   );
 }
 
@@ -550,6 +627,14 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
   if (split) items = split.items;
   else if (trifoliosEspacados) items = layoutCablesTrifolioEspacado(cables, trayWidth, trayHeight);
   else items = layoutCables(cables, trayWidth, trayHeight);
+
+  // Cota do vão SÓ no arranjo espaçado. No empacotamento por gravidade os
+  // feixes também carregam trifolioGroup, mas ali eles ficam encostados e
+  // empilhados — "vão" não significa nada, e a cota mediria o acaso.
+  const vaos = trifoliosEspacados && !split ? vaosDaFileira(items) : [];
+  const topoFeixes = vaos.length
+    ? Math.min(...items.filter((i) => i.trifolioGroup).map((i) => i.cy - i.r))
+    : 0;
   const L = layoutRetangular({
     trayWidth,
     trayHeight,
@@ -636,6 +721,9 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
             <Cable key={item.key} item={item} uid={uid} />
           ))}
         </g>
+
+        {/* cota do vão entre feixes espaçados */}
+        <CotasVao vaos={vaos} topoFeixes={topoFeixes} uid={uid} />
 
         {/* cota de largura */}
         <line x1={0} y1={L.cota.linhaY} x2={trayWidth} y2={L.cota.linhaY} stroke="#94a3b8" strokeWidth={1} />

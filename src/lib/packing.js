@@ -275,6 +275,36 @@ export function layoutCablesTrifolioEspacado(cables, trayWidth, trayHeight) {
   return [...items, ...soltosPostos];
 }
 
+// Vãos entre feixes consecutivos, para a cota do desenho. Derivado dos itens
+// JÁ POSICIONADOS, e não do passo recalculado: assim a cota não tem como
+// medir uma coisa e o desenho mostrar outra.
+//
+// `cy` é a altura dos condutores da base, que é onde a cota é desenhada —
+// dentro do leito, junto do que ela mede.
+export function vaosDaFileira(items) {
+  const grupos = new Map();
+  for (const it of items) {
+    if (!it.trifolioGroup) continue; // cabo solto não faz parte da fileira
+    const g = grupos.get(it.trifolioGroup) ?? { esquerda: Infinity, direita: -Infinity, cy: -Infinity };
+    g.esquerda = Math.min(g.esquerda, it.cx - it.r);
+    g.direita = Math.max(g.direita, it.cx + it.r);
+    g.cy = Math.max(g.cy, it.cy); // o condutor de cima tem cy menor
+    grupos.set(it.trifolioGroup, g);
+  }
+  const feixes = [...grupos.values()].sort((a, b) => a.esquerda - b.esquerda);
+  const vaos = [];
+  for (let i = 0; i < feixes.length - 1; i++) {
+    const a = feixes[i], b = feixes[i + 1];
+    vaos.push({
+      x1: a.direita,
+      x2: b.esquerda,
+      valor: +(b.esquerda - a.direita).toFixed(2),
+      cy: Math.max(a.cy, b.cy),
+    });
+  }
+  return vaos;
+}
+
 // ---- Empacotamento com septo divisor (Força + Comando) ----------------------
 // A NBR 5410 exige separação física entre circuitos de força e de comando/
 // sinal quando compartilham a mesma calha/perfilado/leito. Resolvido aqui
