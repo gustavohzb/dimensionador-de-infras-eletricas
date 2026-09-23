@@ -10,6 +10,8 @@ import { describe, it, expect } from "vitest";
 import {
   layoutCables,
   layoutCablesCircular,
+  layoutCablesTrifolioEspacado,
+  larguraTrifolioEspacado,
   layoutCablesSplit,
   splitWidthByArea,
   rectFits,
@@ -332,6 +334,120 @@ describe("layoutCablesCircular — invariantes físicos no eletroduto", () => {
       }
     }
     expect(falhas).toEqual([]);
+  });
+});
+
+describe("layoutCablesTrifolioEspacado — fileira com vão de 2D", () => {
+  const trif = (d) => cabo(d, { trifolio: true });
+
+  it("o feixe ocupa 2D e o vão livre entre feixes é 2D", () => {
+    // d=20 num leito de 100 de altura: feixe em 0..40, vão 40..80, feixe
+    // 80..120. A base repousa em cy = 100 - 10 = 90.
+    const items = layoutCablesTrifolioEspacado([trif(20), trif(20)], 300, 100);
+    const base = items.filter((i) => i.fase !== "T");
+    const topo = items.filter((i) => i.fase === "T");
+
+    expect(base.map((i) => i.cx)).toEqual([10, 30, 90, 110]);
+    expect(topo.map((i) => i.cx)).toEqual([20, 100]);
+    expect(new Set(base.map((i) => i.cy))).toEqual(new Set([90]));
+
+    // vão livre: borda direita do feixe 0 até a borda esquerda do feixe 1
+    const bordaDir = base[1].cx + base[1].r;
+    const bordaEsq = base[2].cx - base[2].r;
+    expect(bordaEsq - bordaDir).toBe(40); // 2D
+  });
+
+  it("os três condutores continuam formando triângulo equilátero", () => {
+    const items = layoutCablesTrifolioEspacado([trif(20)], 300, 100);
+    const dist = (a, b) => Math.hypot(a.cx - b.cx, a.cy - b.cy);
+    expect(dist(items[0], items[1])).toBeCloseTo(20, 9);
+    expect(dist(items[0], items[2])).toBeCloseTo(20, 9);
+    expect(dist(items[1], items[2])).toBeCloseTo(20, 9);
+  });
+
+  it("N feixes iguais exigem (2N-1)·2D de largura", () => {
+    for (const n of [1, 2, 3, 4, 8]) {
+      const cabos = Array.from({ length: n }, () => trif(20));
+      expect({ n, largura: larguraTrifolioEspacado(cabos) }).toEqual({ n, largura: (2 * n - 1) * 40 });
+    }
+  });
+
+  it("entre bitolas diferentes o vão usa o MAIOR dos dois diâmetros", () => {
+    // Ø10 e Ø20: o vão tem que ser 40 (2×20), não 20 — senão o feixe grosso
+    // fica com menos de 2D de folga.
+    const items = layoutCablesTrifolioEspacado([trif(10), trif(20)], 300, 100);
+    const base = items.filter((i) => i.fase !== "T");
+    const bordaDir = base[1].cx + base[1].r; // fim do feixe Ø10 = 20
+    const bordaEsq = base[2].cx - base[2].r; // início do feixe Ø20
+    expect(bordaDir).toBe(20);
+    expect(bordaEsq - bordaDir).toBe(40);
+    expect(larguraTrifolioEspacado([trif(10), trif(20)])).toBe(20 + 40 + 40);
+  });
+
+  it("a fileira segue a ordem em que os feixes foram adicionados", () => {
+    const items = layoutCablesTrifolioEspacado([trif(20), trif(10)], 300, 100);
+    const raios = [...new Set(items.map((i) => i.r))];
+    expect(raios).toEqual([10, 5]); // grosso primeiro, como foi inserido
+  });
+
+  it("cabo solto cai por gravidade sem atravessar a fileira", () => {
+    const items = layoutCablesTrifolioEspacado([trif(20), trif(20), cabo(10)], 300, 100);
+    expect(maiorSobreposicao(items)).toBeLessThan(TOL);
+    const solto = items.find((i) => !i.trifolioGroup);
+    expect(solto.cy + solto.r).toBeCloseTo(100, 6); // repousa no fundo
+  });
+
+  it("as chaves do cabo solto não colidem com as do feixe", () => {
+    const items = layoutCablesTrifolioEspacado([trif(20), cabo(10), cabo(10)], 300, 100);
+    expect(new Set(items.map((i) => i.key)).size).toBe(items.length);
+  });
+
+  it("trecho sem trifólio nenhum cai inteiro por gravidade", () => {
+    const cabos = [cabo(10), cabo(10)];
+    const espacado = layoutCablesTrifolioEspacado(cabos, 300, 100);
+    const normal = layoutCables(cabos, 300, 100);
+    expect(espacado.map((i) => [i.cx, i.cy])).toEqual(normal.map((i) => [i.cx, i.cy]));
+  });
+
+  it("quando não cabe, transborda de propósito e o rectFits reprova", () => {
+    // 4 feixes Ø20 pedem 280; num leito de 200 tem que reprovar, não encolher.
+    const cabos = Array.from({ length: 4 }, () => trif(20));
+    expect(larguraTrifolioEspacado(cabos)).toBe(280);
+    expect(rectFits(layoutCablesTrifolioEspacado(cabos, 200, 100), 200)).toBe(false);
+    expect(rectFits(layoutCablesTrifolioEspacado(cabos, 300, 100), 300)).toBe(true);
+  });
+
+  it("é determinístico", () => {
+    const cabos = [trif(20), trif(10), cabo(8)];
+    expect(layoutCablesTrifolioEspacado(cabos, 300, 100)).toEqual(layoutCablesTrifolioEspacado(cabos, 300, 100));
+  });
+});
+
+describe("fases do trifólio espaçado", () => {
+  const trif = (d) => cabo(d, { trifolio: true });
+
+  it("T fica sempre no topo do feixe", () => {
+    const items = layoutCablesTrifolioEspacado([trif(20), trif(20), trif(20)], 400, 100);
+    for (const g of ["trif-0", "trif-1", "trif-2"]) {
+      const feixe = items.filter((i) => i.trifolioGroup === g);
+      const maisAlto = feixe.reduce((a, b) => (a.cy < b.cy ? a : b));
+      expect({ g, fase: maisAlto.fase }).toEqual({ g, fase: "T" });
+    }
+  });
+
+  it("a base alterna R S / S R a cada feixe", () => {
+    const items = layoutCablesTrifolioEspacado([trif(20), trif(20), trif(20), trif(20)], 600, 100);
+    const baseDoFeixe = (g) =>
+      items.filter((i) => i.trifolioGroup === g && i.fase !== "T").sort((a, b) => a.cx - b.cx).map((i) => i.fase);
+    expect(baseDoFeixe("trif-0")).toEqual(["R", "S"]);
+    expect(baseDoFeixe("trif-1")).toEqual(["S", "R"]);
+    expect(baseDoFeixe("trif-2")).toEqual(["R", "S"]);
+    expect(baseDoFeixe("trif-3")).toEqual(["S", "R"]);
+  });
+
+  it("cabo solto não recebe fase", () => {
+    const items = layoutCablesTrifolioEspacado([trif(20), cabo(10)], 300, 100);
+    expect(items.find((i) => !i.trifolioGroup).fase).toBeUndefined();
   });
 });
 

@@ -7,9 +7,13 @@
 // centros formam um triângulo equilátero de lado 2r.
 const RAIZ3 = Math.sqrt(3);
 
-export function layoutCables(cables, trayWidth, trayHeight) {
+// `preposicionados` são círculos que já ocupam o trecho e não pertencem a esta
+// deposição — a fileira de trifólios espaçados os usa para que os cabos soltos
+// caiam DEPOIS dela, desviando dos feixes em vez de passar por dentro. Eles
+// entram como obstáculo e não saem no resultado: quem os posicionou já os tem.
+export function layoutCables(cables, trayWidth, trayHeight, preposicionados = []) {
   const items = [];
-  const placed = []; // círculos já posicionados: { cx, cy, r }
+  const placed = preposicionados.map((p) => ({ cx: p.cx, cy: p.cy, r: p.r })); // { cx, cy, r }
 
   // Folga numérica: tangência exata (cabo encostado no vizinho) não conta
   // como colisão, senão o erro de ponto flutuante "ergue" o cabo rente.
@@ -196,6 +200,79 @@ export function layoutCables(cables, trayWidth, trayHeight) {
   });
 
   return items;
+}
+
+// ---- Fileira de trifólios espaçados de 2D ----------------------------------
+// Arranjo de instalação em que os feixes são deliberadamente afastados, e não
+// empurrados uns contra os outros pela gravidade. Por isso é função própria e
+// não um caso dentro do motor acima: aqui não há posição a procurar. A fileira
+// é aritmética — todos os feixes apoiados no fundo, o vão é dado.
+//
+// O vão livre é de 2× o diâmetro, medido de BORDA A BORDA. Entre feixes de
+// bitolas diferentes usa o MAIOR dos dois diâmetros, que é o que garante folga
+// de ao menos 2D para os dois lados.
+//
+// O feixe tem 2D de largura: dois condutores lado a lado na base, e o de cima
+// cai no vale entre eles sem alargar o conjunto. Com vão de 2D, o passo é 4D.
+//
+// NÃO mexe em fator de agrupamento. O vão é espaço vazio, não é cabo, e não
+// entra na contagem de circuitos — quatro feixes espaçados são os mesmos
+// quatro circuitos de quando estão encostados.
+
+// Origem X de cada feixe e largura total da fileira. Fonte única do passo:
+// o desenho e a largura exigida que a tela mostra saem daqui, e não podem
+// divergir.
+function fileiraTrifolios(feixes) {
+  const origens = [];
+  let x = 0;
+  feixes.forEach((c, i) => {
+    origens.push(x);
+    const proximo = feixes[i + 1];
+    x += 2 * c.d + (proximo ? 2 * Math.max(c.d, proximo.d) : 0);
+  });
+  return { origens, largura: x };
+}
+
+// Largura que a fileira exige, em mm. Zero quando não há trifólio no trecho.
+export function larguraTrifolioEspacado(cables) {
+  return fileiraTrifolios(cables.filter((c) => c.trifolio)).largura;
+}
+
+// R e S na base, T no topo, com a base alternando a cada feixe — a transposição
+// do detalhe de instalação. É INDICAÇÃO DE PROJETO, não verificação: o app não
+// tem como saber como o cabo foi puxado em campo.
+const FASES_BASE = [["R", "S"], ["S", "R"]];
+
+export function layoutCablesTrifolioEspacado(cables, trayWidth, trayHeight) {
+  const feixes = cables.filter((c) => c.trifolio);
+  const soltos = cables.filter((c) => !c.trifolio);
+  const { origens } = fileiraTrifolios(feixes);
+
+  const items = [];
+  feixes.forEach((c, idx) => {
+    const r = c.d / 2;
+    const x = origens[idx];
+    const baseCy = trayHeight - r;
+    const [esquerdo, direito] = FASES_BASE[idx % 2];
+    const comum = {
+      r,
+      type: "unipolar",
+      vias: 1,
+      trifolioGroup: `trif-${idx}`,
+      ...(c.material ? { material: c.material } : {}),
+    };
+    items.push({ ...comum, cx: x + r, cy: baseCy, key: `${idx}-1`, fase: esquerdo });
+    items.push({ ...comum, cx: x + 3 * r, cy: baseCy, key: `${idx}-2`, fase: direito });
+    // Condutor de topo no vale entre os dois de baixo, como no trifólio real.
+    items.push({ ...comum, cx: x + 2 * r, cy: baseCy - r * RAIZ3, key: `${idx}-3`, fase: "T" });
+  });
+
+  // Quem não é trifólio cai por gravidade depois, com a fileira já no caminho.
+  const soltosPostos = layoutCables(soltos, trayWidth, trayHeight, items).map((it) => ({
+    ...it,
+    key: `solto-${it.key}`,
+  }));
+  return [...items, ...soltosPostos];
 }
 
 // ---- Empacotamento com septo divisor (Força + Comando) ----------------------
