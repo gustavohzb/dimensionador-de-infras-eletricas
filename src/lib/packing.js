@@ -233,9 +233,14 @@ function fileiraTrifolios(feixes) {
   return { origens, largura: x };
 }
 
-// Largura que a fileira exige, em mm. Zero quando não há trifólio no trecho.
+// Quem entra na fileira: o trifólio marcado como espaçado. O espaçamento é de
+// cada feixe (botão "Trifólio 2D"), não do trecho — um mesmo trecho pode ter
+// trifólios encostados e espaçados.
+export const ehTrifolioEspacado = (c) => Boolean(c.trifolio && c.espacado);
+
+// Largura que a fileira exige, em mm. Zero quando não há trifólio 2D no trecho.
 export function larguraTrifolioEspacado(cables) {
-  return fileiraTrifolios(cables.filter((c) => c.trifolio)).largura;
+  return fileiraTrifolios(cables.filter(ehTrifolioEspacado)).largura;
 }
 
 // R e S na base, T no topo, com a base alternando a cada feixe — a transposição
@@ -244,9 +249,9 @@ export function larguraTrifolioEspacado(cables) {
 const FASES_BASE = [["R", "S"], ["S", "R"]];
 
 export function layoutCablesTrifolioEspacado(cables, trayWidth, trayHeight) {
-  const feixes = cables.filter((c) => c.trifolio);
-  const soltos = cables.filter((c) => !c.trifolio);
-  const { origens } = fileiraTrifolios(feixes);
+  const feixes = cables.filter(ehTrifolioEspacado);
+  const resto = cables.filter((c) => !ehTrifolioEspacado(c));
+  const { origens, largura } = fileiraTrifolios(feixes);
 
   const items = [];
   feixes.forEach((c, idx) => {
@@ -259,6 +264,7 @@ export function layoutCablesTrifolioEspacado(cables, trayWidth, trayHeight) {
       type: "unipolar",
       vias: 1,
       trifolioGroup: `trif-${idx}`,
+      espacado: true,
       ...(c.material ? { material: c.material } : {}),
     };
     items.push({ ...comum, cx: x + r, cy: baseCy, key: `${idx}-1`, fase: esquerdo });
@@ -267,12 +273,41 @@ export function layoutCablesTrifolioEspacado(cables, trayWidth, trayHeight) {
     items.push({ ...comum, cx: x + 2 * r, cy: baseCy - r * RAIZ3, key: `${idx}-3`, fase: "T" });
   });
 
-  // Quem não é trifólio cai por gravidade depois, com a fileira já no caminho.
-  const soltosPostos = layoutCables(soltos, trayWidth, trayHeight, items).map((it) => ({
+  // O resto — trifólio encostado, cabo solto, multipolar — vai para a DIREITA
+  // da fileira, num compartimento próprio. Por gravidade livre ele caía dentro
+  // do vão de 2D, e o vão deixava de ser livre: o arranjo perdia o sentido.
+  //
+  // O compartimento começa depois de mais um vão de 2D, medido pelo último
+  // feixe: sem ele, o que viesse depois encostaria no último trifólio 2D, e
+  // esse feixe só estaria espaçado de um lado. Sem fileira, o compartimento é
+  // o trecho inteiro e o resultado é o da gravidade pura.
+  const ultimo = feixes[feixes.length - 1];
+  const inicio = ultimo && resto.length ? largura + 2 * ultimo.d : 0;
+  const restoPosto = layoutCables(resto, trayWidth - inicio, trayHeight).map((it) => ({
     ...it,
-    key: `solto-${it.key}`,
+    cx: it.cx + inicio,
+    key: `resto-${it.key}`,
+    // o empacotamento por gravidade numera os feixes a partir de zero, igual à
+    // fileira — sem prefixo, dois feixes diferentes teriam o mesmo grupo
+    ...(it.trifolioGroup !== undefined ? { trifolioGroup: `resto-${it.trifolioGroup}` } : {}),
   }));
-  return [...items, ...soltosPostos];
+  return [...items, ...restoPosto];
+}
+
+// Veredito do trecho com trifólio 2D, para o texto da tela. Vem do DESENHO
+// real (rectFits), não da conta da fileira: com trifólio comum ou cabo solto à
+// direita, a fileira sozinha diria que cabe enquanto o trecho transborda.
+//
+// `faltam` só existe quando é exato — trecho só de trifólios 2D, onde a
+// largura exigida é a da fileira. Com outros cabos à direita eles podem
+// empilhar, e não há uma largura mínima única: aí o número fica null, em vez
+// de um valor inventado.
+export function verificarTrifolioEspacado(cables, trayWidth, trayHeight) {
+  const fileira = larguraTrifolioEspacado(cables);
+  const temResto = cables.some((c) => !ehTrifolioEspacado(c));
+  const cabe = rectFits(layoutCablesTrifolioEspacado(cables, trayWidth, trayHeight), trayWidth);
+  const faltam = !cabe && !temResto && fileira > trayWidth ? fileira - trayWidth : null;
+  return { fileira, temResto, cabe, faltam };
 }
 
 // Vãos entre feixes consecutivos, para a cota do desenho. Derivado dos itens
@@ -284,7 +319,7 @@ export function layoutCablesTrifolioEspacado(cables, trayWidth, trayHeight) {
 export function vaosDaFileira(items) {
   const grupos = new Map();
   for (const it of items) {
-    if (!it.trifolioGroup) continue; // cabo solto não faz parte da fileira
+    if (!it.espacado) continue; // só a fileira tem vão; o resto está encostado
     const g = grupos.get(it.trifolioGroup) ?? { esquerda: Infinity, direita: -Infinity, cy: -Infinity };
     g.esquerda = Math.min(g.esquerda, it.cx - it.r);
     g.direita = Math.max(g.direita, it.cx + it.r);

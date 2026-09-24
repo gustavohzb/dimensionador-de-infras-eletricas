@@ -4,6 +4,12 @@ import { computeOccupancy } from "../lib/occupancy";
 
 let nextId = 1;
 
+// Chave da linha em "Cabos no trecho". UMA função para agrupar e para remover:
+// se as duas contas divergissem (uma sabendo do trifólio 2D e a outra não), o
+// botão Remover de uma linha apagaria o cabo de outra.
+export const chaveGrupo = (c) =>
+  `${c.type}-${c.section}-${c.vias}-${c.trifolio ? (c.espacado ? "e" : "t") : "s"}-${c.material ?? "cobre"}-${c.groupId ?? ""}`;
+
 export function useCableTray() {
   const [infraType, setInfraTypeRaw] = useState("eletrocalha");
   const [leitoFlange, setLeitoFlange] = useState("interna"); // abas do leito: interna | externa
@@ -11,10 +17,6 @@ export function useCableTray() {
   const [trayWidth, setTrayWidth] = useState(100);
   const [trayHeight, setTrayHeight] = useState(50);
   const [cables, setCables] = useState([]);
-  // Arranjo de instalação com os feixes de trifólio afastados de 2× o diâmetro.
-  // Vive só na sessão: a tabela `projetos` do Supabase tem colunas explícitas, e
-  // gravar um campo que não existe lá quebraria o salvamento.
-  const [trifoliosEspacados, setTrifoliosEspacados] = useState(false);
 
   // Ajusta trayWidth/trayHeight às medidas válidas de uma configuração de dimensões.
   const applyDimensions = (dim) => {
@@ -52,11 +54,18 @@ export function useCableTray() {
     ]);
   };
 
-  const addTrifolio = ({ section, groupId, material = "cobre" }) => {
+  // `espacado` é o botão "Trifólio 2D": o feixe entra na fileira com vão livre
+  // de 2× o diâmetro. Como é um campo do cabo, vai junto no JSON de `cables` e
+  // é salvo com o projeto sem precisar de coluna nova no Supabase.
+  const addTrifolio = ({ section, groupId, material = "cobre", espacado = false }) => {
     const d = getDiameter(section, "unipolar", 1, material);
     setCables((prev) => [
       ...prev,
-      { id: nextId++, section, d, type: "unipolar", vias: 1, trifolio: true, material, ...(groupId ? { groupId } : {}) },
+      {
+        id: nextId++, section, d, type: "unipolar", vias: 1, trifolio: true, material,
+        ...(espacado ? { espacado: true } : {}),
+        ...(groupId ? { groupId } : {}),
+      },
     ]);
   };
 
@@ -70,9 +79,7 @@ export function useCableTray() {
 
   const removeGroup = (groupKey) => {
     setCables((prev) => {
-      const idx = prev.findIndex(
-        (c) => `${c.type}-${c.section}-${c.vias}-${c.trifolio ? "t" : "s"}-${c.material ?? "cobre"}-${c.groupId ?? ""}` === groupKey
-      );
+      const idx = prev.findIndex((c) => chaveGrupo(c) === groupKey);
       if (idx === -1) return prev;
       return prev.filter((_, i) => i !== idx);
     });
@@ -89,7 +96,6 @@ export function useCableTray() {
     setTrayWidth(100);
     setTrayHeight(50);
     setCables([]);
-    setTrifoliosEspacados(false);
   };
 
   // Restaura de uma vez um projeto salvo (Supabase). Reatribui ids novos aos
@@ -106,7 +112,7 @@ export function useCableTray() {
   const groupedCables = useMemo(() => {
     const map = new Map();
     cables.forEach((c) => {
-      const key = `${c.type}-${c.section}-${c.vias}-${c.trifolio ? "t" : "s"}-${c.material ?? "cobre"}-${c.groupId ?? ""}`;
+      const key = chaveGrupo(c);
       if (map.has(key)) {
         map.get(key).quantity += c.trifolio ? 3 : 1;
       } else {
@@ -137,8 +143,6 @@ export function useCableTray() {
     setTrayHeight,
     cables,
     groupedCables,
-    trifoliosEspacados,
-    setTrifoliosEspacados,
     addCable,
     addTrifolio,
     addCustomCable,

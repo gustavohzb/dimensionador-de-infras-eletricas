@@ -4,7 +4,7 @@ import { useProjects } from "../hooks/useProjects";
 import { getDimensions, INFRA_TYPES, ELETRODUTO_NORMAS } from "../data/corfioHEPR";
 import { useBuscaInfra } from "../hooks/useBuscaInfra";
 import { ocupacaoAplicada } from "../lib/simulacaoTrecho";
-import { larguraTrifolioEspacado } from "../lib/packing";
+import { ehTrifolioEspacado, verificarTrifolioEspacado } from "../lib/packing";
 import { exportarSvgPng } from "../lib/exportarSvgPng";
 import { exportReportPDF } from "../lib/reportPdf";
 import { ARRANJOS, defaultArranjo, estimateCircuits, getFator } from "../lib/derating";
@@ -38,8 +38,6 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
     setTrayHeight,
     cables,
     groupedCables,
-    trifoliosEspacados,
-    setTrifoliosEspacados,
     addCable,
     addTrifolio,
     addCustomCable,
@@ -72,18 +70,21 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
   const temMisto =
     cables.some((c) => c.type === "comando") && cables.some((c) => c.type !== "comando");
 
-  // Trifólios espaçados: arranjo de fileira única com vão livre de 2× o
-  // diâmetro. Não se aplica em eletroduto (tubo fechado é feixe por definição)
-  // nem em trecho misto (com septo, o compartimento já é outra geometria).
-  // `espacadoAtivo` é o que manda no desenho: a chave pode estar ligada de um
-  // trecho anterior e a infraestrutura ter mudado depois.
+  // Trifólio 2D: o feixe entra numa fileira com vão livre de 2× o diâmetro. O
+  // espaçamento é de cada trifólio (botão próprio), não do trecho. O botão fica
+  // bloqueado onde o arranjo não existe: eletroduto é feixe confinado, e cabo
+  // de comando no trecho significa septo divisor, com outra geometria.
   const ehEletroduto = dim.kind === "duct";
+  const temComando = cables.some((c) => c.type === "comando");
   let motivoSemEspacado = null;
-  if (temMisto) motivoSemEspacado = "Trecho misto usa septo divisor — o compartimento já é outra geometria.";
-  else if (mode === "verificar" && ehEletroduto) motivoSemEspacado = "Eletroduto é feixe confinado — o arranjo não se aplica.";
-  const espacadoDisponivel = motivoSemEspacado === null;
-  const espacadoAtivo = trifoliosEspacados && espacadoDisponivel;
-  const larguraEspacada = espacadoAtivo ? Math.round(larguraTrifolioEspacado(cables)) : 0;
+  if (temComando) motivoSemEspacado = "Trecho com cabo de comando usa septo divisor — a fileira espaçada não se aplica.";
+  else if (mode === "verificar" && ehEletroduto) motivoSemEspacado = "Eletroduto é feixe confinado — a fileira espaçada não se aplica.";
+  const tem2D = cables.some(ehTrifolioEspacado);
+  // 2D no trecho mas num lugar onde o arranjo não vale (trocou para eletroduto
+  // depois de adicionar, por exemplo): o desenho cai para o feixe comum, e a
+  // tela diz isso em vez de deixar o usuário achando que está espaçado.
+  const avisoSem2D = tem2D && motivoSemEspacado ? motivoSemEspacado : null;
+  const verif2D = tem2D && !motivoSemEspacado ? verificarTrifolioEspacado(cables, trayWidth, trayHeight) : null;
 
   // ---- Derating (NBR 5410 Tab. 42) — overrides por modo ----
   const [arranjoOverride, setArranjoOverride] = useState(null);
@@ -104,7 +105,7 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
     setCircuitosOverride(null);
   };
 
-  const handleSearch = () => buscar(cables, { trifoliosEspacados: espacadoAtivo });
+  const handleSearch = () => buscar(cables);
 
   // Ocupação sempre recalculada a partir do trecho corrente (a opção "applied"
   // congela os números do momento da busca — cabos podem ter mudado depois).
@@ -274,26 +275,6 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
             </>
           )}
 
-          <div className={cardCls}>
-            <h2 className={h2Cls}>Arranjo dos trifólios</h2>
-            <label className={`flex items-start gap-2 ${espacadoDisponivel ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}>
-              <input
-                type="checkbox"
-                className="mt-0.5 accent-orange-600"
-                checked={espacadoAtivo}
-                disabled={!espacadoDisponivel}
-                onChange={(e) => setTrifoliosEspacados(e.target.checked)}
-              />
-              <span className="text-xs text-slate-600 dark:text-slate-300">
-                Espaçados de 2× o diâmetro
-                <span className="mt-0.5 block text-[11px] text-slate-400 dark:text-slate-500">
-                  {motivoSemEspacado ??
-                    "Feixes numa fileira única, com vão livre de 2D entre eles."}
-                </span>
-              </span>
-            </label>
-          </div>
-
           {mode === "buscar" && (
             <div className={cardCls}>
               <h2 className={h2Cls}>Importar do memorial de cálculo</h2>
@@ -330,7 +311,7 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
               ))}
             </div>
             {catalogo === "forca" ? (
-              <CableForm onAddCable={addCable} onAddTrifolio={addTrifolio} />
+              <CableForm onAddCable={addCable} onAddTrifolio={addTrifolio} motivoSem2D={motivoSemEspacado} />
             ) : (
               <ComandoCableForm onAddCable={addCustomCable} />
             )}
@@ -417,7 +398,6 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
                   infraType={infraType}
                   leitoFlange={leitoFlange}
                   eletrodutoNorma={eletrodutoNorma}
-                  trifoliosEspacados={espacadoAtivo}
                 />
               </div>
             </div>
@@ -430,16 +410,22 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
                 limite={limite}
                 dentroLimite={dentroLimite}
               />
-              {larguraEspacada > 0 && (
+              {avisoSem2D && (
+                <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400">
+                  Há trifólio 2D no trecho, mas {avisoSem2D.charAt(0).toLowerCase() + avisoSem2D.slice(1)} Os trifólios 2D aparecem como feixe comum.
+                </p>
+              )}
+              {verif2D && (
                 <p
                   className={`mt-2 text-xs ${
-                    larguraEspacada <= trayWidth
-                      ? "text-slate-500 dark:text-slate-400"
-                      : "font-medium text-red-600 dark:text-red-400"
+                    verif2D.cabe ? "text-slate-500 dark:text-slate-400" : "font-medium text-red-600 dark:text-red-400"
                   }`}
                 >
-                  Fileira espaçada 2D: precisa de <b>{larguraEspacada} mm</b> de largura, e a infraestrutura tem {trayWidth} mm
-                  {larguraEspacada > trayWidth ? ` — faltam ${larguraEspacada - trayWidth} mm.` : "."}
+                  Fileira espaçada 2D: ocupa <b>{Math.round(verif2D.fileira)} mm</b>
+                  {verif2D.temResto && ", e os demais cabos vão à direita dela"}.{" "}
+                  {verif2D.cabe && `Cabe nos ${trayWidth} mm da infraestrutura.`}
+                  {!verif2D.cabe && verif2D.faltam !== null && `Não cabe em ${trayWidth} mm — faltam ${Math.ceil(verif2D.faltam)} mm.`}
+                  {!verif2D.cabe && verif2D.faltam === null && `O trecho não cabe em ${trayWidth}×${trayHeight} mm.`}
                 </p>
               )}
             </div>
@@ -564,7 +550,6 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
                       infraType={applied.infraType}
                       leitoFlange={applied.leitoFlange}
                       eletrodutoNorma={applied.eletrodutoNorma}
-                      trifoliosEspacados={espacadoAtivo && applied.infraType !== "eletroduto"}
                     />
                   </div>
                 </div>

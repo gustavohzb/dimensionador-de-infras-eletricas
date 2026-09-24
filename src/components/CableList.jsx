@@ -28,7 +28,7 @@ export default function CableList({ groupedCables, onRemoveGroup, onRemoveAll })
                 <span className="text-slate-400 dark:text-slate-500">(Ø {c.d.toFixed(1)}mm)</span>
                 {c.trifolio && (
                   <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
-                    TRIFÓLIO
+                    {c.espacado ? "TRIFÓLIO 2D" : "TRIFÓLIO"}
                   </span>
                 )}
                 {c.type === "comando" && (

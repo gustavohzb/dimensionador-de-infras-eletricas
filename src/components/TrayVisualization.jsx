@@ -6,6 +6,7 @@ import {
   layoutCablesSplit,
   layoutCablesTrifolioEspacado,
   vaosDaFileira,
+  ehTrifolioEspacado,
 } from "../lib/packing";
 // Toda a geometria — tamanho do canvas e posição de cada bloco — vem de
 // trayLayout. Este componente NÃO recalcula coordenada: o que ele desenha e o
@@ -545,7 +546,7 @@ function CableLegend({ legendItems }) {
   );
 }
 
-const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWidth, trayHeight, dark = false, infraType = "eletrocalha", leitoFlange = "interna", eletrodutoNorma = "nbr5624", legenda = null, resumo = null, trifoliosEspacados = false }, svgRef) {
+const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWidth, trayHeight, dark = false, infraType = "eletrocalha", leitoFlange = "interna", eletrodutoNorma = "nbr5624", legenda = null, resumo = null }, svgRef) {
   const uid = useId().replace(/:/g, "");
   const temLegenda = Array.isArray(legenda) && legenda.length > 0;
   const temResumo = Array.isArray(resumo) && resumo.length > 0;
@@ -623,17 +624,20 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
   const split = hasComando && hasForca ? layoutCablesSplit(cables, trayWidth, trayHeight) : null;
   // O septo vem antes: num trecho misto o compartimento já é outra geometria, e
   // a fileira espaçada não se aplica (a aba desabilita a chave nesse caso).
+  // O arranjo espaçado vem dos próprios cabos (botão "Trifólio 2D"). Basta um
+  // trifólio 2D no trecho para a fileira existir; o resto vai à direita dela.
+  const tem2D = cables.some(ehTrifolioEspacado);
   let items;
   if (split) items = split.items;
-  else if (trifoliosEspacados) items = layoutCablesTrifolioEspacado(cables, trayWidth, trayHeight);
+  else if (tem2D) items = layoutCablesTrifolioEspacado(cables, trayWidth, trayHeight);
   else items = layoutCables(cables, trayWidth, trayHeight);
 
-  // Cota do vão SÓ no arranjo espaçado. No empacotamento por gravidade os
-  // feixes também carregam trifolioGroup, mas ali eles ficam encostados e
-  // empilhados — "vão" não significa nada, e a cota mediria o acaso.
-  const vaos = trifoliosEspacados && !split ? vaosDaFileira(items) : [];
+  // A cota só mede vão entre feixes da fileira (vaosDaFileira filtra pelos
+  // itens espaçados). Os feixes encostados também têm trifolioGroup, mas ali
+  // "vão" mediria o acaso do empacotamento.
+  const vaos = tem2D && !split ? vaosDaFileira(items) : [];
   const topoFeixes = vaos.length
-    ? Math.min(...items.filter((i) => i.trifolioGroup).map((i) => i.cy - i.r))
+    ? Math.min(...items.filter((i) => i.espacado).map((i) => i.cy - i.r))
     : 0;
   const L = layoutRetangular({
     trayWidth,

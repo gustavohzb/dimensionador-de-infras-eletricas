@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import { SECTIONS, VIAS_OPTIONS, SECTIONS_BY_VIAS } from "../data/corfioHEPR";
 
-export default function CableForm({ onAddCable, onAddTrifolio }) {
+// `motivoSem2D`: quando preenchido, o botão "Trifólio 2D" fica desabilitado e
+// o motivo vai na dica (eletroduto é feixe confinado; trecho com comando usa
+// septo divisor). Desabilitar calado deixaria o usuário clicando sem efeito.
+export default function CableForm({ onAddCable, onAddTrifolio, motivoSem2D = null }) {
   const [cableType, setCableType] = useState("unipolar");
   const [vias, setVias] = useState(3);
   const [section, setSection] = useState(6);
@@ -68,7 +71,7 @@ export default function CableForm({ onAddCable, onAddTrifolio }) {
         </div>
       </div>
 
-      <div className="flex gap-2 pt-0.5">
+      <div className="flex flex-wrap gap-2 pt-0.5">
         <button
           type="button"
           onClick={() => onAddCable({ section, cableType, vias })}
@@ -84,6 +87,17 @@ export default function CableForm({ onAddCable, onAddTrifolio }) {
             title="Adiciona um trifólio (3 condutores unipolares agrupados)"
           >
             Trifólio
+          </button>
+        )}
+        {cableType === "unipolar" && (
+          <button
+            type="button"
+            disabled={Boolean(motivoSem2D)}
+            onClick={() => onAddTrifolio({ section, espacado: true })}
+            className="rounded-xs border-[1.5px] border-amber-500 px-3 py-1.5 text-sm font-semibold text-amber-600 transition hover:bg-amber-500/10 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-amber-400"
+            title={motivoSem2D ?? "Adiciona um trifólio espaçado: fileira única com vão livre de 2× o diâmetro entre os feixes"}
+          >
+            Trifólio 2D
           </button>
         )}
       </div>

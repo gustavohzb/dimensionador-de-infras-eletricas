@@ -151,3 +151,29 @@ Fases:
    motor de gravidade, com os testes de geometria.
 2. Tela: a chave, o desenho com os rótulos de fase e a largura necessária.
 3. Buscar: a busca honrando o modo.
+
+## Revisão: botão "Trifólio 2D" no lugar da chave do trecho
+
+A chave de "modo do trecho" saiu. No lugar dela, um terceiro botão na linha
+"+ Adicionar cabo · Trifólio · Trifólio 2D". O espaçamento passou a ser de
+cada trifólio (`espacado: true` no cabo), não do trecho: a escolha fica onde
+o cabo é adicionado, e a lista mostra de que tipo cada linha é.
+
+Consequências:
+
+- **Persiste no projeto.** O campo vai dentro do JSON de `cables`, então é
+  salvo sem coluna nova no Supabase. O `ALTER TABLE` acima deixou de ser
+  necessário.
+- **A busca lê o cabo**, não uma opção: busca e desenho leem a mesma coisa.
+- **O botão fica bloqueado, com o motivo na dica**, em eletroduto e em trecho
+  com cabo de comando. Se já houver trifólio 2D e a infraestrutura mudar para
+  eletroduto, a tela avisa que eles aparecem como feixe comum.
+- **Nada entra nos vãos.** Um mesmo trecho pode ter trifólio 2D, trifólio
+  comum e cabo solto. Os 2D formam a fileira; o resto vai para a direita
+  dela, depois de mais um vão de 2D medido pelo último feixe. Antes disso, o
+  cabo solto caía por gravidade no meio do vão, e o vão deixava de ser livre.
+- **O veredito "cabe / não cabe" vem do desenho real** (`rectFits`), não da
+  largura da fileira: com outros cabos à direita, a fileira sozinha diria que
+  cabe enquanto o trecho transborda. O "faltam X mm" só aparece quando é exato
+  (trecho só de trifólios 2D); com outros cabos, que podem empilhar, não há
+  largura mínima única, e a tela diz apenas que não cabe.

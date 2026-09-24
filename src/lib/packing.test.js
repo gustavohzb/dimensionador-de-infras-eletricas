@@ -13,6 +13,7 @@ import {
   layoutCablesTrifolioEspacado,
   larguraTrifolioEspacado,
   vaosDaFileira,
+  verificarTrifolioEspacado,
   layoutCablesSplit,
   splitWidthByArea,
   rectFits,
@@ -339,7 +340,7 @@ describe("layoutCablesCircular — invariantes físicos no eletroduto", () => {
 });
 
 describe("layoutCablesTrifolioEspacado — fileira com vão de 2D", () => {
-  const trif = (d) => cabo(d, { trifolio: true });
+  const trif = (d) => cabo(d, { trifolio: true, espacado: true });
 
   it("o feixe ocupa 2D e o vão livre entre feixes é 2D", () => {
     // d=20 num leito de 100 de altura: feixe em 0..40, vão 40..80, feixe
@@ -391,11 +392,52 @@ describe("layoutCablesTrifolioEspacado — fileira com vão de 2D", () => {
     expect(raios).toEqual([10, 5]); // grosso primeiro, como foi inserido
   });
 
-  it("cabo solto cai por gravidade sem atravessar a fileira", () => {
+  it("cabo solto vai para a DIREITA da fileira, nunca para dentro de um vão", () => {
+    // Antes ele caía por gravidade no meio do vão de 2D (x = 44), e o vão
+    // deixava de ser livre — o arranjo perdia o sentido. Fileira de dois
+    // feixes Ø20 termina em 120; com o vão de 2D depois do último feixe, o
+    // resto começa em 160.
     const items = layoutCablesTrifolioEspacado([trif(20), trif(20), cabo(10)], 300, 100);
     expect(maiorSobreposicao(items)).toBeLessThan(TOL);
     const solto = items.find((i) => !i.trifolioGroup);
-    expect(solto.cy + solto.r).toBeCloseTo(100, 6); // repousa no fundo
+    expect(solto.cx - solto.r).toBeGreaterThanOrEqual(160 - TOL);
+    expect(solto.cy + solto.r).toBeCloseTo(100, 6); // e repousa no fundo
+  });
+
+  it("nenhum cabo fora da fileira entra num vão", () => {
+    const cabos = [trif(20), trif(20), trif(20), cabo(10), cabo(10), cabo(20, { trifolio: true })];
+    const items = layoutCablesTrifolioEspacado(cabos, 600, 100);
+    const vaos = vaosDaFileira(items);
+    const foraDaFileira = items.filter((i) => !i.espacado);
+    for (const it of foraDaFileira) {
+      for (const v of vaos) {
+        const invade = it.cx + it.r > v.x1 + TOL && it.cx - it.r < v.x2 - TOL;
+        expect({ item: it.key, vao: `${v.x1}-${v.x2}`, invade }).toEqual({ item: it.key, vao: `${v.x1}-${v.x2}`, invade: false });
+      }
+    }
+  });
+
+  it("trifólio encostado no mesmo trecho fica fora da fileira, à direita", () => {
+    const items = layoutCablesTrifolioEspacado([trif(20), cabo(20, { trifolio: true }), trif(20)], 400, 100);
+    const espacados = items.filter((i) => i.espacado);
+    const encostado = items.filter((i) => i.trifolioGroup && !i.espacado);
+    expect(espacados).toHaveLength(6); // os dois trifólios 2D formam a fileira
+    expect(encostado).toHaveLength(3);
+    const fimFileira = Math.max(...espacados.map((i) => i.cx + i.r));
+    expect(Math.min(...encostado.map((i) => i.cx - i.r))).toBeGreaterThanOrEqual(fimFileira + 40 - TOL);
+    expect(encostado.every((i) => i.fase === undefined)).toBe(true); // fase só no 2D
+  });
+
+  it("grupos da fileira e do resto não colidem", () => {
+    const items = layoutCablesTrifolioEspacado([trif(20), cabo(20, { trifolio: true })], 300, 100);
+    const grupos = new Set(items.filter((i) => i.trifolioGroup).map((i) => i.trifolioGroup));
+    expect(grupos.size).toBe(2);
+  });
+
+  it("sem cabo depois da fileira, não sobra vão à direita", () => {
+    const cabos = Array.from({ length: 4 }, () => trif(20));
+    const items = layoutCablesTrifolioEspacado(cabos, 280, 100);
+    expect(rectFits(items, 280)).toBe(true); // 280 exatos, sem vão extra
   });
 
   it("as chaves do cabo solto não colidem com as do feixe", () => {
@@ -424,8 +466,34 @@ describe("layoutCablesTrifolioEspacado — fileira com vão de 2D", () => {
   });
 });
 
+describe("verificarTrifolioEspacado — o veredito que a tela mostra", () => {
+  const trif2D = (d) => cabo(d, { trifolio: true, espacado: true });
+
+  it("só trifólios 2D: faltam exatos quando não cabe", () => {
+    const cabos = Array.from({ length: 4 }, () => trif2D(20)); // pedem 280
+    expect(verificarTrifolioEspacado(cabos, 300, 100)).toEqual({ fileira: 280, temResto: false, cabe: true, faltam: null });
+    expect(verificarTrifolioEspacado(cabos, 200, 100)).toEqual({ fileira: 280, temResto: false, cabe: false, faltam: 80 });
+  });
+
+  it("com cabo à direita, a fileira cabe mas o trecho não — e o veredito diz NÃO", () => {
+    // Era o defeito: a fileira de 2 feixes Ø20 ocupa 120 e caberia em 150,
+    // mas o trifólio comum vai para depois de mais um vão (160) e transborda.
+    const cabos = [trif2D(20), trif2D(20), cabo(20, { trifolio: true })];
+    const v = verificarTrifolioEspacado(cabos, 150, 100);
+    expect(v.fileira).toBe(120);
+    expect(v.cabe).toBe(false);
+    expect(v.faltam).toBeNull(); // sem número inventado
+    expect(v.temResto).toBe(true);
+  });
+
+  it("com cabo à direita e espaço de sobra, cabe", () => {
+    const cabos = [trif2D(20), trif2D(20), cabo(20, { trifolio: true })];
+    expect(verificarTrifolioEspacado(cabos, 300, 100).cabe).toBe(true);
+  });
+});
+
 describe("vaosDaFileira — os vãos que a cota do desenho mede", () => {
-  const trif = (d) => cabo(d, { trifolio: true });
+  const trif = (d) => cabo(d, { trifolio: true, espacado: true });
 
   it("devolve um vão a menos que o número de feixes", () => {
     for (const n of [1, 2, 3, 5]) {
@@ -465,7 +533,7 @@ describe("vaosDaFileira — os vãos que a cota do desenho mede", () => {
 });
 
 describe("fases do trifólio espaçado", () => {
-  const trif = (d) => cabo(d, { trifolio: true });
+  const trif = (d) => cabo(d, { trifolio: true, espacado: true });
 
   it("T fica sempre no topo do feixe", () => {
     const items = layoutCablesTrifolioEspacado([trif(20), trif(20), trif(20)], 400, 100);

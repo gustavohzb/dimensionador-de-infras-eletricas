@@ -25,10 +25,7 @@ export function useBuscaInfra({ infraTypeInicial = null, autoAplicar = false } =
   // `maxLayers` e `infraType` são lidos do escopo do render: quem chamar
   // setMaxLayers e buscar no mesmo handler veria o valor antigo. Dispare a
   // busca de um efeito que dependa deles, não em seguida ao setState.
-  // `trifoliosEspacados` vem de quem chama, e não de um estado daqui, porque o
-  // arranjo é do trecho — a aba já o conhece, e o painel do Quadro de Cargas
-  // não tem esse conceito.
-  const buscar = (cables, { trifoliosEspacados = false } = {}) => {
+  const buscar = (cables) => {
     if (!cables || cables.length === 0) return;
     setSearching(true);
     setApplied(null);
@@ -36,10 +33,10 @@ export function useBuscaInfra({ infraTypeInicial = null, autoAplicar = false } =
     // síncrono, que segura a thread.
     setTimeout(() => {
       const numLayers = maxLayers ? Number(maxLayers) : undefined;
-      const found = findBestFits(cables, { maxLayers: numLayers, trifoliosEspacados });
+      const found = findBestFits(cables, { maxLayers: numLayers });
       let hint = null;
       if (found.length === 0 && numLayers) {
-        const unrestricted = findBestFits(cables, { trifoliosEspacados });
+        const unrestricted = findBestFits(cables, {});
         if (unrestricted.length > 0) hint = Math.min(...unrestricted.map((r) => r.camadas));
       }
       setResults(found);

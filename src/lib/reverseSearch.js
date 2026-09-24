@@ -4,6 +4,7 @@ import {
   layoutCablesCircular,
   layoutCablesSplit,
   layoutCablesTrifolioEspacado,
+  ehTrifolioEspacado,
   splitWidthByArea,
   rectFits,
   circularFits,
@@ -67,13 +68,15 @@ function trySplit(cables, w, h, septum, maxLayers) {
 // visualização. Ordenado da menor área útil para a maior.
 export function findBestFits(cables, options = {}) {
   if (!cables || cables.length === 0) return [];
-  const { maxLayers, trifoliosEspacados = false } = options; // limite de camadas; arranjo espaçado
+  const { maxLayers } = options; // opcional: limite de camadas de empilhamento
   const hasForca = cables.some((c) => c.type !== "comando");
   const hasComando = cables.some((c) => c.type === "comando");
   const mixed = hasForca && hasComando;
-  // Num trecho misto o septo manda: o compartimento já é outra geometria, e a
-  // aba desabilita a chave nesse caso — a busca não pode discordar dela.
-  const espacado = trifoliosEspacados && !mixed;
+  // O arranjo espaçado vem do próprio cabo (botão "Trifólio 2D"), não de uma
+  // opção da busca: assim busca e desenho leem a mesma coisa e não têm como
+  // discordar. Num trecho misto o septo manda — o compartimento já é outra
+  // geometria, e a aba desabilita o botão nesse caso.
+  const espacado = cables.some(ehTrifolioEspacado) && !mixed;
   const results = [];
 
   for (const infraType of mixed ? SEPTUM_TYPES : RECT_TYPES) {

@@ -25,7 +25,7 @@ function svgToPng(svgEl) {
 
 function cableLabel(c) {
   const vias = c.vias > 1 ? `${c.vias}x` : "";
-  const tags = [c.trifolio ? "trifólio" : null, c.type === "comando" ? "comando" : null]
+  const tags = [c.trifolio ? (c.espacado ? "trifólio 2D" : "trifólio") : null, c.type === "comando" ? "comando" : null]
     .filter(Boolean)
     .join(", ");
   return `${c.quantity}× ${vias}${c.section}mm² (Ø ${c.d.toFixed(1)}mm)${tags ? ` — ${tags}` : ""}`;
