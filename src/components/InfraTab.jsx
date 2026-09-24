@@ -288,7 +288,7 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
                 Espaçados de 2× o diâmetro
                 <span className="mt-0.5 block text-[11px] text-slate-400 dark:text-slate-500">
                   {motivoSemEspacado ??
-                    "Feixes numa fileira única, com vão livre de 2D entre eles. Não altera o fator de agrupamento — o vão é espaço vazio, não é cabo."}
+                    "Feixes numa fileira única, com vão livre de 2D entre eles."}
                 </span>
               </span>
             </label>
