@@ -12,7 +12,7 @@ export const chaveGrupo = (c) =>
 
 export function useCableTray() {
   const [infraType, setInfraTypeRaw] = useState("eletrocalha");
-  const [leitoFlange, setLeitoFlange] = useState("interna"); // abas do leito: interna | externa
+  const [leitoFlange, setLeitoFlange] = useState("interna"); // abas do leito: interna | externa | mista (esq. interna, dir. externa)
   const [eletrodutoNorma, setEletrodutoNormaRaw] = useState("nbr5624"); // norma do eletroduto
   const [trayWidth, setTrayWidth] = useState(100);
   const [trayHeight, setTrayHeight] = useState(50);

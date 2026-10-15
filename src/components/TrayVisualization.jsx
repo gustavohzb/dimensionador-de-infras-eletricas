@@ -317,10 +317,12 @@ function Leito({ w, h, flange = "interna", uid }) {
   const bot = h + 3;
   // side: -1 longarina esquerda (web em [-RAIL, 0]); +1 direita (web em [w, w+RAIL]).
   // Abas internas apontam para a cavidade; externas apontam para fora.
+  // "mista": esquerda interna, direita externa.
   const rail = (webX, side) => {
     const towardCavity = side < 0 ? webX + RAIL : webX - FL;
     const awayCavity = side < 0 ? webX - FL : webX + RAIL;
-    const fx = flange === "externa" ? awayCavity : towardCavity;
+    const externa = flange === "externa" || (flange === "mista" && side > 0);
+    const fx = externa ? awayCavity : towardCavity;
     return (
       <g>
         <rect x={webX} y={top} width={RAIL} height={bot - top} rx={1.5} fill={METAL} stroke={EDGE} strokeWidth={0.9} />

@@ -110,6 +110,7 @@ export default function InfraSelector({
             options={[
               { id: "interna", label: "Abas Internas" },
               { id: "externa", label: "Abas Externas" },
+              { id: "mista", label: "Abas Mistas" },
             ]}
             value={leitoFlange}
             onChange={setLeitoFlange}
