@@ -10,6 +10,13 @@ let nextId = 1;
 export const chaveGrupo = (c) =>
   `${c.type}-${c.section}-${c.vias}-${c.trifolio ? (c.espacado ? "e" : "t") : "s"}-${c.material ?? "cobre"}-${c.groupId ?? ""}`;
 
+// "Agrupar iguais": tira o groupId (marca de ramal da importação/simulação) e
+// as linhas de mesma especificação se fundem em "Cabos no trecho".
+export const agruparIguais = (cables) => cables.map(({ groupId: _groupId, ...c }) => c);
+
+export const temGruposParaAgrupar = (cables) =>
+  new Set(cables.map(chaveGrupo)).size > new Set(agruparIguais(cables).map(chaveGrupo)).size;
+
 export function useCableTray() {
   const [infraType, setInfraTypeRaw] = useState("eletrocalha");
   const [leitoFlange, setLeitoFlange] = useState("interna"); // abas do leito: interna | externa | mista (esq. interna, dir. externa)
@@ -87,6 +94,8 @@ export function useCableTray() {
 
   const removeAll = () => setCables([]);
 
+  const agruparCabosIguais = () => setCables(agruparIguais);
+
   // Zera tudo: infraestrutura, dimensões e cabos voltam ao estado inicial.
   // Usado ao desvincular de um projeto — não deve sobrar nada dele na tela.
   const resetAll = () => {
@@ -148,6 +157,8 @@ export function useCableTray() {
     addCustomCable,
     removeGroup,
     removeAll,
+    agruparCabosIguais,
+    podeAgrupar: temGruposParaAgrupar(cables),
     resetAll,
     loadState,
     trayArea,

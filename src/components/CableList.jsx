@@ -1,6 +1,8 @@
 import { VIAS_COLORS, COMANDO_COLOR } from "../data/corfioHEPR";
 
-export default function CableList({ groupedCables, onRemoveGroup, onRemoveAll }) {
+// `onAgrupar` só vem quando há linhas que se fundiriam (ramais importados com a
+// mesma especificação); sem ele o botão "Agrupar iguais" não aparece.
+export default function CableList({ groupedCables, onRemoveGroup, onRemoveAll, onAgrupar = null }) {
   if (groupedCables.length === 0) {
     return (
       <p className="rounded-xs border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-center text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-500">
@@ -11,6 +13,23 @@ export default function CableList({ groupedCables, onRemoveGroup, onRemoveAll })
 
   return (
     <div className="space-y-2">
+      <div className="flex gap-2">
+        {onAgrupar && (
+          <button
+            onClick={onAgrupar}
+            title="Junta em uma linha só os cabos de mesma especificação (vindos de ramais diferentes)"
+            className="flex-1 rounded-xs border border-copper-600 px-3 py-1.5 text-xs font-medium text-copper-700 hover:bg-copper-50 dark:border-copper-500 dark:text-copper-300 dark:hover:bg-copper-500/15"
+          >
+            Agrupar iguais
+          </button>
+        )}
+        <button
+          onClick={onRemoveAll}
+          className="flex-1 rounded-xs border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+        >
+          Remover todos
+        </button>
+      </div>
       <ul className="space-y-1.5">
         {groupedCables.map((c) => (
           <li
@@ -47,12 +66,6 @@ export default function CableList({ groupedCables, onRemoveGroup, onRemoveAll })
           </li>
         ))}
       </ul>
-      <button
-        onClick={onRemoveAll}
-        className="w-full rounded-xs border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
-      >
-        Remover todos
-      </button>
     </div>
   );
 }

@@ -43,6 +43,8 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
     addCustomCable,
     removeGroup,
     removeAll,
+    agruparCabosIguais,
+    podeAgrupar,
     resetAll,
     loadState,
     trayArea,
@@ -324,7 +326,12 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
                 <span className="text-slate-400 dark:text-slate-500">({cables.length})</span>
               )}
             </h2>
-            <CableList groupedCables={groupedCables} onRemoveGroup={removeGroup} onRemoveAll={handleRemoveAll} />
+            <CableList
+              groupedCables={groupedCables}
+              onRemoveGroup={removeGroup}
+              onRemoveAll={handleRemoveAll}
+              onAgrupar={podeAgrupar ? agruparCabosIguais : null}
+            />
             {temMisto && mode === "verificar" && (
               <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
                 Trecho mistura Força e Comando — a NBR 5410 pede septo divisor entre os circuitos.
