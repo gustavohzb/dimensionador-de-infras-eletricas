@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import QuantidadeInput from "./QuantidadeInput";
+import { lerQuantidade } from "../lib/quantidade";
 import { SECTIONS, VIAS_OPTIONS, SECTIONS_BY_VIAS } from "../data/corfioHEPR";
 
 // `motivoSem2D`: quando preenchido, o botão "Trifólio 2D" fica desabilitado e
@@ -8,6 +10,12 @@ export default function CableForm({ onAddCable, onAddTrifolio, motivoSem2D = nul
   const [cableType, setCableType] = useState("unipolar");
   const [vias, setVias] = useState(3);
   const [section, setSection] = useState(6);
+  const [qtd, setQtd] = useState("1");
+
+  // Repete a adição `qtd` vezes — no trifólio, conta feixes (cada um com 3 condutores).
+  const repetir = (adicionar) => {
+    for (let i = 0; i < lerQuantidade(qtd); i++) adicionar();
+  };
 
   const validSections = cableType === "multipolar" ? SECTIONS_BY_VIAS[vias] : SECTIONS;
 
@@ -42,7 +50,7 @@ export default function CableForm({ onAddCable, onAddTrifolio, motivoSem2D = nul
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-[1fr_1fr_4.5rem] gap-3">
         {cableType === "multipolar" && (
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1 dark:text-slate-400">Nº de vias</label>
@@ -69,12 +77,13 @@ export default function CableForm({ onAddCable, onAddTrifolio, motivoSem2D = nul
             ))}
           </select>
         </div>
+        <QuantidadeInput value={qtd} onChange={setQtd} />
       </div>
 
       <div className="flex flex-wrap gap-2 pt-0.5">
         <button
           type="button"
-          onClick={() => onAddCable({ section, cableType, vias })}
+          onClick={() => repetir(() => onAddCable({ section, cableType, vias }))}
           className="flex-1 rounded-xs bg-copper-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-copper-700 active:scale-[0.98]"
         >
           + Adicionar cabo
@@ -82,7 +91,7 @@ export default function CableForm({ onAddCable, onAddTrifolio, motivoSem2D = nul
         {cableType === "unipolar" && (
           <button
             type="button"
-            onClick={() => onAddTrifolio({ section })}
+            onClick={() => repetir(() => onAddTrifolio({ section }))}
             className="rounded-xs bg-amber-500 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-600 active:scale-[0.98]"
             title="Adiciona um trifólio (3 condutores unipolares agrupados)"
           >
@@ -93,7 +102,7 @@ export default function CableForm({ onAddCable, onAddTrifolio, motivoSem2D = nul
           <button
             type="button"
             disabled={Boolean(motivoSem2D)}
-            onClick={() => onAddTrifolio({ section, espacado: true })}
+            onClick={() => repetir(() => onAddTrifolio({ section, espacado: true }))}
             className="rounded-xs border-[1.5px] border-amber-500 px-3 py-1.5 text-sm font-semibold text-amber-600 transition hover:bg-amber-500/10 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:text-amber-400"
             title={motivoSem2D ?? "Adiciona um trifólio espaçado: fileira única com vão livre de 2× o diâmetro entre os feixes"}
           >

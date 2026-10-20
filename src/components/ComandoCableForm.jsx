@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
+import QuantidadeInput from "./QuantidadeInput";
+import { lerQuantidade } from "../lib/quantidade";
 import { COMANDO_CONDUTORES_OPTIONS, getComandoSectionsFor, getComandoDiameter } from "../data/cablieComando";
 
 export default function ComandoCableForm({ onAddCable }) {
   const [condutores, setCondutores] = useState(4);
   const [section, setSection] = useState(0.75);
+  const [qtd, setQtd] = useState("1");
 
   const validSections = getComandoSectionsFor(condutores);
 
@@ -17,7 +20,7 @@ export default function ComandoCableForm({ onAddCable }) {
 
   return (
     <div className="space-y-2.5">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-[1fr_1fr_4.5rem] gap-3">
         <div>
           <label className="block text-xs font-medium text-slate-500 mb-1 dark:text-slate-400">Nº de condutores</label>
           <select
@@ -42,13 +45,16 @@ export default function ComandoCableForm({ onAddCable }) {
             ))}
           </select>
         </div>
+        <QuantidadeInput value={qtd} onChange={setQtd} />
       </div>
 
       <button
         type="button"
         onClick={() => {
           const d = getComandoDiameter(section, condutores);
-          onAddCable({ section, d, type: "comando", vias: condutores });
+          for (let i = 0; i < lerQuantidade(qtd); i++) {
+            onAddCable({ section, d, type: "comando", vias: condutores });
+          }
         }}
         className="w-full rounded-xs bg-copper-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-copper-700 active:scale-[0.98]"
       >
