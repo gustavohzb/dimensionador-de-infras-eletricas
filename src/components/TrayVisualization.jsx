@@ -1,4 +1,5 @@
 import { forwardRef, useId } from "react";
+import { secaoUtil, espessuraChapa, fmtMm, LEITO_ABA, CHAPA_PADRAO } from "../lib/secaoUtil";
 import { VIAS_COLORS, COMANDO_COLOR, getDimensions, ELETRODUTO_NORMAS } from "../data/corfioHEPR";
 import {
   layoutCables,
@@ -308,37 +309,55 @@ function Perfilado({ w, h, uid }) {
   );
 }
 
-function Leito({ w, h, flange = "interna", uid }) {
+// Abas de cada longarina: "mista" é esquerda interna, direita externa.
+const abasExternas = (flange) => ({
+  esq: flange === "externa",
+  dir: flange === "externa" || flange === "mista",
+});
+
+// Contorno externo do leito, para o layout posicionar cotas e margens.
+function contornoLeito(w, H, t, flange) {
+  const ext = abasExternas(flange);
+  return {
+    base: H,
+    esquerda: -t - (ext.esq ? LEITO_ABA : 0),
+    direita: w + t + (ext.dir ? LEITO_ABA : 0),
+  };
+}
+
+// Leito como no catálogo (RP 2503B): longarinas em C com a espessura real da
+// chapa e aba de 19 mm, travessa no fundo. `w`×`h` é a cavidade útil — os
+// cabos se apoiam no topo da travessa (y = h); `H` é a altura total.
+function Leito({ w, h, H, t, flange = "interna", uid }) {
   const METAL = `url(#metal-${uid})`;
-  const RAIL = 9;   // largura da longarina (web)
-  const FL = 6;     // comprimento da aba
-  const FT = 2.4;   // espessura da aba
-  const top = -2;
-  const bot = h + 3;
-  // side: -1 longarina esquerda (web em [-RAIL, 0]); +1 direita (web em [w, w+RAIL]).
-  // Abas internas apontam para a cavidade; externas apontam para fora.
-  // "mista": esquerda interna, direita externa.
-  const rail = (webX, side) => {
-    const towardCavity = side < 0 ? webX + RAIL : webX - FL;
-    const awayCavity = side < 0 ? webX - FL : webX + RAIL;
-    const externa = flange === "externa" || (flange === "mista" && side > 0);
-    const fx = externa ? awayCavity : towardCavity;
+  const TRAVESSA = 19; // perfil 19×38 da travessa, deitado
+  const LABIO = 10;    // aba de baixo da longarina, mais curta que a de cima
+  const ext = abasExternas(flange);
+  // side: -1 longarina esquerda (alma em [-t, 0]); +1 direita (alma em [w, w+t]).
+  const longarina = (side) => {
+    const almaX = side < 0 ? -t : w;
+    const externa = side < 0 ? ext.esq : ext.dir;
+    // A aba nasce na alma: para a direita começa nela, para a esquerda termina nela.
+    const abaX = (comp) => {
+      const paraDireita = (side < 0) !== externa;
+      return paraDireita ? almaX : almaX + t - comp;
+    };
     return (
       <g>
-        <rect x={webX} y={top} width={RAIL} height={bot - top} rx={1.5} fill={METAL} stroke={EDGE} strokeWidth={0.9} />
-        <rect x={fx} y={top} width={FL} height={FT} fill={METAL} stroke={EDGE} strokeWidth={0.5} />
-        <rect x={fx} y={bot - FT} width={FL} height={FT} fill={METAL} stroke={EDGE} strokeWidth={0.5} />
+        <rect x={almaX} y={0} width={t} height={H} fill={METAL} stroke={EDGE} strokeWidth={0.5} />
+        <rect x={abaX(LEITO_ABA + t)} y={0} width={LEITO_ABA + t} height={t} fill={METAL} stroke={EDGE} strokeWidth={0.5} />
+        <rect x={abaX(LABIO + t)} y={H - t} width={LABIO + t} height={t} fill={METAL} stroke={EDGE} strokeWidth={0.5} />
       </g>
     );
   };
   return (
     <>
       {/* leve fundo difuso para leitura dos cabos (estrutura aberta) */}
-      <rect x={0} y={0} width={w} height={h} rx={2} fill="#ffffff" />
-      {/* travessa (degrau) onde os cabos se apoiam */}
-      <rect x={0} y={h} width={w} height={5} rx={1.5} fill={METAL} stroke={EDGE} strokeWidth={0.8} />
-      {rail(-RAIL, -1)}
-      {rail(w, 1)}
+      <rect x={0} y={0} width={w} height={h} fill="#ffffff" />
+      {/* travessa onde os cabos se apoiam: parte de baixo, fora da área útil */}
+      <rect x={0} y={h} width={w} height={TRAVESSA} fill="#a3abb5" stroke={EDGE} strokeWidth={0.8} />
+      {longarina(-1)}
+      {longarina(1)}
     </>
   );
 }
@@ -386,9 +405,9 @@ function Aramado({ w, h }) {
   );
 }
 
-function Structure({ infraType, w, h, leitoFlange, uid }) {
+function Structure({ infraType, w, h, H, t, leitoFlange, uid }) {
   if (infraType === "perfilado") return <Perfilado w={w} h={h} uid={uid} />;
-  if (infraType === "leito") return <Leito w={w} h={h} flange={leitoFlange} uid={uid} />;
+  if (infraType === "leito") return <Leito w={w} h={h} H={H} t={t} flange={leitoFlange} uid={uid} />;
   if (infraType === "aramado") return <Aramado w={w} h={h} />;
   return <Eletrocalha w={w} h={h} uid={uid} />;
 }
@@ -548,7 +567,7 @@ function CableLegend({ legendItems }) {
   );
 }
 
-const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWidth, trayHeight, dark = false, infraType = "eletrocalha", leitoFlange = "interna", eletrodutoNorma = "nbr5624", legenda = null, resumo = null }, svgRef) {
+const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWidth, trayHeight, dark = false, infraType = "eletrocalha", leitoFlange = "interna", leitoChapa = CHAPA_PADRAO, eletrodutoNorma = "nbr5624", legenda = null, resumo = null }, svgRef) {
   const uid = useId().replace(/:/g, "");
   const temLegenda = Array.isArray(legenda) && legenda.length > 0;
   const temResumo = Array.isArray(resumo) && resumo.length > 0;
@@ -618,12 +637,19 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
     );
   }
 
+  // Cavidade útil: no leito, sem a travessa e as longarinas (ver secaoUtil).
+  // As cotas continuam mostrando a medida nominal, que é a do catálogo.
+  const ehLeito = infraType === "leito";
+  const { w: cw, h: ch } = secaoUtil(infraType, trayWidth, trayHeight, leitoChapa);
+  const chapa = ehLeito ? espessuraChapa(leitoChapa) : 0;
+  const contorno = ehLeito ? contornoLeito(cw, trayHeight, chapa, leitoFlange) : null;
+
   // Trecho misto (cabos de Força + cabos de Comando): a NBR exige separação
   // física entre os dois circuitos — empacota cada um em seu compartimento,
   // com um septo divisor real entre eles, em vez de misturá-los livremente.
   const hasComando = cables.some((c) => c.type === "comando");
   const hasForca = cables.some((c) => c.type !== "comando");
-  const split = hasComando && hasForca ? layoutCablesSplit(cables, trayWidth, trayHeight) : null;
+  const split = hasComando && hasForca ? layoutCablesSplit(cables, cw, ch) : null;
   // O septo vem antes: num trecho misto o compartimento já é outra geometria, e
   // a fileira espaçada não se aplica (a aba desabilita a chave nesse caso).
   // O arranjo espaçado vem dos próprios cabos (botão "Trifólio 2D"). Basta um
@@ -631,8 +657,8 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
   const tem2D = cables.some(ehTrifolioEspacado);
   let items;
   if (split) items = split.items;
-  else if (tem2D) items = layoutCablesTrifolioEspacado(cables, trayWidth, trayHeight);
-  else items = layoutCables(cables, trayWidth, trayHeight);
+  else if (tem2D) items = layoutCablesTrifolioEspacado(cables, cw, ch);
+  else items = layoutCables(cables, cw, ch);
 
   // A cota só mede vão entre feixes da fileira (vaosDaFileira filtra pelos
   // itens espaçados). Os feixes encostados também têm trifolioGroup, mas ali
@@ -642,8 +668,9 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
     ? Math.min(...items.filter((i) => i.espacado).map((i) => i.cy - i.r))
     : 0;
   const L = layoutRetangular({
-    trayWidth,
-    trayHeight,
+    trayWidth: cw,
+    trayHeight: ch,
+    contorno,
     circuitos: temLegenda ? legenda.length : 0,
     bitolas: temResumo ? resumo.length : 0,
   });
@@ -664,16 +691,16 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
       <g transform={`translate(${L.desenho.x}, ${L.desenho.y})`}>
         {/* sombra de apoio no piso */}
         <ellipse
-          cx={trayWidth / 2}
+          cx={cw / 2}
           cy={L.baseEstrutura + 5}
-          rx={trayWidth / 2 + WALL}
+          rx={cw / 2 + WALL}
           ry={3.5}
           fill="#000000"
           opacity="0.12"
         />
 
         {/* estrutura (seção conforme o tipo de infraestrutura) */}
-        <Structure infraType={infraType} w={trayWidth} h={trayHeight} leitoFlange={leitoFlange} uid={uid} />
+        <Structure infraType={infraType} w={cw} h={ch} H={trayHeight} t={chapa} leitoFlange={leitoFlange} uid={uid} />
 
         {/* septo divisor entre os compartimentos de Força e Comando */}
         {split && (
@@ -682,7 +709,7 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
               x={split.w1}
               y={-2}
               width={split.septum}
-              height={trayHeight + 2}
+              height={ch + 2}
               fill={`url(#metal-${uid})`}
               stroke={SEPTUM_HIGHLIGHT}
               strokeWidth={0.7}
@@ -700,7 +727,7 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
             {/* indicação com seta apontando pro septo — deixa evidente que ali tem uma parede física separando os dois circuitos */}
             {(() => {
               const septumX = split.w1 + split.septum / 2;
-              const labelX = Math.min(Math.max(septumX, 42), trayWidth - 42);
+              const labelX = Math.min(Math.max(septumX, 42), cw - 42);
               return (
                 <g>
                   <line
@@ -732,10 +759,11 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
         <CotasVao vaos={vaos} topoFeixes={topoFeixes} uid={uid} />
 
         {/* cota de largura */}
-        <line x1={0} y1={L.cota.linhaY} x2={trayWidth} y2={L.cota.linhaY} stroke="#94a3b8" strokeWidth={1} />
-        <line x1={0} y1={L.cota.linhaY - COTA_TICK} x2={0} y2={L.cota.linhaY + COTA_TICK} stroke="#94a3b8" strokeWidth={1} />
-        <line x1={trayWidth} y1={L.cota.linhaY - COTA_TICK} x2={trayWidth} y2={L.cota.linhaY + COTA_TICK} stroke="#94a3b8" strokeWidth={1} />
-        <text x={trayWidth / 2} y={L.cota.textoY} fill={dimText} fontSize={11} textAnchor="middle">
+        {/* no leito, A é medida por fora das longarinas (catálogo) */}
+        <line x1={-chapa} y1={L.cota.linhaY} x2={cw + chapa} y2={L.cota.linhaY} stroke="#94a3b8" strokeWidth={1} />
+        <line x1={-chapa} y1={L.cota.linhaY - COTA_TICK} x2={-chapa} y2={L.cota.linhaY + COTA_TICK} stroke="#94a3b8" strokeWidth={1} />
+        <line x1={cw + chapa} y1={L.cota.linhaY - COTA_TICK} x2={cw + chapa} y2={L.cota.linhaY + COTA_TICK} stroke="#94a3b8" strokeWidth={1} />
+        <text x={cw / 2} y={L.cota.textoY} fill={dimText} fontSize={11} textAnchor="middle">
           {trayWidth} mm
         </text>
 
@@ -749,6 +777,25 @@ const TrayVisualization = forwardRef(function TrayVisualization({ cables, trayWi
           <g transform={`translate(0, ${L.resumo.y})`}>
             <ResumoCabos resumo={resumo} dark={dark} largura={L.resumo.largura} />
           </g>
+        )}
+
+        {/* cota da altura útil (leito): à esquerda, do topo até a travessa */}
+        {L.cotaUtil && (
+          <>
+            <line x1={L.cotaUtil.linhaX} y1={0} x2={L.cotaUtil.linhaX} y2={ch} stroke="#94a3b8" strokeWidth={1} />
+            <line x1={L.cotaUtil.linhaX - COTA_TICK} y1={0} x2={L.cotaUtil.linhaX + COTA_TICK} y2={0} stroke="#94a3b8" strokeWidth={1} />
+            <line x1={L.cotaUtil.linhaX - COTA_TICK} y1={ch} x2={L.cotaUtil.linhaX + COTA_TICK} y2={ch} stroke="#94a3b8" strokeWidth={1} />
+            <text
+              x={L.cotaUtil.textoX}
+              y={ch / 2}
+              fill={dimText}
+              fontSize={11}
+              textAnchor="middle"
+              transform={`rotate(-90, ${L.cotaUtil.textoX}, ${ch / 2})`}
+            >
+              {fmtMm(ch)} mm
+            </text>
+          </>
         )}
 
         {/* cota de altura (vertical, ao lado da linha) */}

@@ -192,6 +192,8 @@ export const DUCT_SIZES_BY_NORMA = {
 // Eletroduto usa seleção por bitola (diâmetro interno circular), não largura x altura.
 export const DIMENSIONS = {
   perfilado: { kind: "rect", widths: [38], heights: [19, 38, 76], default: { w: 38, h: 38 } },
+  // Leito só em 100 mm de altura (catálogo RP 2503B; útil 75 — ver secaoUtil.js).
+  leito: { kind: "rect", widths: TRAY_WIDTHS, heights: [100], default: { w: 100, h: 100 } },
   default: { kind: "rect", widths: TRAY_WIDTHS, heights: TRAY_HEIGHTS, default: { w: 100, h: 50 } },
 };
 

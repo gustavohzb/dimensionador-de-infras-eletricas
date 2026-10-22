@@ -161,9 +161,13 @@ export function ocupacaoAplicada(cables, applied) {
     const forca = cables.filter((c) => c.type !== "comando");
     const comando = cables.filter((c) => c.type === "comando");
     const w1 = applied.splitX;
-    const w2 = applied.trayWidth - applied.septum - applied.splitX;
-    const forcaOcc = computeOccupancy(forca, w1 * applied.trayHeight, false);
-    const comandoOcc = computeOccupancy(comando, w2 * applied.trayHeight, false);
+    // Seção útil (no leito, menor que a nominal); resultados antigos sem ela
+    // caem na nominal, que era o que valia quando foram gerados.
+    const largura = applied.larguraUtil ?? applied.trayWidth;
+    const altura = applied.alturaUtil ?? applied.trayHeight;
+    const w2 = largura - applied.septum - applied.splitX;
+    const forcaOcc = computeOccupancy(forca, w1 * altura, false);
+    const comandoOcc = computeOccupancy(comando, w2 * altura, false);
     return {
       trayArea: applied.trayArea,
       cableArea: forcaOcc.cableArea + comandoOcc.cableArea,

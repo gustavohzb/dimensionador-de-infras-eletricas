@@ -18,6 +18,7 @@ import {
 const groundedRect = (h) => (item) => item.cy + item.r >= h - FIT_EPS;
 const groundedCircular = (R) => (item) => Math.hypot(item.cx, item.cy) + item.r >= R - FIT_EPS;
 import { computeOccupancy } from "./occupancy";
+import { secaoUtil, CHAPA_PADRAO } from "./secaoUtil";
 
 const RECT_TYPES = ["eletrocalha", "perfilado", "leito", "aramado"];
 // Septo divisor é um acessório real de calha/perfilado/leito (chapa fechada
@@ -82,20 +83,27 @@ export function findBestFits(cables, options = {}) {
   for (const infraType of mixed ? SEPTUM_TYPES : RECT_TYPES) {
     const dim = getDimensions(infraType);
     for (const w of dim.widths) {
-      for (const h of dim.heights) {
-        const trayArea = w * h;
+      for (const hNominal of dim.heights) {
+        // O motor trabalha na seção útil (no leito, sem travessa e longarinas);
+        // o resultado guarda a nominal, que é a que se compra. A busca usa a
+        // chapa padrão (#14), a mais conservadora.
+        const util = secaoUtil(infraType, w, hNominal, CHAPA_PADRAO);
+        const h = util.h;
+        const trayArea = util.w * h;
+        const nominal = { trayWidth: w, trayHeight: hNominal, larguraUtil: util.w, alturaUtil: h };
+        const chapa = infraType === "leito" ? { leitoChapa: CHAPA_PADRAO } : {};
 
         if (mixed) {
-          const fit = trySplit(cables, w, h, SEPTUM_THICKNESS, maxLayers);
+          const fit = trySplit(cables, util.w, h, SEPTUM_THICKNESS, maxLayers);
           if (!fit) continue;
           results.push({
             infraType,
             eletrodutoNorma: null,
             leitoFlange: "interna",
-            trayWidth: w,
-            trayHeight: h,
+            ...chapa,
+            ...nominal,
             trayArea,
-            label: `${INFRA_LABEL[infraType]} ${w}×${h}mm (com septo divisor)`,
+            label: `${INFRA_LABEL[infraType]} ${w}×${hNominal}mm (com septo divisor)`,
             hasSeptum: true,
             septum: fit.septum,
             splitX: fit.splitX,
@@ -111,19 +119,19 @@ export function findBestFits(cables, options = {}) {
         const occ = computeOccupancy(cables, trayArea, false);
         if (!occ.dentroLimite) continue; // já falha na área % — nem tenta empacotar
         const items = espacado
-          ? layoutCablesTrifolioEspacado(cables, w, h)
-          : layoutCables(cables, w, h);
-        if (!rectFits(items, w)) continue; // falhou fisicamente apesar da área % ok
+          ? layoutCablesTrifolioEspacado(cables, util.w, h)
+          : layoutCables(cables, util.w, h);
+        if (!rectFits(items, util.w)) continue; // falhou fisicamente apesar da área % ok
         const camadas = countLayers(items, groundedRect(h));
         if (maxLayers && camadas > maxLayers) continue;
         results.push({
           infraType,
           eletrodutoNorma: null,
           leitoFlange: "interna",
-          trayWidth: w,
-          trayHeight: h,
+          ...chapa,
+          ...nominal,
           trayArea,
-          label: `${INFRA_LABEL[infraType]} ${w}×${h}mm`,
+          label: `${INFRA_LABEL[infraType]} ${w}×${hNominal}mm`,
           camadas,
           ...occ,
         });

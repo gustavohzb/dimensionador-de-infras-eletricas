@@ -67,3 +67,26 @@ describe("selectDiverseResults", () => {
     expect(selected.filter((r) => r.infraType === "eletrocalha")).toHaveLength(2);
   });
 });
+
+describe("findBestFits no leito usa a seção útil", () => {
+  const cabo = (d) => ({ d, type: "multipolar", vias: 3 });
+  const leitos = (r) => r.filter((x) => x.infraType === "leito");
+
+  it("só oferece leito de 100 de altura, com 75 úteis e chapa #14", () => {
+    const r = leitos(findBestFits([cabo(20)]));
+    expect(r.length).toBeGreaterThan(0);
+    for (const x of r) {
+      expect(x.trayHeight).toBe(100);
+      expect(x.alturaUtil).toBe(75);
+      expect(x.leitoChapa).toBe("14");
+      expect(x.larguraUtil).toBeCloseTo(x.trayWidth - 3.8, 6);
+      expect(x.trayArea).toBeCloseTo(x.larguraUtil * 75, 6);
+    }
+  });
+
+  it("cinco cabos Ø20 numa camada cabem na calha de 100, mas não no leito de 100 (96,2 úteis)", () => {
+    const r = findBestFits([20, 20, 20, 20, 20].map(cabo), { maxLayers: 1 });
+    expect(r.some((x) => x.infraType === "eletrocalha" && x.trayWidth === 100)).toBe(true);
+    expect(leitos(r).some((x) => x.trayWidth === 100)).toBe(false);
+  });
+});

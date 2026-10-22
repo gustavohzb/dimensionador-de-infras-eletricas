@@ -5,6 +5,7 @@ import { getDimensions, INFRA_TYPES, ELETRODUTO_NORMAS } from "../data/corfioHEP
 import { useBuscaInfra } from "../hooks/useBuscaInfra";
 import { ocupacaoAplicada } from "../lib/simulacaoTrecho";
 import { ehTrifolioEspacado, verificarTrifolioEspacado } from "../lib/packing";
+import { fmtMm, rotuloDimensao } from "../lib/secaoUtil";
 import { exportarSvgPng } from "../lib/exportarSvgPng";
 import { exportReportPDF } from "../lib/reportPdf";
 import { ARRANJOS, defaultArranjo, estimateCircuits, getFator } from "../lib/derating";
@@ -30,6 +31,10 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
     setInfraType,
     leitoFlange,
     setLeitoFlange,
+    leitoChapa,
+    setLeitoChapa,
+    larguraUtil,
+    alturaUtil,
     eletrodutoNorma,
     setEletrodutoNorma,
     trayWidth,
@@ -86,7 +91,7 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
   // depois de adicionar, por exemplo): o desenho cai para o feixe comum, e a
   // tela diz isso em vez de deixar o usuário achando que está espaçado.
   const avisoSem2D = tem2D && motivoSemEspacado ? motivoSemEspacado : null;
-  const verif2D = tem2D && !motivoSemEspacado ? verificarTrifolioEspacado(cables, trayWidth, trayHeight) : null;
+  const verif2D = tem2D && !motivoSemEspacado ? verificarTrifolioEspacado(cables, larguraUtil, alturaUtil) : null;
 
   // ---- Derating (NBR 5410 Tab. 42) — overrides por modo ----
   const [arranjoOverride, setArranjoOverride] = useState(null);
@@ -162,7 +167,7 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
       svgEl: svg,
       projectName: activeProject?.nome,
       infraLabel,
-      dimensionLabel: isDuct ? `Ø ${trayWidth} mm (interno)` : `${trayWidth} × ${trayHeight} mm`,
+      dimensionLabel: isDuct ? `Ø ${trayWidth} mm (interno)` : rotuloDimensao(infraType, trayWidth, trayHeight, larguraUtil, alturaUtil),
       groupedCables,
       occupancy: { trayArea, cableArea, ocupacao, limite, dentroLimite },
       derating: {
@@ -182,7 +187,7 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
       infraLabel: applied.label + (applied.hasSeptum ? " (com septo divisor)" : ""),
       dimensionLabel: isDuct
         ? `Ø ${applied.trayWidth} mm (interno)`
-        : `${applied.trayWidth} × ${applied.trayHeight} mm`,
+        : rotuloDimensao(applied.infraType, applied.trayWidth, applied.trayHeight, applied.larguraUtil, applied.alturaUtil),
       groupedCables,
       occupancy: liveOccupancy,
       derating: {
@@ -259,6 +264,8 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
                   setInfraType={setInfraType}
                   leitoFlange={leitoFlange}
                   setLeitoFlange={setLeitoFlange}
+                  leitoChapa={leitoChapa}
+                  setLeitoChapa={setLeitoChapa}
                   eletrodutoNorma={eletrodutoNorma}
                   setEletrodutoNorma={setEletrodutoNorma}
                 />
@@ -404,6 +411,7 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
                   dark={dark}
                   infraType={infraType}
                   leitoFlange={leitoFlange}
+                  leitoChapa={leitoChapa}
                   eletrodutoNorma={eletrodutoNorma}
                 />
               </div>
@@ -430,9 +438,9 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
                 >
                   Fileira espaçada 2D: ocupa <b>{Math.round(verif2D.fileira)} mm</b>
                   {verif2D.temResto && ", e os demais cabos vão à direita dela"}.{" "}
-                  {verif2D.cabe && `Cabe nos ${trayWidth} mm da infraestrutura.`}
-                  {!verif2D.cabe && verif2D.faltam !== null && `Não cabe em ${trayWidth} mm — faltam ${Math.ceil(verif2D.faltam)} mm.`}
-                  {!verif2D.cabe && verif2D.faltam === null && `O trecho não cabe em ${trayWidth}×${trayHeight} mm.`}
+                  {verif2D.cabe && `Cabe nos ${fmtMm(larguraUtil)} mm ${infraType === "leito" ? "úteis do leito" : "da infraestrutura"}.`}
+                  {!verif2D.cabe && verif2D.faltam !== null && `Não cabe em ${fmtMm(larguraUtil)} mm — faltam ${Math.ceil(verif2D.faltam)} mm.`}
+                  {!verif2D.cabe && verif2D.faltam === null && `O trecho não cabe em ${fmtMm(larguraUtil)}×${fmtMm(alturaUtil)} mm.`}
                 </p>
               )}
             </div>
@@ -508,7 +516,7 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
                           {r.ocupacao.toFixed(1)}% ocupado · {r.trayArea.toFixed(0)} mm²
                           {r.camadas != null && ` · ${r.camadas} camada${r.camadas > 1 ? "s" : ""}`}
                           {r.hasSeptum &&
-                            ` · ${r.splitX}mm Força · ${(r.trayWidth - r.septum - r.splitX).toFixed(0)}mm Comando`}
+                            ` · ${r.splitX}mm Força · ${((r.larguraUtil ?? r.trayWidth) - r.septum - r.splitX).toFixed(0)}mm Comando`}
                         </div>
                       </div>
                       <button
@@ -556,6 +564,7 @@ export default function InfraTab({ dark, pendingImport, onConsumeImport }) {
                       dark={dark}
                       infraType={applied.infraType}
                       leitoFlange={applied.leitoFlange}
+                      leitoChapa={applied.leitoChapa}
                       eletrodutoNorma={applied.eletrodutoNorma}
                     />
                   </div>

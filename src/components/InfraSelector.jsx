@@ -1,3 +1,4 @@
+import { CHAPAS_LEITO, LEITO_TRAVESSA } from "../lib/secaoUtil";
 import { INFRA_TYPES, ELETRODUTO_NORMAS } from "../data/corfioHEPR";
 
 // Mini-ícone da seção de cada infraestrutura (24x18).
@@ -75,6 +76,8 @@ export default function InfraSelector({
   setInfraType,
   leitoFlange,
   setLeitoFlange,
+  leitoChapa,
+  setLeitoChapa,
   eletrodutoNorma,
   setEletrodutoNorma,
 }) {
@@ -115,6 +118,15 @@ export default function InfraSelector({
             value={leitoFlange}
             onChange={setLeitoFlange}
           />
+          <label className="mb-1 mt-2 block text-[11px] font-medium text-slate-500 dark:text-slate-400">Chapa das longarinas</label>
+          <ToggleGroup
+            options={CHAPAS_LEITO.map((c) => ({ id: c.id, label: `${c.label} · ${String(c.mm.toFixed(2)).replace(".", ",")} mm` }))}
+            value={leitoChapa}
+            onChange={setLeitoChapa}
+          />
+          <p className="mt-1.5 text-[11px] text-slate-400 dark:text-slate-500">
+            Cálculo na seção útil: largura − 2× chapa, altura − {LEITO_TRAVESSA} mm da travessa.
+          </p>
         </div>
       )}
 

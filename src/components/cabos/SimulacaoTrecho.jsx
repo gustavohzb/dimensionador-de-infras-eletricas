@@ -242,6 +242,7 @@ export default function SimulacaoTrecho({ circuitos, resultados, selecionados, p
               dark={dark}
               infraType={applied.infraType}
               leitoFlange={applied.leitoFlange}
+              leitoChapa={applied.leitoChapa}
               eletrodutoNorma={applied.eletrodutoNorma}
               legenda={itens}
               resumo={resumo}

@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { getDiameter, getDimensions } from "../data/corfioHEPR";
 import { computeOccupancy } from "../lib/occupancy";
+import { secaoUtil, CHAPA_PADRAO } from "../lib/secaoUtil";
 
 let nextId = 1;
 
@@ -20,6 +21,9 @@ export const temGruposParaAgrupar = (cables) =>
 export function useCableTray() {
   const [infraType, setInfraTypeRaw] = useState("eletrocalha");
   const [leitoFlange, setLeitoFlange] = useState("interna"); // abas do leito: interna | externa | mista (esq. interna, dir. externa)
+  // Chapa das longarinas do leito (#14/#16/#18). Não vai para o projeto salvo
+  // (a tabela tem uma coluna por campo): ao abrir um projeto, volta à padrão.
+  const [leitoChapa, setLeitoChapa] = useState(CHAPA_PADRAO);
   const [eletrodutoNorma, setEletrodutoNormaRaw] = useState("nbr5624"); // norma do eletroduto
   const [trayWidth, setTrayWidth] = useState(100);
   const [trayHeight, setTrayHeight] = useState(50);
@@ -102,6 +106,7 @@ export function useCableTray() {
     setInfraTypeRaw("eletrocalha");
     setEletrodutoNormaRaw("nbr5624");
     setLeitoFlange("interna");
+    setLeitoChapa(CHAPA_PADRAO);
     setTrayWidth(100);
     setTrayHeight(50);
     setCables([]);
@@ -113,8 +118,13 @@ export function useCableTray() {
     setInfraTypeRaw(saved.infra_type);
     setEletrodutoNormaRaw(saved.eletroduto_norma || "nbr5624");
     setLeitoFlange(saved.leito_flange || "interna");
+    setLeitoChapa(CHAPA_PADRAO);
+    // Projeto antigo de leito com 50 mm de altura: essa altura saiu do catálogo
+    // do app, então ele abre ajustado para a altura válida.
+    const dim = getDimensions(saved.infra_type, saved.eletroduto_norma || "nbr5624");
+    const alturaValida = dim.kind !== "rect" || dim.heights.includes(saved.tray_height);
     setTrayWidth(saved.tray_width);
-    setTrayHeight(saved.tray_height);
+    setTrayHeight(alturaValida ? saved.tray_height : dim.default.h);
     setCables((saved.cables || []).map((c) => ({ ...c, id: nextId++ })));
   };
 
@@ -133,7 +143,9 @@ export function useCableTray() {
 
   // Eletroduto tem seção circular: trayWidth guarda o diâmetro interno (mm).
   const isDuct = getDimensions(infraType, eletrodutoNorma).kind === "duct";
-  const trayArea = isDuct ? Math.PI * Math.pow(trayWidth / 2, 2) : trayWidth * trayHeight;
+  // Leito: área útil (descontadas travessa e longarinas), não a nominal.
+  const util = secaoUtil(infraType, trayWidth, trayHeight, leitoChapa);
+  const trayArea = isDuct ? Math.PI * Math.pow(trayWidth / 2, 2) : util.w * util.h;
   const { cableArea, ocupacao, limite, dentroLimite } = useMemo(
     () => computeOccupancy(cables, trayArea, isDuct),
     [cables, trayArea, isDuct]
@@ -144,6 +156,10 @@ export function useCableTray() {
     setInfraType,
     leitoFlange,
     setLeitoFlange,
+    leitoChapa,
+    setLeitoChapa,
+    larguraUtil: util.w,
+    alturaUtil: util.h,
     eletrodutoNorma,
     setEletrodutoNorma,
     trayWidth,

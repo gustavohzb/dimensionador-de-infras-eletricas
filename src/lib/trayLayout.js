@@ -100,16 +100,31 @@ export const cabemEm = (largura, charW) => Math.max(0, Math.floor(largura / char
 // Tudo é desenhado dentro de um grupo transladado para `desenho`, então as
 // coordenadas de `cota`, `circuitos` e `resumo` são LOCAIS a ele — empilhadas
 // de cima para baixo, cada bloco começando onde o anterior terminou.
-export function layoutRetangular({ trayWidth, trayHeight, circuitos = 0, bitolas = 0 }) {
+//
+// `trayWidth`/`trayHeight` são a cavidade (onde os cabos ficam). `contorno`
+// existe para a estrutura que não é "cavidade + chapa de WALL em volta" — o
+// leito, com travessa embaixo e longarinas/abas dos lados: { base, direita,
+// esquerda } são as faces externas dela em coordenada local. Com contorno, a
+// cota da altura útil vai do lado esquerdo (como no catálogo), e o desenho
+// recua para dar lugar a ela.
+export function layoutRetangular({ trayWidth, trayHeight, circuitos = 0, bitolas = 0, contorno = null }) {
   const temLegenda = circuitos > 0;
   const temResumo = bitolas > 0;
 
-  const desenho = { x: PADDING / 2, y: PADDING / 2 };
+  const baseEstrutura = contorno?.base ?? trayHeight + WALL;
+  const faceDireita = contorno?.direita ?? trayWidth + WALL;
+  const faceEsquerda = contorno?.esquerda ?? -WALL;
+  const cotaUtil = contorno
+    ? { linhaX: faceEsquerda - COTA_LINHA, textoX: faceEsquerda - COTA_TEXTO }
+    : null;
+  // Meia altura da fonte da cota (11px) + respiro, à esquerda do texto girado.
+  const desenho = {
+    x: cotaUtil ? Math.max(PADDING / 2, -cotaUtil.textoX + 12) : PADDING / 2,
+    y: PADDING / 2,
+  };
 
-  const baseEstrutura = trayHeight + WALL;
   const cota = { linhaY: baseEstrutura + COTA_LINHA, textoY: baseEstrutura + COTA_TEXTO };
   // Cota de altura, na face direita da chapa.
-  const faceDireita = trayWidth + WALL;
   const cotaAltura = { linhaX: faceDireita + COTA_LINHA, textoX: faceDireita + COTA_TEXTO };
 
   // Os blocos de texto ocupam a largura das colunas de circuitos quando há
@@ -128,9 +143,14 @@ export function layoutRetangular({ trayWidth, trayHeight, circuitos = 0, bitolas
 
   // Piso histórico do desenho sozinho: mantém a moldura folgada de sempre
   // quando o conteúdo terminaria antes disso.
-  const alturaMinima = trayHeight + PADDING * 1.5;
+  const alturaMinima = baseEstrutura - WALL + PADDING * 1.5;
 
-  const largura = Math.max(trayWidth + PADDING * 2, desenho.x + larguraTexto + PADDING / 2);
+  // A margem direita de sempre (PADDING·1,5 além da chapa), agora contada da
+  // face externa real — com aba externa no leito ela fica mais longe.
+  const largura = Math.max(
+    desenho.x + faceDireita - WALL + PADDING * 1.5,
+    desenho.x + larguraTexto + PADDING / 2
+  );
   const altura = Math.max(alturaMinima, desenho.y + fimLocal);
 
   return {
@@ -143,6 +163,7 @@ export function layoutRetangular({ trayWidth, trayHeight, circuitos = 0, bitolas
     baseEstrutura, // onde a chapa termina — a sombra de apoio se pendura aqui
     cota,
     cotaAltura,
+    cotaUtil,
     circuitos: listaCircuitos,
     resumo,
   };
